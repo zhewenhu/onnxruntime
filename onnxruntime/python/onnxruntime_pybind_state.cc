@@ -367,7 +367,7 @@ static const char* GetDeviceName(const OrtDevice& device) {
     case OrtDevice::CPU:
       return CPU;
     case OrtDevice::GPU:
-      return CUDA;
+      return GPU;
     case OrtDevice::FPGA:
       return "FPGA";
     default:
@@ -1300,13 +1300,13 @@ void addObjectMethods(py::module& m, Environment& env) {
   ort_memory_info_binding.def(py::init([](const char* name, OrtAllocatorType type, int id, OrtMemType mem_type) {
     if (strcmp(name, onnxruntime::CPU) == 0) {
       return std::make_unique<OrtMemoryInfo>(onnxruntime::CPU, type, OrtDevice(), id, mem_type);
-    } else if (strcmp(name, onnxruntime::CUDA) == 0) {
+    } else if (strcmp(name, onnxruntime::GPU) == 0) {
       return std::make_unique<OrtMemoryInfo>(
-          onnxruntime::CUDA, type, OrtDevice(OrtDevice::GPU, OrtDevice::MemType::DEFAULT, static_cast<OrtDevice::DeviceId>(id)), id,
+          onnxruntime::GPU, type, OrtDevice(OrtDevice::GPU, OrtDevice::MemType::DEFAULT, static_cast<OrtDevice::DeviceId>(id)), id,
           mem_type);
-    } else if (strcmp(name, onnxruntime::CUDA_PINNED) == 0) {
+    } else if (strcmp(name, onnxruntime::GPU_PINNED) == 0) {
       return std::make_unique<OrtMemoryInfo>(
-          onnxruntime::CUDA_PINNED, type, OrtDevice(OrtDevice::CPU, OrtDevice::MemType::CUDA_PINNED, static_cast<OrtDevice::DeviceId>(id)),
+          onnxruntime::GPU_PINNED, type, OrtDevice(OrtDevice::CPU, OrtDevice::MemType::GPU_PINNED, static_cast<OrtDevice::DeviceId>(id)),
           id, mem_type);
     } else {
       throw std::runtime_error("Specified device is not supported.");
@@ -1331,7 +1331,7 @@ void addObjectMethods(py::module& m, Environment& env) {
           // Likewise, there is no need to specify the name (as the name was previously used to lookup the def list)
 
           CreateGenericMLValue(nullptr, GetAllocator(), "", array_on_cpu, ml_value.get(), true);
-        } else if (GetDeviceName(device) == CUDA) {
+        } else if (GetDeviceName(device) == GPU) {
       // The tensor's memory is allocated on CUDA
 
 #ifdef USE_CUDA
@@ -1386,7 +1386,7 @@ void addObjectMethods(py::module& m, Environment& env) {
         // The tensor's memory is allocated on the CPU
         if (GetDeviceName(device) == CPU) {
           tensor = std::make_unique<Tensor>(NumpyTypeToOnnxRuntimeType(type_num), shape, GetAllocator());
-        } else if (GetDeviceName(device) == CUDA) {
+        } else if (GetDeviceName(device) == GPU) {
       // The tensor's memory is allocated on CUDA
 #ifdef USE_CUDA
           if (!IsCudaDeviceIdValid(logging::LoggingManager::DefaultLogger(), device.Id())) {
