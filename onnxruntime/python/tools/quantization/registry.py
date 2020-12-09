@@ -1,4 +1,3 @@
-from onnxruntime.python.tools.quantization.operators.resize import QResize
 from .quant_utils import QuantizationMode
 from .operators.base_operator import QuantOperatorBase
 from .operators.matmul import MatMulInteger, QLinearMatMul
@@ -13,6 +12,8 @@ from .operators.gavgpool import QGlobalAveragePool
 from .operators.lstm import LSTMQuant
 from .operators.split import QSplit
 from .operators.pad import QPad
+from .operators.concat import QConcat
+from .operators.resize import QResize
 
 CommonOpsRegistry = {"Gather": GatherQuant, "EmbedLayerNormalization": EmbedLayerNormalizationQuant}
 
@@ -38,6 +39,7 @@ QLinearOpsRegistry = {
     "Split" : QSplit,
     "Pad" : QPad,
     "Resize" : QResize,
+    "Concat": QConcat,
 }
 QLinearOpsRegistry.update(CommonOpsRegistry)
 

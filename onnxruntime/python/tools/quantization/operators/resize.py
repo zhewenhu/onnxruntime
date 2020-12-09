@@ -1,8 +1,5 @@
-import onnx
-import numpy as np
 from .base_operator import QuantOperatorBase
-from ..quant_utils import QuantizedValue, QuantizedValueType, attribute_to_kwarg, quantize_nparray
-
+from ..quant_utils import QuantizedValue, QuantizedValueType
 
 class QResize(QuantOperatorBase):
     def __init__(self, onnx_quantizer, onnx_node):
