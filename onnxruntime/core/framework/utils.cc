@@ -586,7 +586,7 @@ common::Status VerifyInputTensorsAllocatedContiguously(OpKernelContext* context)
     if (!(curr_address == prev_end_address || curr_address == aligned_address)) {
       const std::string node = context->GetNodeName().empty() ? context->GetOpType() : context->GetNodeName();
       return ORT_MAKE_STATUS(ONNXRUNTIME, FAIL,
-                             "Contiguous memory checking failed on node ", node, ": ",
+                             "[debug] Contiguous memory checking failed on node ", node, ": ",
                              "input #", i - 1, " address is ", prev_address, " and #bytes = ", prev_input->SizeInBytes(),
                              ", input #", i, " address is ", curr_address);
     }
