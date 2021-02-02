@@ -487,7 +487,7 @@ class ONNXQuantizer:
             scale_values = [params[1].item()]
         else:
             zero_point_values = [use_zeropoint]
-            zero_point_type = onnx.mapping.NP_TYPE_TO_TENSOR_TYPE[use_dtype]
+            zero_point_type = use_dtype
             scale_values = [use_scale]
 
         zero_point_shape = []
