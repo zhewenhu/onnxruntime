@@ -14,6 +14,7 @@ from .operators.split import QSplit
 from .operators.pad import QPad
 from .operators.concat import QConcat
 from .operators.resize import QResize
+from .operators.transpose import QTranspose
 
 CommonOpsRegistry = {"Gather": GatherQuant, "EmbedLayerNormalization": EmbedLayerNormalizationQuant}
 
@@ -40,6 +41,7 @@ QLinearOpsRegistry = {
     "Pad" : QPad,
     "Resize" : QResize,
     "Concat": QConcat,
+    "Transpose": QTranspose,
 }
 QLinearOpsRegistry.update(CommonOpsRegistry)
 

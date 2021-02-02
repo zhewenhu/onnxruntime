@@ -234,7 +234,7 @@ class ONNXCalibrater:
                 child = children[0]
                 if child.op_type == 'Concat' or child.op_type == 'Relu' or child.op_type == 'Clip':
                     ch = child
-            elif (len(children) > 1 and curr_node.op_type != 'Split' and
+            elif (len(children) > 1 and (curr_node is not None and curr_node.op_type != 'Split') and
                     any(ch.op_type == 'Concat' for ch in children) and
                     all(ch.op_type != 'Relu' and ch.op_type != 'Clip' for ch in children)):
                 concat_children = [ch for ch in children if ch.op_type == 'Concat']
@@ -317,7 +317,7 @@ class ONNXCalibrater:
 
         for tensor_name in quantization_thresholds.keys():
             child = None
-            curr_node = self.output_name_to_node[tensor_name]
+            curr_node = self.output_name_to_node[tensor_name] if tensor_name in self.output_name_to_node else None
             node_params = self.calculate_scale_zeropoint(curr_node, tensor_name, quantization_thresholds)
             quantization_params[tensor_name] = node_params
 
