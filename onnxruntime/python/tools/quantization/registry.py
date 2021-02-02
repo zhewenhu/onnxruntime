@@ -1,3 +1,4 @@
+from onnxruntime.python.tools.quantization.operators.resize import QResize
 from .quant_utils import QuantizationMode
 from .operators.base_operator import QuantOperatorBase
 from .operators.matmul import MatMulInteger, QLinearMatMul
@@ -36,6 +37,7 @@ QLinearOpsRegistry = {
     "GlobalAveragePool": QGlobalAveragePool,
     "Split" : QSplit,
     "Pad" : QPad,
+    "Resize" : QResize,
 }
 QLinearOpsRegistry.update(CommonOpsRegistry)
 

@@ -468,27 +468,30 @@ class ONNXQuantizer:
 
         return input_scale_name, input_zp_name, [], []
 
-    def _get_quantization_params(self, param_name):
+    def _get_quantization_params(self, param_name, use_scale=None, use_zeropoint=None, use_dtype=onnx_proto.TensorProto.UINT8):
         '''
         Create initializers and inputs in the graph for zero point and scale of output.
         Zero point and scale values are obtained from self.quantization_params if specified.
             parameter param_name: Name of the quantization parameter.
             return: result, scale_name, zero_point_name, scale_shape, zero_point_shape.
         '''
-        if self.quantization_params is None or param_name not in self.quantization_params:
-            return False, "", "", "", ""
+        if use_scale is None or use_zeropoint is None:
+            if self.quantization_params is None or param_name not in self.quantization_params:
+                return False, "", "", "", ""
+            params = self.quantization_params[param_name]
+            if params is None or len(params) != 2:
+                raise ValueError("Quantization parameters should contain zero point and scale. "
+                                "Specified values for output {}: {}".format(param_name, params))
+            zero_point_values = [params[0].item()]
+            zero_point_type = onnx.mapping.NP_TYPE_TO_TENSOR_TYPE[params[0].dtype]
+            scale_values = [params[1].item()]
+        else:
+            zero_point_values = [use_zeropoint]
+            zero_point_type = onnx.mapping.NP_TYPE_TO_TENSOR_TYPE[use_dtype]
+            scale_values = [use_scale]
 
-        params = self.quantization_params[param_name]
-        if params is None or len(params) != 2:
-            raise ValueError("Quantization parameters should contain zero point and scale. "
-                             "Specified values for output {}: {}".format(param_name, params))
-
-        zero_point_values = [params[0].item()]
         zero_point_shape = []
         zero_point_name = param_name + "_zero_point"
-        zero_point_type = onnx.mapping.NP_TYPE_TO_TENSOR_TYPE[params[0].dtype]
-
-        scale_values = [params[1].item()]
         scale_shape = []
         scale_name = param_name + "_scale"
 

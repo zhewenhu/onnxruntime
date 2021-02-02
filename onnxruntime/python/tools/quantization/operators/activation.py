@@ -37,9 +37,14 @@ class QLinearActivation(QuantOperatorBase):
             self.QuantizeClipRelu()
             return
 
+        # Hack for NNAPI
+        use_scale = 1 / 256.0 if node.op_type == 'Sigmoid' else None
+        use_zeropoint = 0 if node.op_type == 'Sigmoid' else None
+
         # No assert on op_type as it is controlled by registry
         # only try to quantize when given quantization parameters for it
-        data_found, output_scale_name, output_zp_name, _, _ = self.quantizer._get_quantization_params(node.output[0])
+        data_found, output_scale_name, output_zp_name, _, _ = \
+            self.quantizer._get_quantization_params(node.output[0], use_scale, use_zeropoint)
         if not data_found:
             super().quantize()
             return
