@@ -1857,7 +1857,7 @@ void ROCMExecutionProvider::RegisterAllocator(std::shared_ptr<AllocatorManager> 
   if (nullptr == rocm_pinned_alloc) {
     AllocatorCreationInfo pinned_memory_info(
         [](OrtDevice::DeviceId device_id) {
-          return std::make_unique<ROCMPinnedAllocator>(device_id, CUDA_PINNED);
+          return std::make_unique<ROCMPinnedAllocator>(device_id, GPU_PINNED);
         },
         DEFAULT_CPU_ALLOCATOR_DEVICE_ID);
 
