@@ -50,6 +50,8 @@
 #include "core/util/protobuf_parsing_utils.h"
 #include "core/util/thread_utils.h"
 
+#include "fmt/format.h"
+
 // custom ops are not available in a minimal build unless ORT_MINIMAL_BUILD_CUSTOM_OPS is set
 #if !defined(ORT_MINIMAL_BUILD) || defined(ORT_MINIMAL_BUILD_CUSTOM_OPS)
 #include "core/framework/customregistry.h"
@@ -147,11 +149,16 @@ static Status FinalizeSessionOptions(const SessionOptions& user_provided_session
     // Check if the env var contains an unsupported value
     if (load_config_from_model_env_var_value.length() > 1 ||
         (load_config_from_model_env_var_value[0] != '0' && load_config_from_model_env_var_value[0] != '1')) {
-      std::ostringstream oss;
-      oss << "The only supported values for the environment variable "
-          << inference_session_utils::kOrtLoadConfigFromModelEnvVar << " are '0' and '1'. "
-          << "The environment variable contained the value: " << load_config_from_model_env_var_value;
-      return ORT_MAKE_STATUS(ONNXRUNTIME, INVALID_ARGUMENT, oss.str());
+      //std::ostringstream oss;
+      //oss << "The only supported values for the environment variable "
+      //    << inference_session_utils::kOrtLoadConfigFromModelEnvVar << " are '0' and '1'. "
+      //    << "The environment variable contained the value: " << load_config_from_model_env_var_value;
+      //return ORT_MAKE_STATUS(ONNXRUNTIME, INVALID_ARGUMENT, oss.str());
+      return ORT_MAKE_STATUS(ONNXRUNTIME, INVALID_ARGUMENT,
+                             fmt::format("The only supported values for the environment variable {} are '0' and '1'. "
+                                         "The environment variable contained the value: {}",
+                                         inference_session_utils::kOrtLoadConfigFromModelEnvVar,
+                                         load_config_from_model_env_var_value));
     }
 
     if (load_config_from_model_env_var_value[0] == '1') {
@@ -211,9 +218,10 @@ void InferenceSession::ConstructorCommon(const SessionOptions& session_options,
   ORT_ENFORCE(graph_transformation_mgr_.SetSteps(session_options_.max_num_graph_transformation_steps).IsOK());
 #endif
 
-  bool set_denormal_as_zero = session_options_.GetConfigOrDefault(kOrtSessionOptionsConfigSetDenormalAsZero, "0") == "1";
+  bool set_denormal_as_zero =
+      session_options_.GetConfigOrDefault(kOrtSessionOptionsConfigSetDenormalAsZero, "0") == "1";
 
-  // The only first session option for flush-to-zero and denormal-as-zero is effective to main thread and OpenMP threads.
+  // Only the first session option for flush-to-zero and denormal-as-zero is effective.
   {
     static std::once_flag once;
 
@@ -223,14 +231,15 @@ void InferenceSession::ConstructorCommon(const SessionOptions& session_options,
 #endif
       SetDenormalAsZero(set_denormal_as_zero);
 
-      LOGS(*session_logger_, INFO) << "Flush-to-zero and denormal-as-zero are " << ((set_denormal_as_zero) ? "on" : "off");
+      LOGS(*session_logger_, INFO) << "Flush-to-zero and denormal-as-zero are "
+                                   << ((set_denormal_as_zero) ? "on" : "off");
     });
   }
 
   use_per_session_threads_ = session_options.use_per_session_threads;
 
   if (use_per_session_threads_) {
-    LOGS(*session_logger_, INFO) << "Creating and using per session threadpools since use_per_session_threads_ is true";
+    LOGS(*session_logger_, INFO) << "Creating and using per session threadpools as use_per_session_threads_ is true";
     {
       OrtThreadPoolParams to = session_options_.intra_op_param;
       if (to.name == nullptr) {
@@ -952,9 +961,12 @@ static Status LoadOrtModelBytes(const std::basic_string<T>& model_uri,
   bytes_stream.read(reinterpret_cast<char*>(bytes.data()), num_bytes);
 
   if (!bytes_stream) {
+    //return ORT_MAKE_STATUS(ONNXRUNTIME, FAIL,
+    //                       "Load model from ", ToMBString(model_uri), " failed. Only ",
+    //                       bytes_stream.gcount(), "/", num_bytes, " bytes were able to be read.");
     return ORT_MAKE_STATUS(ONNXRUNTIME, FAIL,
-                           "Load model from ", ToMBString(model_uri), " failed. Only ",
-                           bytes_stream.gcount(), "/", num_bytes, " bytes were able to be read.");
+                           fmt::format("Load model from {} failed. Only {}/{} bytes were able to be read.",
+                                       ToMBString(model_uri), bytes_stream.gcount(), num_bytes));
   }
 
   return Status::OK();
@@ -1283,13 +1295,17 @@ common::Status InferenceSession::Initialize() {
   }
   ORT_CATCH(const NotImplementedException& ex) {
     ORT_HANDLE_EXCEPTION([&]() {
-      status = ORT_MAKE_STATUS(ONNXRUNTIME, NOT_IMPLEMENTED, "Exception during initialization: ", ex.what());
+      // status = ORT_MAKE_STATUS(ONNXRUNTIME, NOT_IMPLEMENTED, "Exception during initialization: ", ex.what());
+      status = ORT_MAKE_STATUS(ONNXRUNTIME, NOT_IMPLEMENTED,
+                               fmt::format("Exception during initialization: {}", ex.what()));
       LOGS(*session_logger_, ERROR) << status.ErrorMessage();
     });
   }
   ORT_CATCH(const std::exception& ex) {
     ORT_HANDLE_EXCEPTION([&]() {
-      status = ORT_MAKE_STATUS(ONNXRUNTIME, RUNTIME_EXCEPTION, "Exception during initialization: ", ex.what());
+      //status = ORT_MAKE_STATUS(ONNXRUNTIME, RUNTIME_EXCEPTION, "Exception during initialization: ", ex.what());
+      status = ORT_MAKE_STATUS(ONNXRUNTIME, NOT_IMPLEMENTED,
+                               fmt::format("Exception during initialization: {}", ex.what()));
       LOGS(*session_logger_, ERROR) << status.ErrorMessage();
     });
   }
@@ -1402,8 +1418,11 @@ static common::Status CheckTypes(MLDataType actual, MLDataType expected, const s
 common::Status InferenceSession::ValidateInputs(const std::vector<std::string>& feed_names,
                                                 const std::vector<OrtValue>& feeds) const {
   if (feed_names.size() != feeds.size()) {
-    return ORT_MAKE_STATUS(ONNXRUNTIME, INVALID_ARGUMENT, "Size mismatch: feed_names has ", feed_names.size(),
-                           "elements, but feeds has ", feeds.size(), " elements.");
+    //return ORT_MAKE_STATUS(ONNXRUNTIME, INVALID_ARGUMENT, "Size mismatch: feed_names has ", feed_names.size(),
+    //                       "elements, but feeds has ", feeds.size(), " elements.");
+    return ORT_MAKE_STATUS(ONNXRUNTIME, INVALID_ARGUMENT,
+                           fmt::format("Size mismatch: feed_names has {} elements, but feeds has {} elements.",
+                                       feed_names.size(), feeds.size()));
   }
 
   for (size_t i = 0; i < feeds.size(); ++i) {
@@ -1411,7 +1430,7 @@ common::Status InferenceSession::ValidateInputs(const std::vector<std::string>& 
 
     auto iter = input_def_map_.find(feed_name);
     if (input_def_map_.end() == iter) {
-      return ORT_MAKE_STATUS(ONNXRUNTIME, INVALID_ARGUMENT, "Invalid Feed Input Name:", feed_name);
+      return ORT_MAKE_STATUS(ONNXRUNTIME, INVALID_ARGUMENT, fmt::format("Invalid Feed Input Name: {}", feed_name));
     }
 
     auto expected_type = iter->second.ml_data_type;
@@ -1419,8 +1438,8 @@ common::Status InferenceSession::ValidateInputs(const std::vector<std::string>& 
     if (input_ml_value.IsTensor()) {
       // check for type
       if (!expected_type->IsTensorType()) {
-        return ORT_MAKE_STATUS(ONNXRUNTIME, INVALID_ARGUMENT, "Input with name: ", feed_name,
-                               " is not expected to be of type tensor.");
+        return ORT_MAKE_STATUS(ONNXRUNTIME, INVALID_ARGUMENT,
+                               fmt::format("Input with name: {} is not expected to be of type tensor.", feed_name));
       }
       auto expected_element_type = expected_type->AsTensorType()->GetElementType();
       auto input_element_type = input_ml_value.Get<Tensor>().DataType();
@@ -1434,8 +1453,9 @@ common::Status InferenceSession::ValidateInputs(const std::vector<std::string>& 
       }
     } else if (input_ml_value.IsSparseTensor()) {
       if (!expected_type->IsSparseTensorType()) {
-        return ORT_MAKE_STATUS(ONNXRUNTIME, INVALID_ARGUMENT, "Input with name: ", feed_name,
-                               " is not expected to be of type sparse tensor.");
+        return ORT_MAKE_STATUS(ONNXRUNTIME, INVALID_ARGUMENT,
+                               fmt::format("Input with name: {} is not expected to be of type sparse tensor.",
+                                           feed_name));
       }
       auto expected_element_type = expected_type->AsSparseTensorType()->GetElementType();
       const SparseTensor& sparse_tensor = input_ml_value.Get<SparseTensor>();
@@ -1449,8 +1469,9 @@ common::Status InferenceSession::ValidateInputs(const std::vector<std::string>& 
       }
     } else if (input_ml_value.IsTensorSequence()) {
       if (!expected_type->IsTensorSequenceType()) {
-        return ORT_MAKE_STATUS(ONNXRUNTIME, INVALID_ARGUMENT, "Input with name: ", feed_name,
-                               " is not expected to be of type tensor sequence.");
+        return ORT_MAKE_STATUS(ONNXRUNTIME, INVALID_ARGUMENT,
+                               fmt::format("Input with name: {} is not expected to be of type tensor sequence.",
+                                           feed_name));
       }
       auto expected_element_type = expected_type->AsSequenceTensorBase()->GetElementType();
       auto input_element_type = input_ml_value.Get<TensorSeq>().DataType();
@@ -1475,15 +1496,18 @@ common::Status InferenceSession::ValidateOutputs(const std::vector<std::string>&
   }
 
   if (!p_fetches->empty() && (output_names.size() != p_fetches->size())) {
-    std::ostringstream ostr;
-    ostr << "Output vector incorrectly sized: output_names.size(): " << output_names.size()
-         << "p_fetches->size(): " << p_fetches->size();
-    return common::Status(common::ONNXRUNTIME, common::INVALID_ARGUMENT, ostr.str());
+    //std::ostringstream ostr;
+    //ostr << "Output vector incorrectly sized: output_names.size(): " << output_names.size()
+    //     << "p_fetches->size(): " << p_fetches->size();
+    return common::Status(common::ONNXRUNTIME, common::INVALID_ARGUMENT,
+                          fmt::format("Output vector incorrectly sized: output_names.size(): {} p_fetches->size(): {}",
+                                      output_names.size(), p_fetches->size()));
   }
 
   for (const auto& name : output_names) {
     if (model_output_names_.find(name) == model_output_names_.end()) {
-      return common::Status(common::ONNXRUNTIME, common::INVALID_ARGUMENT, "Invalid Output Name:" + name);
+      return common::Status(common::ONNXRUNTIME, common::INVALID_ARGUMENT,
+                            fmt::format("Invalid Output Name: {}", name));
     }
   }
 
@@ -1916,6 +1940,7 @@ void InferenceSession::AddPredefinedTransformers(GraphTransformerManager& transf
       add_transformers(level);
     }
   }
+  f
 }
 
 #endif  // !defined(ORT_MINIMAL_BUILD)

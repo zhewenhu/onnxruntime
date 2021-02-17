@@ -4,6 +4,7 @@
 #if !defined(ORT_MINIMAL_BUILD)
 
 #include "core/session/inference_session_utils.h"
+#include "fmt/format.h"
 
 namespace onnxruntime {
 
@@ -20,8 +21,9 @@ static Status SetIntraOpNumThreads(SessionOptions& session_options,
                                    int value,
                                    const logging::Logger& logger) {
   if (value < 0) {
-    LOGS(logger, ERROR) << "Unsupported value for intra_op_num_threads: " << value;
-    return ORT_MAKE_STATUS(ONNXRUNTIME, INVALID_ARGUMENT, "Unsupported value for intra_op_num_threads: ", value);
+    auto msg = fmt::format("Unsupported value for intra_op_num_threads: {}", value);
+    LOGS(logger, ERROR) << msg;
+    return ORT_MAKE_STATUS(ONNXRUNTIME, INVALID_ARGUMENT, msg);
   }
 
   LOGS(logger, INFO) << "Setting intra_op_num_threads to " << value;
@@ -33,8 +35,10 @@ static Status SetInterOpNumThreads(SessionOptions& session_options,
                                    int value,
                                    const logging::Logger& logger) {
   if (value < 0) {
-    LOGS(logger, ERROR) << "Unsupported value for inter_op_num_threads: " << value;
-    return ORT_MAKE_STATUS(ONNXRUNTIME, INVALID_ARGUMENT, "Unsupported value for inter_op_num_threads: ", value);
+    auto msg = fmt::format("Unsupported value for inter_op_num_threads: {}", value);
+
+    LOGS(logger, ERROR) << msg;
+    return ORT_MAKE_STATUS(ONNXRUNTIME, INVALID_ARGUMENT, msg);
   }
 
   LOGS(logger, INFO) << "Setting inter_op_num_threads to " << value;
@@ -46,8 +50,9 @@ static Status SetExecutionMode(SessionOptions& session_options,
                                int value,
                                const logging::Logger& logger) {
   if (value != 0 && value != 1) {
-    LOGS(logger, ERROR) << "Unsupported execution_mode value in ORT config: " << value;
-    return ORT_MAKE_STATUS(ONNXRUNTIME, INVALID_ARGUMENT, "Unsupported execution_mode value in ORT config: ", value);
+    auto msg = fmt::format("Unsupported execution_mode value in ORT config: {}", value);
+    LOGS(logger, ERROR) << msg;
+    return ORT_MAKE_STATUS(ONNXRUNTIME, INVALID_ARGUMENT, msg);
   }
 
   LOGS(logger, INFO) << "Setting execution_mode to " << (value == 0 ? "Sequential mode" : "Parallel mode");
@@ -80,10 +85,7 @@ static Status SetGraphOptimizationLevel(SessionOptions& session_options,
       return Status::OK();
 
     default:
-      std::ostringstream message_stream;
-      message_stream << "Unsupported graph_optimization_level value in ORT config: " << value;
-
-      std::string message = message_stream.str();
+      auto message = fmt::format("Unsupported graph_optimization_level value in ORT config: {}", value);
 
       LOGS(logger, ERROR) << message;
       return ORT_MAKE_STATUS(ONNXRUNTIME, INVALID_ARGUMENT, message);
@@ -94,8 +96,10 @@ static Status SetEnableProfiling(SessionOptions& session_options,
                                  int value,
                                  const logging::Logger& logger) {
   if (value != 0 && value != 1) {
-    LOGS(logger, ERROR) << "Unsupported value for enable_profiling option: " << value;
-    return ORT_MAKE_STATUS(ONNXRUNTIME, INVALID_ARGUMENT, "Unsupported value for enable_profiling option: ", value);
+    auto msg = fmt::format("Unsupported value for enable_profiling option: {}", value);
+
+    LOGS(logger, ERROR) << msg;
+    return ORT_MAKE_STATUS(ONNXRUNTIME, INVALID_ARGUMENT, msg);
   }
 
   LOGS(logger, INFO) << "Setting enable_profiling to " << (value == 0 ? "false" : "true");
@@ -133,13 +137,10 @@ Status JsonConfigParser::ParseOrtConfigJsonInModelProto(const ONNX_NAMESPACE::Mo
       }
       ORT_CATCH(const std::exception& e) {
         ORT_HANDLE_EXCEPTION([&]() {
-          std::ostringstream message_stream;
-          message_stream << "Json stored in the `ort_config` key cannot be parsed. Error message: " << e.what();
+          auto msg = fmt::format("Json stored in the `ort_config` key cannot be parsed. Error message: {}", e.what());
 
-          std::string message = message_stream.str();
-
-          LOGS(logger_, ERROR) << message;
-          status = ORT_MAKE_STATUS(ONNXRUNTIME, INVALID_ARGUMENT, message);
+          LOGS(logger_, ERROR) << msg;
+          status = ORT_MAKE_STATUS(ONNXRUNTIME, INVALID_ARGUMENT, msg);
         });
       }
       ORT_RETURN_IF_ERROR(status);

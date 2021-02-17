@@ -669,6 +669,7 @@ if(onnxruntime_DISABLE_EXCEPTIONS)
 endif()
 
 add_subdirectory(external/mp11 EXCLUDE_FROM_ALL)
+add_subdirectory(external/fmt EXCLUDE_FROM_ALL)
 
 if(onnxruntime_PREFER_SYSTEM_LIB)
   find_package(re2)

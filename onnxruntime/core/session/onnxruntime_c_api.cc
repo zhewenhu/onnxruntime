@@ -39,6 +39,8 @@
 #include "core/providers/cuda/cuda_provider_factory.h"
 #endif
 
+#include "fmt/format.h"
+
 using namespace onnxruntime::logging;
 using onnxruntime::BFloat16;
 using onnxruntime::DataTypeImpl;
@@ -198,9 +200,10 @@ ORT_STATUS_PTR CreateTensorImpl(MLDataType ml_type, const int64_t* shape, size_t
     return OrtApis::CreateStatus(ORT_INVALID_ARGUMENT, "size overflow");
   }
   if (size_to_allocate > p_data_len) {
-    std::ostringstream oss;
-    oss << "not enough space: expected " << size_to_allocate << ", got " << p_data_len;
-    return OrtApis::CreateStatus(ORT_INVALID_ARGUMENT, oss.str().c_str());
+    //std::ostringstream oss;
+    //oss << "not enough space: expected " << size_to_allocate << ", got " << p_data_len;
+    return OrtApis::CreateStatus(ORT_INVALID_ARGUMENT,
+                                 fmt::format("not enough space: expected {}, got {}", size_to_allocate, p_data_len).c_str());
   }
   *out = onnxruntime::make_unique<Tensor>(ml_type, onnxruntime::TensorShape(shapes), p_data, *info);
   return nullptr;
@@ -275,10 +278,11 @@ ORT_API_STATUS_IMPL(OrtApis::CreateTensorWithDataAsOrtValue, _In_ const OrtMemor
     case ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX64:
     case ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX128:
     default: {
-      std::ostringstream oss;
-      oss << "type " << type << " is not supported in this function";
-      std::string errmsg = oss.str();
-      return OrtApis::CreateStatus(ORT_NOT_IMPLEMENTED, errmsg.c_str());
+      //std::ostringstream oss;
+      //oss << "type " << type << " is not supported in this function";
+      //std::string errmsg = oss.str();
+      return OrtApis::CreateStatus(ORT_NOT_IMPLEMENTED,
+                                   fmt::format("type {} is not supported in this function", type).c_str());
     }
   }
   auto value = onnxruntime::make_unique<OrtValue>();
@@ -342,10 +346,10 @@ ORT_API_STATUS_IMPL(OrtApis::CreateTensorAsOrtValue, _Inout_ OrtAllocator* alloc
     case ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX64:
     case ONNX_TENSOR_ELEMENT_DATA_TYPE_COMPLEX128:
     default: {
-      std::ostringstream oss;
-      oss << "type " << type << " is not supported in this function";
-      std::string errmsg = oss.str();
-      return OrtApis::CreateStatus(ORT_NOT_IMPLEMENTED, errmsg.c_str());
+      //std::ostringstream oss;
+      //oss << "type " << type << " is not supported in this function";
+      //std::string errmsg = oss.str();
+      return OrtApis::CreateStatus(ORT_NOT_IMPLEMENTED, fmt::format("type {} is not supported in this function", type).c_str());
     }
   }
   auto value = onnxruntime::make_unique<OrtValue>();
