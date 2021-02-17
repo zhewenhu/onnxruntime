@@ -93,12 +93,20 @@ void LogRuntimeError(uint32_t session_id, const common::Status& status, const ch
 #define __PRETTY_FUNCTION__ __FUNCTION__
 #endif
 
+#if !defined(ORT_MINIMAL_BUILD) || defined(ORT_MINIMAL_BUILD)
 // Capture where a message is coming from. Use __FUNCTION__ rather than the much longer __PRETTY_FUNCTION__
 #define ORT_WHERE \
   ::onnxruntime::CodeLocation(__FILE__, __LINE__, __FUNCTION__)
 
 #define ORT_WHERE_WITH_STACK \
   ::onnxruntime::CodeLocation(__FILE__, __LINE__, __PRETTY_FUNCTION__, ::onnxruntime::GetStackTrace())
+#else
+#define ORT_WHERE \
+  ::onnxruntime::CodeLocation(__FILE__, __LINE__, "")
+
+#define ORT_WHERE_WITH_STACK \
+  ::onnxruntime::CodeLocation(__FILE__, __LINE__, __FUNCTION__)
+#endif
 
 #ifdef ORT_NO_EXCEPTIONS
 
@@ -193,13 +201,21 @@ void LogRuntimeError(uint32_t session_id, const common::Status& status, const ch
                                 ::onnxruntime::MakeString(__VA_ARGS__))
 
 // Check condition. if met, return status.
+#if !defined(ORT_MINIMAL_BUILD) || defined(ORT_MINIMAL_BUILD)
 #define ORT_RETURN_IF(condition, ...)                                                                        \
   if (condition) {                                                                                           \
     return ::onnxruntime::common::Status(::onnxruntime::common::ONNXRUNTIME,                                 \
                                          ::onnxruntime::common::FAIL,                                        \
                                          ::onnxruntime::MakeString(ORT_WHERE.ToString(), " ", __VA_ARGS__)); \
   }
-
+#else
+#define ORT_RETURN_IF(condition, ...)                                             \
+  if (condition) {                                                                \
+    return ::onnxruntime::common::Status(::onnxruntime::common::ONNXRUNTIME,      \
+                                         ::onnxruntime::common::FAIL,             \
+                                         ::onnxruntime::MakeString(__VA_ARGS__)); \
+  }
+#endif
 // Check condition. if not met, return status.
 #define ORT_RETURN_IF_NOT(condition, ...) \
   ORT_RETURN_IF(!(condition), __VA_ARGS__)

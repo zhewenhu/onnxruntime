@@ -38,12 +38,53 @@ inline void MakeStringImpl(std::ostringstream& ss, const T& t, const Args&... ar
 }
 }  // namespace detail
 
+template <class T>
+struct array_to_ptr {
+  using type = T;
+};
+
+template <class T, size_t N>
+struct array_to_ptr<T (&)[N]> {
+  using type = T*;
+};
+
+template <class T>
+using array_to_ptr_t = typename array_to_ptr<T>::type;
+
+//template <typename... Args>
+//void log(ostream& os, const Args&... args) {
+//  tostream(os, array_to_ptr_t<Args const&>(args)...);
+//}
+
+//template <typename... Args>
+//void tostream(std::ostream& os, const Args&... args) {
+//  using expand = int[];
+//  (void)expand{0,
+//               ((os << args), void(), 0)...};
+//}
+
+template <typename... Args>
+std::string MakeStringImpl2(const Args&... args) {
+  using expand = int[];
+  std::ostringstream ss;
+  (void)expand{0, ((ss << args), void(), 0)...};
+  return ss.str();
+}
+
+template <typename... Args>
+std::string MakeString(const Args&... args) {
+  // convert an T[] into T*. this is so that the calls to MakeString with string literals fold better.
+  // e.g. MakeString("in", "out") goes from MakeString<char[2], char[3]> to MakeString<char*, char*>
+  // so it matches MakeString("out", "in") instead of also requiring MakeString<char[3], char[2]>
+  return MakeStringImpl2(array_to_ptr_t<Args const&>(args)...);
+}
+
 /**
  * Makes a string by concatenating string representations of the arguments.
  * This version uses the current locale.
  */
 template <typename... Args>
-std::string MakeString(const Args&... args) {
+std::string MakeStringOrig(const Args&... args) {
   std::ostringstream ss;
   detail::MakeStringImpl(ss, args...);
   return ss.str();
