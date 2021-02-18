@@ -52,7 +52,6 @@
 #include "core/util/protobuf_parsing_utils.h"
 #include "core/util/thread_utils.h"
 
-
 using namespace ONNX_NAMESPACE;
 using namespace onnxruntime::experimental;
 using namespace onnxruntime::common;
@@ -926,9 +925,11 @@ Status InferenceSession::PartitionOrtFormatModel(onnxruntime::Graph& graph,
                                                        GraphPartitioner::Mode::kOrtFormatLoad,
                                                        &compiled_kernel_hashes));
 
+#if defined(ENABLE_ORT_FORMAT_LOAD)
   if (!compiled_kernel_hashes.empty()) {
     session_state.SetCompiledKernelHashes(std::move(compiled_kernel_hashes));
   }
+#endif
 
   return Status::OK();
 }
