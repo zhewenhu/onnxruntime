@@ -38,8 +38,14 @@ ep_to_provider_list = {
     cuda: [cuda],
     cuda_fp16: [cuda],
     trt: [trt, cuda],
-    trt_fp16: [trt, cuda],
+    trt_fp16: [trt, cuda]
 }
+
+# latency gain headers 
+trt_cuda_gain = 'TRT_CUDA_gain(%)'
+trt_cuda_fp16_gain = 'TRT_CUDA_fp16_gain(%)'
+trt_native_gain = 'EP_Native_TRT_gain(%)'
+trt_native_fp16_gain = 'EP_Native_TRT_fp16_gain(%)'
 
 # metadata
 FAIL_MODEL_FILE = ".fail_model_map"
@@ -47,6 +53,7 @@ LATENCY_FILE = ".latency_map"
 METRICS_FILE = ".metrics_map"
 
 def run_trt_standalone(trtexec, model_path, ort_inputs, all_inputs_shape, fp16):
+    logger.info("running native trt")
     model_path = "--onnx=" + model_path
     input_shape = []
 
@@ -69,14 +76,11 @@ def run_trt_standalone(trtexec, model_path, ort_inputs, all_inputs_shape, fp16):
     try:
 
         if fp16:
-            p1 = subprocess.Popen([trtexec, model_path, "--fp16", "--percentile=90", "--explicitBatch", shapes_arg], stdout=subprocess.PIPE)
+            out = get_output([trtexec, model_path, "--fp16", "--percentile=90", "--explicitBatch", shapes_arg])
         else:
-            p1 = subprocess.Popen([trtexec, model_path, "--percentile=90", "--explicitBatch", shapes_arg], stdout=subprocess.PIPE)
-        stdout, sterr = p1.communicate()
-        logger.info(stdout)
-        stdout = stdout.decode("ascii").strip()
+            out = get_output([trtexec, model_path, "--percentile=90", "--explicitBatch", shapes_arg])
 
-        tmp = stdout.split("\n")
+        tmp = out.split("\n")
         target_list = []
         for t in tmp:
             if 'mean:' in t:
@@ -103,6 +107,10 @@ def run_trt_standalone(trtexec, model_path, ort_inputs, all_inputs_shape, fp16):
         return None
 
 
+def get_trtexec_path(): 
+    trtexec_options = get_output(["find", "/", "-name", "trtexec"])
+    trtexec_path = re.search(r'.*/bin/trtexec', trtexec_options).group()
+    return trtexec_path
 
 def get_latency_result(runtimes, batch_size):
     latency_ms = sum(runtimes) / float(len(runtimes)) * 1000.0
@@ -1105,21 +1113,26 @@ def run_onnxruntime(args, models):
 
     return success_results, model_to_latency, model_to_fail_ep, model_to_metrics
 
+def calculate_gain(value, ep1, ep2): 
+    ep1_latency = float(value[ep1]['average_latency_ms'])
+    ep2_latency = float(value[ep2]['average_latency_ms'])
+    gain = (ep2_latency - ep1_latency)*100/ep2_latency
+    return gain
+
 def add_improvement_information(model_to_latency):
     for key, value in model_to_latency.items():
-        if not (trt in value and cuda in value):
-            continue
-
-        trt_latency = float(value[trt]['average_latency_ms'])
-        cuda_latency = float(value[cuda]['average_latency_ms'])
-        gain = (cuda_latency - trt_latency)*100/cuda_latency
-        value["Tensorrt_gain(%)"] = "{:.2f} %".format(gain)
-
-        if trt_fp16 in value and cuda_fp16 in value:
-            trt_fp16_latency = float(value[trt_fp16]['average_latency_ms'])
-            cuda_fp16_latency = float(value[cuda_fp16]['average_latency_ms'])
-            gain = (cuda_fp16_latency - trt_fp16_latency)*100/cuda_fp16_latency
-            value["Tensorrt_fp16_gain(%)"] = "{:.2f} %".format(gain)
+        if trt in value and cuda in value:
+            gain = calculate_gain(value, trt, cuda)
+            value[trt_cuda_gain] = "{:.2f} %".format(gain)
+            if trt_fp16 in value and cuda_fp16 in value:
+                gain = calculate_gain(value, trt_fp16, cuda_fp16)
+                value[trt_cuda_fp16_gain] = "{:.2f} %".format(gain)
+        if trt in value and standalone_trt in value:
+            gain = calculate_gain(value, trt, standalone_trt)
+            value[trt_native_gain] = "{:.2f} %".format(gain)
+            if trt_fp16 in value and standalone_trt_fp16 in value:
+                gain = calculate_gain(value, trt_fp16, standalone_trt_fp16)
+                value[trt_native_fp16_gain] = "{:.2f} %".format(gain)
 
 def output_details(results, csv_filename):
     need_write_header = True 
@@ -1273,8 +1286,10 @@ def output_latency(results, csv_filename):
                         "TRT EP fp16 \n90 percentile (ms)",
                         "Standalone TRT fp16 \nmean (ms)",
                         "Standalone TRT fp16 \n90th percentile (ms)",
-                        "TRT EP \ngain (mean) (%)",
-                        "TRT EP fp16 \ngain (mean) (%)"]
+                        "TRT v CUDA EP \ngain (mean) (%)",
+                        "TRT v CUDA EP fp16 \ngain (mean) (%)", 
+                        "EP v Native TRT \ngain (mean) (%)",
+                        "EP v Native TRT fp16 \ngain (mean) (%)"]
         csv_writer = csv.writer(csv_file)
 
         if need_write_header:
@@ -1313,7 +1328,6 @@ def output_latency(results, csv_filename):
             if standalone_trt in value and 'latency_90_percentile' in value[standalone_trt]:
                 standalone_trt_90_percentile = value[standalone_trt]['latency_90_percentile']
 
-
             cuda_fp16_average = ""
             if cuda_fp16 in value and 'average_latency_ms' in value[cuda_fp16]:
                 cuda_fp16_average = value[cuda_fp16]['average_latency_ms']
@@ -1331,11 +1345,11 @@ def output_latency(results, csv_filename):
                 trt_fp16_90_percentile = value[trt_fp16]['latency_90_percentile']
 
             standalone_trt_fp16_average = ""
-            if standalone_trt in value and 'average_latency_ms' in value[standalone_trt_fp16]:
+            if standalone_trt_fp16 in value and 'average_latency_ms' in value[standalone_trt_fp16]:
                 standalone_trt_fp16_average = value[standalone_trt]['average_latency_ms']
 
             standalone_trt_fp16_90_percentile = ""
-            if standalone_trt in value and 'latency_90_percentile' in value[standalone_trt_fp16]:
+            if standalone_trt_fp16 in value and 'latency_90_percentile' in value[standalone_trt_fp16]:
                 standalone_trt_fp16_90_percentile = value[standalone_trt]['latency_90_percentile']
 
 
@@ -1354,8 +1368,10 @@ def output_latency(results, csv_filename):
                    trt_fp16_90_percentile,
                    standalone_trt_fp16_average,
                    standalone_trt_fp16_90_percentile,
-                   value['Tensorrt_gain(%)'] if 'Tensorrt_gain(%)' in value else "  ",
-                   value['Tensorrt_fp16_gain(%)'] if 'Tensorrt_fp16_gain(%)' in value else "  "
+                   value[trt_cuda_gain] if trt_cuda_gain in value else "  ",
+                   value[trt_cuda_fp16_gain] if trt_cuda_fp16_gain in value else "  ",
+                   value[trt_native_gain] if trt_native_gain in value else "  ",
+                   value[trt_native_fp16_gain] if trt_native_fp16_gain in value else "  "
                    ]
             csv_writer.writerow(row)
 

@@ -48,32 +48,37 @@ def main():
         
         model_list_file = os.path.join(os.getcwd(), model +'.json')
         write_model_info_to_file([model_info], model_list_file)
+        
         if args.ep: 
             ep_list = [args.ep]
         else:
             ep_list = get_ep_list(args.comparison)
+        
         for ep in ep_list:
+            command =  ["python3",
+                        "benchmark.py",
+                        "-r", args.running_mode,
+                        "-m", model_list_file,
+                        "--ep", ep,
+                        "-o", args.perf_result_path,
+                        "--write_test_result", "false"]
+            
+            if ep == trt or ep == trt_fp16:
+                trtexec_path = get_trtexec_path()    
+                command.extend(["--trtexec", trtexec_path])
+            
             if args.running_mode == "validate":
-                p = subprocess.run(["python3",
-                                    "benchmark.py",
-                                    "-r", args.running_mode,
-                                    "-m", model_list_file,
-                                    "--ep", ep,
-                                    "-o", args.perf_result_path,
-                                    "--write_test_result", "false",
-                                    "--benchmark_fail_csv", benchmark_fail_csv,
-                                    "--benchmark_metrics_csv", benchmark_metrics_csv])
+                command.extend(["--benchmark_fail_csv", benchmark_fail_csv,
+                                "--benchmark_metrics_csv", benchmark_metrics_csv])
+            
             elif args.running_mode == "benchmark":
-                p = subprocess.run(["python3",
-                                    "benchmark.py",
-                                    "-r", args.running_mode,
-                                    "-m", model_list_file,
-                                    "--ep", ep,
-                                    "-t", str(args.test_times),
-                                    "-o", args.perf_result_path,
-                                    "--write_test_result", "false",
-                                    "--benchmark_latency_csv", benchmark_latency_csv,
-                                    "--benchmark_success_csv", benchmark_success_csv]) 
+                command.extend(["-t", str(args.test_times),
+                                "-o", args.perf_result_path,
+                                "--write_test_result", "false",
+                                "--benchmark_latency_csv", benchmark_latency_csv,
+                                "--benchmark_success_csv", benchmark_success_csv]) 
+            
+            p = subprocess.run(command)
             logger.info(p)
 
             if p.returncode != 0:
