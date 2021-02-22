@@ -203,6 +203,8 @@ def parse_arguments():
         "--cudnn_home is not specified.")
     parser.add_argument(
         "--enable_cuda_line_info", action='store_true', help="Enable CUDA line info.")
+    parser.add_argument(
+        "--enable_cuda_device_debug", action='store_true', help="Generate debug information for device code.")
 
     # Python bindings
     parser.add_argument(
@@ -733,6 +735,8 @@ def generate_build_tree(cmake_path, source_dir, build_dir, cuda_home, cudnn_home
             "ON" if args.enable_memory_profile else "OFF"),
         "-Donnxruntime_ENABLE_CUDA_LINE_NUMBER_INFO=" + (
             "ON" if args.enable_cuda_line_info else "OFF"),
+        "-Donnxruntime_ENABLE_CUDA_DEVICE_DEBUG=" + (
+            "ON" if args.enable_cuda_device_debug else "OFF"),
     ]
 
     if acl_home and os.path.exists(acl_home):
