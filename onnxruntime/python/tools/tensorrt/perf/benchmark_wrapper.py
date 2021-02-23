@@ -8,7 +8,9 @@ import json
 import re
 import pprint
 from benchmark import *
-from perf_utils import get_latest_commit_hash
+from perf_utils import *
+
+standalone_to_trt = {standalone_trt: trt, standalone_trt_fp16: trt_fp16}
 
 def write_model_info_to_file(model, path):
     with open(path, 'w') as file:
@@ -19,8 +21,8 @@ def get_ep_list(comparison):
         ep_list = [cpu, acl]
     else:   
         # test with cuda and trt
-        ep_list = [cpu, cuda, trt, cuda_fp16, trt_fp16]
-    return ep_list 
+        ep_list = [cpu, cuda, trt, standalone_trt, cuda_fp16, trt_fp16]
+    return ep_list
 
 def main():
     args = parse_arguments()
@@ -55,18 +57,24 @@ def main():
             ep_list = get_ep_list(args.comparison)
         
         for ep in ep_list:
+
             command =  ["python3",
                         "benchmark.py",
                         "-r", args.running_mode,
                         "-m", model_list_file,
-                        "--ep", ep,
                         "-o", args.perf_result_path,
                         "--write_test_result", "false"]
             
-            if ep == trt or ep == trt_fp16:
-                trtexec_path = get_trtexec_path()    
-                command.extend(["--trtexec", trtexec_path])
+            if "Standalone" in ep: 
+                if args.running_mode == "validate": 
+                    continue 
+                else:
+                    trtexec_path = get_trtexec_path()    
+                    command.extend(["--trtexec", trtexec_path])
+                    ep = standalone_to_trt[ep]                    
+
             
+            command.extend(["--ep", ep])
             if args.running_mode == "validate":
                 command.extend(["--benchmark_fail_csv", benchmark_fail_csv,
                                 "--benchmark_metrics_csv", benchmark_metrics_csv])
