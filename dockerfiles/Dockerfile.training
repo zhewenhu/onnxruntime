@@ -116,6 +116,8 @@ RUN CC=mpicc MPICC=mpicc pip install mpi4py --no-binary mpi4py
 ARG PYTORCH_VERSION
 RUN pip install torch==${PYTORCH_VERSION}
 
+ARG CACHE_DATE=02-23-2021
+
 # build onnxruntime wheel with cuda and mpi support
 ARG BUILD_CONFIG
 ARG COMMIT
