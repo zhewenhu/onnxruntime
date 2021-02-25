@@ -10,8 +10,6 @@ import pprint
 from benchmark import *
 from perf_utils import *
 
-standalone_to_trt = {standalone_trt: trt, standalone_trt_fp16: trt_fp16}
-
 def write_model_info_to_file(model, path):
     with open(path, 'w') as file:
         file.write(json.dumps(model)) # use `json.loads` to do the reverse
@@ -34,12 +32,11 @@ def main():
 
     model_to_fail_ep = {}
 
-    commit = get_latest_commit_hash()
-    benchmark_fail_csv = 'fail_' + commit + '.csv'  
-    benchmark_metrics_csv = 'metrics_' + commit + '.csv'
-    benchmark_success_csv = 'success_' + commit + '.csv' 
-    benchmark_latency_csv = 'latency_' + commit + '.csv'
-    benchmark_status_csv = 'status_' + commit + '.csv'
+    benchmark_fail_csv = 'fail.csv'
+    benchmark_metrics_csv = 'metrics.csv' 
+    benchmark_success_csv = 'success.csv'  
+    benchmark_latency_csv = 'latency.csv' 
+    benchmark_status_csv = 'status.csv' 
 
     for model, model_info in models.items():
         logger.info("\n" + "="*40 + "="*len(model))
@@ -71,10 +68,10 @@ def main():
                 else:
                     trtexec_path = get_trtexec_path()    
                     command.extend(["--trtexec", trtexec_path])
-                    ep = standalone_to_trt[ep]                    
+                    ep = trt_fp16 if "fp16" in ep else trt 
 
-            
             command.extend(["--ep", ep])
+            
             if args.running_mode == "validate":
                 command.extend(["--benchmark_fail_csv", benchmark_fail_csv,
                                 "--benchmark_metrics_csv", benchmark_metrics_csv])
