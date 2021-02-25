@@ -81,6 +81,46 @@ class CalibraterBase:
                                                           sess_options=sess_options,
                                                           providers=self.execution_providers)
 
+    def aggregate_input_usage_nodes(self, model):
+        ''' 
+        Return tensor to its usages nodes (represented by list of node ids)
+        if rensor is used as output, its usage nodes will have a id -1
+        : parameter model: input model
+        : return: dict of input tensor name: [list of node ids which use it as input]
+        '''
+        result_map = {}
+        for graph_output in model.graph.output:
+            result_map.update({graph_output : [-1]})
+        
+        for i, node in enumerate(model.graph.node):
+            for input_name in node.input:
+                if input_name in result_map:
+                    if i not in result_map[input_name]:
+                        result_map[input_name].append(i)
+                else:
+                    result_map.update({input_name: [i]})
+        return result_map
+
+    def adjust_selected_tensors(self, model, selected_tensors):
+        ''' 
+        Adjust selected tensors for nodes like:
+            * split -- no need to select its output
+            * concat -- if input is used as only by concat, no need to calibrate it, it will use output's scale/zp later
+        : parameter selected_tensors: set of pre selected tensor names
+        : return: adjusted set of tensor names
+        '''
+        for node in model.graph.node:
+            if node.op_type == 'Split':
+                for output_name in node.output:
+                    selected_tensors.discard(output_name)
+        
+        inputs_to_nodes = self.aggregate_input_usage_nodes(model)
+        for node in reversed(model.graph.node):
+            if node.op_type == 'Concat':
+                for input_name in node.input:
+                    if len(inputs_to_nodes[input_name]) == 1: # the input only used by this concat node
+                        selected_tensors.discard(input_name)
+
     def select_tensors_to_calibrate(self, model):
         '''
         select all quantization_candidates op type nodes' input/output tensors. 
@@ -106,7 +146,7 @@ class CalibraterBase:
                                     tensor_name not in initializer):
                             tensors_to_calibrate.add(tensor_name)
 
-        return tensors_to_calibrate, value_infos
+        return self.adjust_selected_tensors(model, tensors_to_calibrate), value_infos
 
     def get_augment_model(self):
         '''
@@ -127,6 +167,33 @@ class CalibraterBase:
         abstract method: collect the tensors that will be used for range computation. It can be called multiple times.
         '''
         raise NotImplementedError
+
+    def adjust_ranges(self, computed_ranges):
+        ''' 
+        Adjust ranges for nodes like:
+            * split -- all output share same scale/zp as input
+            * concat -- if input is used as only by concat, then update its scale/zp from output
+        : parameter computed_ranges: dictionary mapping: {tensor names: (ReduceMin, ReduceMax) pairs }
+        : return: adjusted dictionary mapping: {tensor names: (ReduceMin, ReduceMax) pairs }
+        '''
+        model = onnx_proto.ModelProto()
+        model.CopyFrom(self.model)
+        model = onnx.shape_inference.infer_shapes(model)
+
+        for node in model.graph.node:
+            if node.op_type == 'Split' and node.input[0] in computed_ranges:
+                range_pair = computed_ranges[node.input[0]]
+                for output_name in node.output:
+                    computed_ranges.update({output_name: range_pair})
+
+        inputs_to_nodes = self.aggregate_input_usage_nodes(model)
+        for node in reversed( model.graph.node):
+            if node.op_type == 'Concat' and node.output[0] in computed_ranges:
+                range_pair = computed_ranges[node.output[0]]
+                for input_name in node.input:
+                    if len(inputs_to_nodes[input_name]) == 1: # the input only used by this concat node
+                        computed_ranges.update({input_name: range_pair})
+        return computed_ranges
 
     def compute_range(self, data_reader: CalibrationDataReader):
         '''
@@ -160,7 +227,7 @@ class MinMaxCalibrater(CalibraterBase):
 
         added_nodes = []
         added_outputs = []
-        tensors, _ = self.select_tensors_to_calibrate(model) 
+        tensors, _ = self.select_tensors_to_calibrate(model)
 
         for tensor in tensors:
             # Adding ReduceMin nodes
@@ -235,7 +302,7 @@ class MinMaxCalibrater(CalibraterBase):
 
             pairs.append(tuple([min_value, max_value]))
 
-        self.calibrate_tensors_range = dict(zip(calibrate_tensor_names, pairs))
+        self.calibrate_tensors_range = self.adjust_ranges(dict(zip(calibrate_tensor_names, pairs)))
 
         return self.calibrate_tensors_range
 
@@ -315,7 +382,7 @@ class EntropyCalibrater(CalibraterBase):
         if not self.collector:
             raise ValueError("No collector created and can't generate calibration data.")
 
-        return self.collector.get_optimal_collection_result()
+        return self.adjust_ranges(self.collector.get_optimal_collection_result())
 
 
 class CalibrationDataCollector(metaclass=abc.ABCMeta):

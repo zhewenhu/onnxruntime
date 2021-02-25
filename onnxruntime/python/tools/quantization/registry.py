@@ -13,6 +13,7 @@ from .operators.gavgpool import QGlobalAveragePool
 from .operators.lstm import LSTMQuant
 from .operators.split import QSplit
 from .operators.pad import QPad
+from .operators.concat import QConcat
 
 CommonOpsRegistry = {"Gather": GatherQuant, "EmbedLayerNormalization": EmbedLayerNormalizationQuant}
 
@@ -37,6 +38,7 @@ QLinearOpsRegistry = {
     "GlobalAveragePool": QGlobalAveragePool,
     "Split": QSplit,
     "Pad": QPad,
+    "Concat" : QConcat
 }
 QLinearOpsRegistry.update(CommonOpsRegistry)
 
