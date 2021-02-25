@@ -109,6 +109,11 @@ def run_trt_standalone(trtexec, model_path, ort_inputs, all_inputs_shape, fp16):
         logger.info("trtexec fails...")
         return None
 
+def get_memory_usage(): 
+    import psutil
+    mem_mb = psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2
+    logger.info("Memory Used {}".format(mem_mb))
+    return int(mem_mb)
 
 def get_trtexec_path(): 
     trtexec_options = get_output(["find", "/", "-name", "trtexec"])
@@ -193,11 +198,8 @@ def inference_ort(args, name, session, ep, ort_inputs, result_template, repeat_t
 
         try:
             runtime = timeit.repeat(lambda: session.run(sess_outputs, sess_inputs), number=1, repeat=repeat_times)
-            if trt in ep: 
-                import psutil
-                mem_mb = psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2
-                logger.info("Memory Used {}".format(mem_mb))
-            
+            if args.track_memory and (trt in ep or cuda in ep): 
+                mem_mb = get_memory_usage() 
             runtimes += runtime
 
         except Exception as e:
@@ -375,6 +377,7 @@ def generate_onnx_model_random_input(test_times, ref_input):
     return inputs
 
 def percentage_in_allowed_threshold(e, percent_mismatch):
+    print(str(e))
     percent_string = re.search(r'\(([^)]+)', str(e)).group(1)
     if "%" in percent_string:
         percentage_wrong = float(percent_string.replace("%",""))
@@ -403,7 +406,6 @@ def validate(all_ref_outputs, all_outputs, rtol, atol, percent_mismatch):
             for ref_o, o in zip(ref_output, output):
                 # abs(desired-actual) < rtol * abs(desired) + atol
                 try:
-                    logger.info("Output shape{} input shape{}".format(ref_output.shape, output.shape))
                     np.testing.assert_allclose(ref_o, o, rtol, atol)
                 except Exception as e:
                     if percentage_in_allowed_threshold(e, percent_mismatch):    
@@ -917,6 +919,8 @@ def run_onnxruntime(args, models):
         os.chdir(path)
         path = os.getcwd()
 
+        if args.running_mode == "validate": 
+            remove_profiling_files(path)
         inputs = []
         ref_outputs = []
         all_inputs_shape = [] # use for standalone trt
@@ -1292,6 +1296,7 @@ def output_latency(results, csv_filename):
                         "CPU \n 90th percentile (ms)",
                         "CUDA fp32 \nmean (ms)",
                         "CUDA fp32 \n90th percentile (ms)",
+                        "CUDA EP fp32 \n memory usage (mb)",
                         "TRT EP fp32 \nmean (ms)",
                         "TRT EP fp32 \n90th percentile (ms)",
                         "TRT EP fp32 \n memory usage (mb)",
@@ -1299,6 +1304,7 @@ def output_latency(results, csv_filename):
                         "Standalone TRT fp32 \n90th percentile (ms)",
                         "CUDA fp16 \nmean (ms)",
                         "CUDA fp16 \n90th percentile (ms)",
+                        "CUDA EP fp16 \n memory usage (mb)",
                         "TRT EP fp16 \nmean (ms)",
                         "TRT EP fp16 \n90 percentile (ms)",
                         "TRT EP fp16 \n memory usage (mb)",
@@ -1330,6 +1336,10 @@ def output_latency(results, csv_filename):
             if cuda in value and 'latency_90_percentile' in value[cuda]:
                 cuda_90_percentile = value[cuda]['latency_90_percentile']
 
+            cuda_memory = ""
+            if cuda in value and 'memory' in value[cuda]:
+                cuda_memory = value[cuda]['memory']
+            
             trt_average = ""
             if trt in value and 'average_latency_ms' in value[trt]:
                 trt_average = value[trt]['average_latency_ms']
@@ -1354,6 +1364,10 @@ def output_latency(results, csv_filename):
             if cuda_fp16 in value and 'average_latency_ms' in value[cuda_fp16]:
                 cuda_fp16_average = value[cuda_fp16]['average_latency_ms']
 
+            cuda_fp16_memory = ""
+            if cuda_fp16 in value and 'memory' in value[cuda_fp16]:
+                cuda_fp16_memory = value[cuda_fp16]['memory']
+            
             cuda_fp16_90_percentile = ""
             if cuda_fp16 in value and 'latency_90_percentile' in value[cuda_fp16]:
                 cuda_fp16_90_percentile = value[cuda_fp16]['latency_90_percentile']
@@ -1384,6 +1398,7 @@ def output_latency(results, csv_filename):
                    cpu_90_percentile, 
                    cuda_average,
                    cuda_90_percentile,
+                   cuda_memory,
                    trt_average,
                    trt_90_percentile,
                    trt_memory,
@@ -1391,6 +1406,7 @@ def output_latency(results, csv_filename):
                    standalone_trt_90_percentile,
                    cuda_fp16_average,
                    cuda_fp16_90_percentile,
+                   cuda_fp16_memory,
                    trt_fp16_average,
                    trt_fp16_90_percentile,
                    trt_fp16_memory,
@@ -1522,6 +1538,8 @@ def parse_arguments():
     parser.add_argument("-i", "--input_data", required=False, default="fix", choices=["fix", "random"], help="Type of input data.")
 
     parser.add_argument("-o", "--perf_result_path", required=False, default="result", help="Directory for perf result.")
+    
+    parser.add_argument("--track_memory", required=False, default=True, help="Track CUDA and TRT Memory Usage")
 
     parser.add_argument("--ep", required=False, default=None, help="Specify ORT Execution Provider.")
 
