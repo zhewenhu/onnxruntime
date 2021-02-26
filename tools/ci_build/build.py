@@ -305,6 +305,9 @@ def parse_arguments():
         "(e.g. macOS or iOS)"
         "This is only supported on MacOS")
 
+    # WebAssembly build
+    parser.add_argument("--wasm", action='store_true', help="build for WebAssembly")
+
     # Arguments needed by CI
     parser.add_argument(
         "--cmake_path", default="cmake", help="Path to the CMake program.")
@@ -729,6 +732,7 @@ def generate_build_tree(cmake_path, source_dir, build_dir, cuda_home, cudnn_home
             "ON" if args.use_mpi else "OFF"),
         "-Donnxruntime_ENABLE_MEMORY_PROFILE=" + (
             "ON" if args.enable_memory_profile else "OFF"),
+        "-Donnxruntime_BUILD_WEBASSEMBLY=" + ("ON" if args.wasm else "OFF"),
     ]
 
     if acl_home and os.path.exists(acl_home):
@@ -898,6 +902,18 @@ def generate_build_tree(cmake_path, source_dir, build_dir, cuda_home, cudnn_home
                 "-DCMAKE_C_COMPILER=" + compilers[0],
                 "-DCMAKE_CXX_COMPILER=" + compilers[1]
             ]
+
+    if args.wasm:
+        if not path_to_protoc_exe:
+            raise BuildError(
+                "protoc executable path is required")
+        wasm_toolchain_file = os.path.join(
+            cmake_dir, "external", "emsdk", "upstream", "emscripten", "cmake", "Modules", "Platform",
+            "Emscripten.cmake")
+        cmake_args += [
+            "-Donnxruntime_BUILD_UNIT_TESTS=OFF",
+            "-DCMAKE_TOOLCHAIN_FILE=" + wasm_toolchain_file
+        ]
 
     if path_to_protoc_exe:
         cmake_args += [
