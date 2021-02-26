@@ -42,12 +42,13 @@ def optimize_model(model_path: Path):
     return optimized_model
 
 
-def load_model(model_path: Path, optimize=True):
+def load_model(model_path: Path, optimize=True, replace_gemm = False):
     if optimize:
         #optimize the original model
         onnx_model = ONNXModel(optimize_model(Path(model_path)))
         # to support GEMM
-        onnx_model.replace_gemm_with_matmul()
+        if replace_gemm:
+            onnx_model.replace_gemm_with_matmul()
         return onnx_model.model
 
     return onnx.load(Path(model_path))

@@ -39,7 +39,7 @@ class CalibrationDataReader(metaclass=abc.ABCMeta):
 
 
 class CalibraterBase:
-    def __init__(self, model, op_types_to_calibrate=[], augmented_model_path='augmented_model.onnx'):
+    def __init__(self, model, op_types_to_calibrate=[], augmented_model_path='augmented_model.onnx', strong_backward_request = True):
         '''
         :param model: ONNX model to calibrate. It can be a ModelProto or a model path
         :param op_types_to_calibrate: operator types to calibrate. By default, calibrate all the float32/float16 tensors.
@@ -54,6 +54,7 @@ class CalibraterBase:
 
         self.op_types_to_calibrate = op_types_to_calibrate
         self.augmented_model_path = augmented_model_path
+        self.strong_backward_request = strong_backward_request
 
         # augment graph
         self.augment_model = None
@@ -90,7 +91,7 @@ class CalibraterBase:
         '''
         result_map = {}
         for graph_output in model.graph.output:
-            result_map.update({graph_output : [-1]})
+            result_map.update({graph_output.name : [-1]})
         
         for i, node in enumerate(model.graph.node):
             for input_name in node.input:
@@ -109,17 +110,27 @@ class CalibraterBase:
         : parameter selected_tensors: set of pre selected tensor names
         : return: adjusted set of tensor names
         '''
+        inputs_to_nodes = self.aggregate_input_usage_nodes(model)
+        backward_requested_tensors = set()
+        for node in reversed(model.graph.node):
+            is_requested = False
+            if node.op_type == 'Concat' or node.op_type == 'Split' or node.op_type == 'Transpose' or node.op_type == 'Relu':
+                for output_name in node.output:
+                    if backward_requested_tensors.__contains__(output_name):
+                        is_requested = True
+            if is_requested or node.op_type == 'Concat':
+                for input_name in node.input:
+                    if self.strong_backward_request or len(inputs_to_nodes[input_name]) == 1: # the input only used by this concat node
+                        selected_tensors.discard(input_name)
+                        backward_requested_tensors.add(input_name)
+
         for node in model.graph.node:
             if node.op_type == 'Split':
                 for output_name in node.output:
                     selected_tensors.discard(output_name)
         
-        inputs_to_nodes = self.aggregate_input_usage_nodes(model)
-        for node in reversed(model.graph.node):
-            if node.op_type == 'Concat':
-                for input_name in node.input:
-                    if len(inputs_to_nodes[input_name]) == 1: # the input only used by this concat node
-                        selected_tensors.discard(input_name)
+        return selected_tensors
+
 
     def select_tensors_to_calibrate(self, model):
         '''
@@ -180,19 +191,33 @@ class CalibraterBase:
         model.CopyFrom(self.model)
         model = onnx.shape_inference.infer_shapes(model)
 
+        inputs_to_nodes = self.aggregate_input_usage_nodes(model)
+        backward_requested_tensors = { } # tensor_name => (min, max) pair
+        for node in reversed(model.graph.node):
+            requested_range = None
+            if node.op_type == 'Concat' or node.op_type == 'Split' or node.op_type == 'Transpose' or node.op_type == 'Relu':
+                for output_name in node.output:
+                    if output_name in backward_requested_tensors:
+                        if requested_range is None:
+                            requested_range = backward_requested_tensors[output_name]
+                        else:
+                            existing_range = backward_requested_tensors[output_name]
+                            requested_range = (min(requested_range[0], existing_range[0]), max(requested_range[0], existing_range[0]))
+            
+            if requested_range is None and node.op_type == 'Concat' and node.output[0] in computed_ranges:
+                requested_range = computed_ranges[node.output[0]]
+            if requested_range is not None:
+                for input_name in node.input:
+                    if self.strong_backward_request or len(inputs_to_nodes[input_name]) == 1: # the input only used by this concat node
+                        computed_ranges.update({input_name: requested_range})
+                        backward_requested_tensors.update({input_name: requested_range})
+
         for node in model.graph.node:
             if node.op_type == 'Split' and node.input[0] in computed_ranges:
                 range_pair = computed_ranges[node.input[0]]
                 for output_name in node.output:
                     computed_ranges.update({output_name: range_pair})
 
-        inputs_to_nodes = self.aggregate_input_usage_nodes(model)
-        for node in reversed( model.graph.node):
-            if node.op_type == 'Concat' and node.output[0] in computed_ranges:
-                range_pair = computed_ranges[node.output[0]]
-                for input_name in node.input:
-                    if len(inputs_to_nodes[input_name]) == 1: # the input only used by this concat node
-                        computed_ranges.update({input_name: range_pair})
         return computed_ranges
 
     def compute_range(self, data_reader: CalibrationDataReader):

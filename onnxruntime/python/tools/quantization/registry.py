@@ -14,6 +14,7 @@ from .operators.lstm import LSTMQuant
 from .operators.split import QSplit
 from .operators.pad import QPad
 from .operators.concat import QConcat
+from .operators.direct_pass import QDirectPass
 
 CommonOpsRegistry = {"Gather": GatherQuant, "EmbedLayerNormalization": EmbedLayerNormalizationQuant}
 
@@ -38,7 +39,9 @@ QLinearOpsRegistry = {
     "GlobalAveragePool": QGlobalAveragePool,
     "Split": QSplit,
     "Pad": QPad,
-    "Concat" : QConcat
+    "Concat" : QConcat,
+    "Transpose" : QDirectPass,
+    "Reshape" : QDirectPass
 }
 QLinearOpsRegistry.update(CommonOpsRegistry)
 
