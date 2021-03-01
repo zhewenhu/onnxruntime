@@ -76,7 +76,7 @@ struct TrainingConfigurationResult {
 
 // TODO: this method does not handle parallel optimization.
 TrainingConfigurationResult ConfigureSessionForTraining(
-    training::PipelineTrainingSession* sess, TrainingParameters& parameters) {
+    training::TrainingSession* sess, TrainingParameters& parameters) {
   //TODO tix, refactor the mpi related code to populate all fields correctly by default.
   ORT_ENFORCE(parameters.data_parallel_size <= parameters.world_size, "data_parallel_size: ", parameters.data_parallel_size, ", world_size: ", parameters.world_size);
   ORT_ENFORCE(parameters.horizontal_parallel_size <= parameters.world_size, "horizontal_parallel_size: ", parameters.horizontal_parallel_size, ", world_size: ", parameters.world_size);
@@ -95,7 +95,7 @@ TrainingConfigurationResult ConfigureSessionForTraining(
     LOGS(*(sess->GetLogger()), WARNING) << msg;
   }
 
-  training::PipelineTrainingSession::TrainingConfiguration config{};
+  training::TrainingSession::TrainingConfiguration config{};
   config.weight_names_to_train = parameters.weights_to_train;
   config.weight_names_to_not_train = parameters.weights_not_to_train;
   config.immutable_weights = parameters.immutable_weights;
@@ -107,75 +107,75 @@ TrainingConfigurationResult ConfigureSessionForTraining(
   config.distributed_config.local_size = parameters.local_size;
   config.distributed_config.data_parallel_size = parameters.data_parallel_size;
   config.distributed_config.horizontal_parallel_size = parameters.horizontal_parallel_size;
-  config.distributed_config.pipeline_parallel_size = parameters.pipeline_parallel_size;
-  config.distributed_config.num_pipeline_micro_batches = parameters.num_pipeline_micro_batches;
-  config.distributed_config.sliced_schema = parameters.sliced_schema;
-  config.distributed_config.sliced_axes = parameters.sliced_axes;
-  config.distributed_config.sliced_tensor_names = parameters.sliced_tensor_names;
+  // config.distributed_config.pipeline_parallel_size = parameters.pipeline_parallel_size;
+  // config.distributed_config.num_pipeline_micro_batches = parameters.num_pipeline_micro_batches;
+  // config.distributed_config.sliced_schema = parameters.sliced_schema;
+  // config.distributed_config.sliced_axes = parameters.sliced_axes;
+  // config.distributed_config.sliced_tensor_names = parameters.sliced_tensor_names;
 
   if (parameters.use_mixed_precision) {
-    training::PipelineTrainingSession::TrainingConfiguration::MixedPrecisionConfiguration mp{};
+    training::TrainingSession::TrainingConfiguration::MixedPrecisionConfiguration mp{};
     mp.use_mixed_precision_initializers = true;
 
     config.mixed_precision_config = mp;
   }
 
-  if (config.distributed_config.pipeline_parallel_size > 1) {
-    training::PipelineTrainingSession::TrainingConfiguration::PipelineConfiguration pipeline_config;
+  // if (config.distributed_config.pipeline_parallel_size > 1) {
+  //   training::TrainingSession::TrainingConfiguration::PipelineConfiguration pipeline_config;
 
-    // Currently don't support auto-partition. User needs to pass in cut information for pipeline
-    pipeline_config.do_partition = true;
-    assert(!parameters.pipeline_cut_info_string.empty());
+  //   // Currently don't support auto-partition. User needs to pass in cut information for pipeline
+  //   pipeline_config.do_partition = true;
+  //   assert(!parameters.pipeline_cut_info_string.empty());
 
-    auto process_with_delimiter = [](std::string& input_str, const std::string& delimiter) {
-      std::vector<std::string> result;
-      size_t pos = 0;
-      while ((pos = input_str.find(delimiter)) != std::string::npos) {
-        std::string token = input_str.substr(0, pos);
-        result.emplace_back(token);
-        input_str.erase(0, pos + delimiter.length());
-      }
-      // push the last split of substring into result.
-      result.emplace_back(input_str);
-      return result;
-    };
+  //   auto process_with_delimiter = [](std::string& input_str, const std::string& delimiter) {
+  //     std::vector<std::string> result;
+  //     size_t pos = 0;
+  //     while ((pos = input_str.find(delimiter)) != std::string::npos) {
+  //       std::string token = input_str.substr(0, pos);
+  //       result.emplace_back(token);
+  //       input_str.erase(0, pos + delimiter.length());
+  //     }
+  //     // push the last split of substring into result.
+  //     result.emplace_back(input_str);
+  //     return result;
+  //   };
 
-    auto process_cut_info = [&](std::string& cut_info_string) {
-      std::vector<PipelineTrainingSession::TrainingConfiguration::CutInfo> cut_list;
-      const std::string group_delimiter = ",";
-      const std::string edge_delimiter = ":";
-      const std::string consumer_delimiter = "/";
-      const std::string producer_consumer_delimiter = "-";
+  //   auto process_cut_info = [&](std::string& cut_info_string) {
+  //     std::vector<PipelineTrainingSession::TrainingConfiguration::CutInfo> cut_list;
+  //     const std::string group_delimiter = ",";
+  //     const std::string edge_delimiter = ":";
+  //     const std::string consumer_delimiter = "/";
+  //     const std::string producer_consumer_delimiter = "-";
 
-      auto cut_info_groups = process_with_delimiter(cut_info_string, group_delimiter);
-      for (auto& cut_info_group : cut_info_groups) {
-        PipelineTrainingSession::TrainingConfiguration::CutInfo cut_info;
-        auto cut_edges = process_with_delimiter(cut_info_group, edge_delimiter);
-        for (auto& cut_edge : cut_edges) {
-          auto process_edge = process_with_delimiter(cut_edge, producer_consumer_delimiter);
-          if (process_edge.size() == 1) {
-            PipelineTrainingSession::TrainingConfiguration::CutEdge edge{process_edge[0]};
-            cut_info.emplace_back(edge);
-          } else {
-            ORT_ENFORCE(process_edge.size() == 2);
-            auto consumer_list = process_with_delimiter(process_edge[1], consumer_delimiter);
+  //     auto cut_info_groups = process_with_delimiter(cut_info_string, group_delimiter);
+  //     for (auto& cut_info_group : cut_info_groups) {
+  //       PipelineTrainingSession::TrainingConfiguration::CutInfo cut_info;
+  //       auto cut_edges = process_with_delimiter(cut_info_group, edge_delimiter);
+  //       for (auto& cut_edge : cut_edges) {
+  //         auto process_edge = process_with_delimiter(cut_edge, producer_consumer_delimiter);
+  //         if (process_edge.size() == 1) {
+  //           PipelineTrainingSession::TrainingConfiguration::CutEdge edge{process_edge[0]};
+  //           cut_info.emplace_back(edge);
+  //         } else {
+  //           ORT_ENFORCE(process_edge.size() == 2);
+  //           auto consumer_list = process_with_delimiter(process_edge[1], consumer_delimiter);
 
-            PipelineTrainingSession::TrainingConfiguration::CutEdge edge{process_edge[0], consumer_list};
-            cut_info.emplace_back(edge);
-          }
-        }
-        cut_list.emplace_back(cut_info);
-      }
-      return cut_list;
-    };
+  //           PipelineTrainingSession::TrainingConfiguration::CutEdge edge{process_edge[0], consumer_list};
+  //           cut_info.emplace_back(edge);
+  //         }
+  //       }
+  //       cut_list.emplace_back(cut_info);
+  //     }
+  //     return cut_list;
+  //   };
 
-    pipeline_config.cut_list = process_cut_info(parameters.pipeline_cut_info_string);
-    config.pipeline_config = pipeline_config;
-  }
+  //   pipeline_config.cut_list = process_cut_info(parameters.pipeline_cut_info_string);
+  //   config.pipeline_config = pipeline_config;
+  // }
   config.loss_name = parameters.loss_output_name;
 
   if (!parameters.training_optimizer_name.empty()) {
-    training::PipelineTrainingSession::TrainingConfiguration::OptimizerConfiguration opt{};
+    training::TrainingSession::TrainingConfiguration::OptimizerConfiguration opt{};
     opt.name = parameters.training_optimizer_name;
     opt.learning_rate_input_name = parameters.lr_params_feed_name;
     opt.weight_attributes_generator = [&parameters](const std::string& weight_name) {
@@ -237,7 +237,7 @@ TrainingConfigurationResult ConfigureSessionForTraining(
     config.model_with_training_graph_path = ToPathString(parameters.model_with_training_graph_path);
   }
 
-  training::PipelineTrainingSession::TrainingConfigurationResult config_result{};
+  training::TrainingSession::TrainingConfigurationResult config_result{};
 
   OrtPybindThrowIfError(sess->ConfigureForTraining(config, config_result));
 
@@ -367,7 +367,7 @@ void addObjectMethodsForTraining(py::module& m) {
   // Thin wrapper over internal C++ InferenceSession to accommodate custom op library management for the Python user
   struct PyTrainingSession : public PyInferenceSession {
     PyTrainingSession(Environment& env, const PySessionOptions& so)
-        : PyInferenceSession(onnxruntime::make_unique<PipelineTrainingSession>(so, env)) {
+        : PyInferenceSession(onnxruntime::make_unique<TrainingSession>(so, env)) {
     }
   };
 
@@ -399,7 +399,7 @@ void addObjectMethodsForTraining(py::module& m) {
         if (!use_nccl && parameters.world_size > 1)
           CopyMPIContextToTrainingParameters(parameters, sess->GetSessionHandle()->GetLogger());
 #endif
-        const auto config_result = ConfigureSessionForTraining(static_cast<PipelineTrainingSession*>(sess->GetSessionHandle()), parameters);
+        const auto config_result = ConfigureSessionForTraining(static_cast<TrainingSession*>(sess->GetSessionHandle()), parameters);
 
         InitializeSession(sess->GetSessionHandle(), provider_types, provider_options);
 
@@ -414,7 +414,7 @@ void addObjectMethodsForTraining(py::module& m) {
         if (!use_nccl && parameters.world_size > 1)
           CopyMPIContextToTrainingParameters(parameters, sess->GetSessionHandle()->GetLogger());
 #endif
-        const auto config_result = ConfigureSessionForTraining(static_cast<PipelineTrainingSession*>(sess->GetSessionHandle()), parameters);
+        const auto config_result = ConfigureSessionForTraining(static_cast<TrainingSession*>(sess->GetSessionHandle()), parameters);
 
         InitializeSession(sess->GetSessionHandle(), provider_types, provider_options);
 
@@ -422,7 +422,7 @@ void addObjectMethodsForTraining(py::module& m) {
       })
       .def("get_state", [](PyTrainingSession* sess) {
         NameMLValMap state_tensors;
-        ORT_THROW_IF_ERROR(static_cast<PipelineTrainingSession*>(sess->GetSessionHandle())->GetStateTensors(state_tensors));
+        ORT_THROW_IF_ERROR(static_cast<TrainingSession*>(sess->GetSessionHandle())->GetStateTensors(state_tensors));
         auto& data_transfer_manager = sess->GetSessionHandle()->GetDataTransferManager();
         //convert to numpy array
         std::map<std::string, py::object> rmap;
@@ -467,10 +467,10 @@ void addObjectMethodsForTraining(py::module& m) {
           ThrowIfPyErrOccured();
           state_tensors.insert(std::make_pair(initializer.first, ml_value));
         }
-        ORT_THROW_IF_ERROR(static_cast<PipelineTrainingSession*>(sess->GetSessionHandle())->SetStateTensors(state_tensors, strict));
+        ORT_THROW_IF_ERROR(static_cast<TrainingSession*>(sess->GetSessionHandle())->SetStateTensors(state_tensors, strict));
       })
       .def("is_output_fp32_node", [](PyTrainingSession* sess, const std::string& output_name) {
-        return static_cast<PipelineTrainingSession*>(sess->GetSessionHandle())->IsGraphOutputFp32Node(output_name);
+        return static_cast<TrainingSession*>(sess->GetSessionHandle())->IsGraphOutputFp32Node(output_name);
       });
 }
 }  // namespace python

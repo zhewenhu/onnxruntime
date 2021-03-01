@@ -1713,10 +1713,12 @@ common::Status PipelineTrainingSession::Run(const RunOptions& run_options, IOBin
   if (pipeline_context_.num_pipeline_stages > 1) {
     // Run pipeline parallel implemented using multi-threading.
     // Each thread may be responsible for running one micro-batch.
+    std::cout << "[training_session.cc] execute RunWithPipeline" << std::endl;
     return RunWithPipeline(run_options, io_binding);
   } else {
     // Run the session without multi-threading.
     // All batches are executed on the main thread.
+    std::cout << "[training_session.cc] execute TrainingSession::Run" << std::endl;
     return TrainingSession::Run(run_options, io_binding);
   }
 }
