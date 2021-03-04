@@ -20,7 +20,7 @@ class QLinearPool(QuantOperatorBase):
 
         # Create an entry for output quantized value.
         qlinear_output_name = node.output[0] + "_quantized"
-        quantized_output_value = QuantizedValue(node.output[0], qlinear_output_name, output_scale_name, output_zp_name)
+        quantized_output_value = QuantizedValue(node.output[0], qlinear_output_name, output_scale_name, output_zp_name, QuantizedValueType.Input)
         self.quantizer.quantized_value_map[node.output[0]] = quantized_output_value
 
         # Create qlinear pool node for given type (AveragePool, etc)
