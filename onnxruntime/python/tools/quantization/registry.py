@@ -15,6 +15,7 @@ from .operators.pad import QPad
 from .operators.concat import QConcat
 from .operators.resize import QResize
 from .operators.transpose import QTranspose
+from .operators.qlinear_pool import QLinearPool
 
 CommonOpsRegistry = {"Gather": GatherQuant, "EmbedLayerNormalization": EmbedLayerNormalizationQuant}
 
@@ -42,6 +43,7 @@ QLinearOpsRegistry = {
     "Resize" : QResize,
     "Concat": QConcat,
     "Transpose": QTranspose,
+    "AveragePool" : QLinearPool,
 }
 QLinearOpsRegistry.update(CommonOpsRegistry)
 
