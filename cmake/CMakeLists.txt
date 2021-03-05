@@ -149,6 +149,7 @@ option(onnxruntime_USE_MPI "Build with MPI support" OFF)
 
 # build WebAssembly
 option(onnxruntime_BUILD_WEBASSEMBLY "Enable this option to create WebAssembly byte codes" OFF)
+option(onnxruntime_ENABLE_WEBASSEMBLY_TEST "Enable this option to run WebAssembly unit tests" OFF)
 
 # Fuzz test has only been tested with BUILD_SHARED_LIB option,
 # using the MSVC compiler and on windows OS.
@@ -1517,6 +1518,10 @@ if (onnxruntime_BUILD_CSHARP)
 endif()
 
 if (onnxruntime_BUILD_WEBASSEMBLY)
+  if (CMAKE_BUILD_TYPE STREQUAL "Debug" OR onnxruntime_ENABLE_WEBASSEMBLY_TEST)
+    string(APPEND CMAKE_CXX_FLAGS " -s DISABLE_EXCEPTION_CATCHING=0")
+  endif()
+
   message(STATUS "WebAssembly Build is enabled")
   include(onnxruntime_webassembly.cmake)
 endif()
