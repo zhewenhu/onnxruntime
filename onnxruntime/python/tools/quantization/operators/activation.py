@@ -19,14 +19,15 @@ class QLinearActivation(QuantOperatorBase):
             self.quantizer.new_nodes += [node]
             return
 
-        if node.op_type == 'Clip':
-            if len(node.attribute) != 2:
-                self.quantizer.new_nodes += [node]
-                return
-            for attr_idx in [0, 1]:
-                if node.attribute[attr_idx].name not in ['min', 'max']:
-                    self.quantizer.new_nodes += [node]
-                    return
+        # Seem no need to check here, work aroud it
+        # if node.op_type == 'Clip':
+        #     if len(node.attribute) == 2:
+        #         self.quantizer.new_nodes += [node]
+        #         return
+        #     for attr_idx in [0, 1]:
+        #         if node.attribute[attr_idx].name not in ['min', 'max']:
+        #             self.quantizer.new_nodes += [node]
+        #             return
 
         quantized_value = self.quantizer.quantized_value_map[node.input[0]]
         self.quantizer.quantized_value_map[node.output[0]] = quantized_value
