@@ -31,7 +31,7 @@ jobs:
           -e BUILD_BUILDNUMBER \
           onnxruntimecentoscpubuild \
             python3 /onnxruntime_src/tools/ci_build/build.py \
-              --build_dir /build --cmake_generator Ninja \
+              --build_dir /build \
               --config Debug Release \
               --skip_submodule_sync \
               --parallel \
