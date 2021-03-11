@@ -1,5 +1,5 @@
 jobs:
-- job: Linux Build Debug Release
+- job: Linux_Build_Debug_Release
   timeoutInMinutes: 120
   workspace:
     clean: all
