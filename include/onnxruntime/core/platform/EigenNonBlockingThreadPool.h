@@ -768,7 +768,7 @@ class ThreadPoolTempl : public onnxruntime::concurrency::ExtendedThreadPoolInter
 // work to.  A thread is considered "good" if it is actively spinning, meaning both that
 // it is not busy with existing work, and that it should respond quickly to the addition
 // of new work.
-
+/*
 void SetGoodWorkerHint(int idx, bool is_good) {
   assert(idx >= 0 && idx < num_threads_);
   std::atomic<uint64_t>& u64 = good_worker_hints_[idx / bits_per_hint_word_];
@@ -823,7 +823,7 @@ void GetGoodWorkerHints(unsigned n, std::vector<unsigned>& good_hints, std::vect
     // work items.
     u64->compare_exchange_strong(saw, want);
   }
-}
+}*/
 
 //......................................................................
 //
@@ -884,6 +884,7 @@ void EndParallelSectionInternal(PerThread &pt,
   // started.
   unsigned tasks_started = static_cast<unsigned>(ps.tasks.size());
   unsigned tasks_revoked = 0;
+  /*
   while (!ps.tasks.empty()) {
     const auto& item = ps.tasks.back();
     Queue& q = worker_data_[item.first].queue;
@@ -891,7 +892,7 @@ void EndParallelSectionInternal(PerThread &pt,
       tasks_revoked++;
     }
     ps.tasks.pop_back();
-  }
+  }*/
   profiler_.LogEnd(ThreadPoolProfiler::WAIT_REVOKE);
 
   // Wait for workers to exit ParLoopWorker
@@ -929,7 +930,6 @@ void EndParallelSection(ThreadPoolParallelSection &ps) override {
 //   function that is long-lived (i.e., that lasts until the end of
 //   the parallel section, as opposed to just a single loop's
 //   duration).
-
 void SummonWorkers(PerThread &pt,
                    ThreadPoolParallelSection &ps,
                    unsigned n,
@@ -956,15 +956,22 @@ void SummonWorkers(PerThread &pt,
   unsigned current_dop = static_cast<unsigned>(ps.tasks.size()) + 1;
   if (n > current_dop) {
     unsigned extra_needed = n - current_dop;
-
-    // Obtain hints for which worker threads to push the tasks to.
-    // This uses a best-effort assessment of which threads are
-    // spinning.
+    for (auto i = 0u; i < extra_needed; i++) {
+      WorkerData& td = worker_data_[i];
+      Queue& q = td.queue;
+      unsigned w_idx;
+      Task t = q.PushBackWithTag(call_worker_fn, pt.tag, w_idx);
+      if (t) {
+        t();
+      } else {
+        ps.tasks.push_back({i, w_idx});
+        td.EnsureAwake();
+      }
+    }
+    /*
     std::vector<unsigned> good_hints, alt_hints;
     GetGoodWorkerHints(extra_needed, good_hints, alt_hints);
     profiler_.LogStart();
-
-    // Create the additional tasks, and push them to workers.
     for (auto i = 0u; i < extra_needed; i++) {
       Task t;
       int q_idx;
@@ -978,13 +985,6 @@ void SummonWorkers(PerThread &pt,
           q_idx = Rand(&pt.rand) % num_threads_;
         }
       }
-
-      // If the worker's queue accepts the task, then record it in
-      // the vector of tasks that we will need to synchronize with on
-      // exiting the parallel section.  If the queue rejects the task
-      // (perhaps because it is full) then we take no further action:
-      // in a parallel loop we will always be running work on the
-      // main thread, providing progress.
       WorkerData& td = worker_data_[q_idx];
       Queue& q = td.queue;
       unsigned w_idx;
@@ -995,6 +995,7 @@ void SummonWorkers(PerThread &pt,
       }
     }
     profiler_.LogEnd(ThreadPoolProfiler::DISTRIBUTION_ENQUEUE);
+    */
   }
 }
 
@@ -1299,7 +1300,7 @@ int CurrentThreadId() const EIGEN_FINAL {
     pt->thread_id = thread_id;
 
     assert(td.GetStatus() == WorkerData::ThreadStatus::Spinning);
-    SetGoodWorkerHint(thread_id, true /* Is good */);
+    //SetGoodWorkerHint(thread_id, true /* Is good */);
 
     const int log2_spin = 20;
     const int spin_count = allow_spinning_ ? (1ull<<log2_spin) : 0;
@@ -1316,12 +1317,12 @@ int CurrentThreadId() const EIGEN_FINAL {
           // In addition, priodically make a best-effort attempt to steal from other
           // threads which are not themselves spinning.
 
-          SetGoodWorkerHint(thread_id, true);
+          //SetGoodWorkerHint(thread_id, true);
           for (int i = 0; i < spin_count && !t && !cancelled_ && !done_; i++) {
             t = ((i + 1) % steal_count == 0) ? TrySteal() : q.PopFront();
             onnxruntime::concurrency::SpinPause();
           }
-          SetGoodWorkerHint(thread_id, false);
+          //SetGoodWorkerHint(thread_id, false);
 
           if (!t) {
             // No work passed to us while spinning; make a further full attempt to

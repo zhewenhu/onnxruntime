@@ -392,10 +392,10 @@ void ThreadPool::ParallelForFixedBlockSizeScheduling(const std::ptrdiff_t total,
   // Split the work across threads in the pool.  Each work item will run a loop claiming iterations,
   // hence we need at most one for each thread, even if the numberof blocks of iterations is larger.
   auto d_of_p = DegreeOfParallelism(this);
+  /*
   auto num_blocks = total / block_size;
   int num_work_items = static_cast<int>(std::min(static_cast<std::ptrdiff_t>(d_of_p), num_blocks));
   assert(num_work_items > 0);
-
   LoopCounter lc(total, d_of_p, block_size);
   std::function<void(unsigned)> run_work = [&](unsigned idx) {
     unsigned my_home_shard = lc.GetHomeShard(idx);
@@ -407,10 +407,22 @@ void ThreadPool::ParallelForFixedBlockSizeScheduling(const std::ptrdiff_t total,
     }
   };
 
+  int d_of_p = DegreeOfParallelism(this) / 2;
+  if (d_of_p < 1) {
+    d_of_p = 1;
+  } */
+
+  d_of_p = std::min(d_of_p, 8);
+  auto per_thread_tasks = total / d_of_p + ((total % d_of_p) ? 1 : 0);
+  std::function<void(unsigned)> run_work = [&](unsigned idx) {
+    auto from = per_thread_tasks * idx;
+    auto to = std::min(total, from + per_thread_tasks);
+    fn(from, to);
+  };
   // Run the work in the thread pool (and in the current thread).  Synchronization with helping
   // threads is handled within RunInParallel, hence we can deallocate lc and other state captured by
   // run_work.
-  RunInParallel(run_work, num_work_items, block_size);
+  RunInParallel(run_work, d_of_p, per_thread_tasks);
 }
 
 void ThreadPool::SimpleParallelFor(std::ptrdiff_t total, const std::function<void(std::ptrdiff_t)>& fn) {
