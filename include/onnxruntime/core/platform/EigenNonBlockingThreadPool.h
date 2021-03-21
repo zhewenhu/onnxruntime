@@ -953,6 +953,7 @@ void SummonWorkers(PerThread &pt,
   // Throughout the threadpool implementation, degrees of parallelism
   // ("n" here) refer to the total parallelism including the main
   // thread.  Hence we consider the number of existing tasks + 1.
+  profiler_.LogStart();
   unsigned current_dop = static_cast<unsigned>(ps.tasks.size()) + 1;
   if (n > current_dop) {
     unsigned extra_needed = n - current_dop;
@@ -968,6 +969,7 @@ void SummonWorkers(PerThread &pt,
         td.EnsureAwake();
       }
     }
+    profiler_.LogEnd(ThreadPoolProfiler::DISTRIBUTION_ENQUEUE);
     /*
     std::vector<unsigned> good_hints, alt_hints;
     GetGoodWorkerHints(extra_needed, good_hints, alt_hints);

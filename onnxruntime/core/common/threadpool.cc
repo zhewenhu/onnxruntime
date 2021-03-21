@@ -412,7 +412,7 @@ void ThreadPool::ParallelForFixedBlockSizeScheduling(const std::ptrdiff_t total,
     d_of_p = 1;
   } */
 
-  d_of_p = std::min(d_of_p, 8);
+  d_of_p = std::min(d_of_p, 15);
   auto per_thread_tasks = total / d_of_p + ((total % d_of_p) ? 1 : 0);
   std::function<void(unsigned)> run_work = [&](unsigned idx) {
     auto from = per_thread_tasks * idx;
