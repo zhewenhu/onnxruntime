@@ -38,6 +38,7 @@
 #include "core/platform/ort_mutex.h"
 #include "core/platform/Barrier.h"
 
+#include <iostream>
 // ORT thread pool overview
 // ------------------------
 //
@@ -1055,7 +1056,7 @@ void RunInParallelSection(ThreadPoolParallelSection &ps,
 // Run a single parallel loop _without_ a parallel section.  This is a
 // special case of RunInParallelSection, avoiding code paths for
 // handing off multiple loops to the pool of workers.
-
+/*
 void RunInParallel(std::function<void(unsigned idx)> fn, unsigned n, std::ptrdiff_t block_size) override {
   profiler_.LogStartAndCoreAndBlock(block_size);
   PerThread *pt = GetPerThread();
@@ -1078,6 +1079,34 @@ void RunInParallel(std::function<void(unsigned idx)> fn, unsigned n, std::ptrdif
   // tasks that have been created less the number successfully
   // revoked).
   EndParallelSectionInternal(*pt, ps);
+  profiler_.LogEnd(ThreadPoolProfiler::WAIT);
+}*/
+void RunInParallel(std::function<void(unsigned idx)> fn, unsigned n, std::ptrdiff_t block_size) override {
+  assert(n > 0);
+  std::atomic_uint idx{1};
+  std::atomic_uint done{0};
+  profiler_.LogStartAndCoreAndBlock(block_size);
+  if (n > 1) {
+    Queue& q = worker_data_[0].queue;
+    auto w = q.PushBack([&]() {
+      auto i = idx.fetch_add(1, std::memory_order_relaxed);
+      if (i < n) {
+        fn(i);
+        done.fetch_add(1, std::memory_order_relaxed);
+      }
+    });
+    assert(!w);
+  }
+  profiler_.LogEndAndStart(ThreadPoolProfiler::DISTRIBUTION);
+  fn(0);
+  profiler_.LogEndAndStart(ThreadPoolProfiler::RUN);
+  if (n > 1) {
+    unsigned expect = n - 1;
+    unsigned d = 0;
+    while ((d = done.load(std::memory_order_relaxed)) < expect) {
+      onnxruntime::concurrency::SpinPause();
+    }
+  }
   profiler_.LogEnd(ThreadPoolProfiler::WAIT);
 }
 
@@ -1295,6 +1324,10 @@ int CurrentThreadId() const EIGEN_FINAL {
   void WorkerLoop(int thread_id) {
     PerThread* pt = GetPerThread();
     WorkerData& td = worker_data_[thread_id];
+    int rc = (thread_id + 1) << 1;
+    int lc = rc - 1;
+    Queue* lc_q = lc < this->num_threads_ ? &worker_data_[lc].queue : nullptr;
+    Queue* rc_q = rc < this->num_threads_ ? &worker_data_[rc].queue : nullptr;
     Queue& q = td.queue;
     bool should_exit = false;
     pt->pool = this;
@@ -1382,6 +1415,12 @@ int CurrentThreadId() const EIGEN_FINAL {
         }
         if (t) {
           td.SetActive();
+          if (lc_q) {
+            assert(!(lc_q->PushFront(t)));
+          }
+          if (rc_q) {
+            assert(!(rc_q->PushFront(t)));
+          }
           t();
           profiler_.LogRun(thread_id);
           td.SetSpinning();
