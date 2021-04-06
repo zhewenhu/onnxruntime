@@ -4,6 +4,7 @@
 #pragma once
 
 #include "core/mlas/inc/mlas.h"
+#include "core/platform/threadpool.h"
 
 #include <cmath>
 
@@ -46,7 +47,7 @@ void GetQuantizationParameter(const float* data, int64_t num_of_elements, float&
 
   // Min max operation granularity: AVX512 can potentially handle 64 ~ 128 floats
   // per iteration.
-  const size_t granularity = 128;
+  const int granularity = 128;
   std::ptrdiff_t block_size;
   std::ptrdiff_t num_blocks;
   if (concurrency::ThreadPool::ShouldParallelize(thread_pool) && num_of_elements > granularity) {
@@ -66,8 +67,8 @@ void GetQuantizationParameter(const float* data, int64_t num_of_elements, float&
   const TensorOpCost unit_cost{static_cast<double>(block_size * sizeof(float)), 0, 0};
   concurrency::ThreadPool::TryParallelFor(thread_pool, num_blocks, unit_cost, [&](std::ptrdiff_t begin, std::ptrdiff_t end) {
     auto begin_idx = begin * block_size;
-    auto end_idx = std::min(num_of_elements, end * block_size);
-    auto agg_idx = begin / num_blocks;
+    auto end_idx = std::min(std::ptrdiff_t(num_of_elements), end * block_size);
+    auto agg_idx = begin % num_blocks;
     MlasFindMinMaxElement(&(data[begin_idx]), &aggregate[agg_idx].min, &aggregate[agg_idx].max, end_idx - begin_idx);
   });
 

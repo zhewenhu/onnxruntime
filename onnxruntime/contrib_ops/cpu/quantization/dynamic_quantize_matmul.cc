@@ -52,7 +52,7 @@ Status MatMulIntegerToFloatBase::ComputeCommon(OpKernelContext* ctx,
   const size_t M = static_cast<size_t>(helper.M());
   const size_t N = static_cast<size_t>(helper.N());
   const size_t K = static_cast<size_t>(helper.K());
-  const int num_gemms = static_cast<int>(helper.OutputOffsets().size());
+  const size_t num_gemms = helper.OutputOffsets().size();
   const bool b_is_signed = packed_b_ ? b_is_signed_ : b->IsDataType<int8_t>();
 
   // batch gemm
@@ -74,7 +74,7 @@ Status MatMulIntegerToFloatBase::ComputeCommon(OpKernelContext* ctx,
         N, // ldb
         &b_zero_point,
         false, // per_col_zero_points
-        reinterpret_cast<int32_t*>(y_data) + helper.OutputOffsets()[gemm_idx], // C
+        reinterpret_cast<int32_t*>(y_data + helper.OutputOffsets()[gemm_idx]), // C
         N, // ldc
         &gemm_scale_procs[gemm_idx]);
   }
@@ -138,7 +138,6 @@ Status DynamicQuantizeMatMul::Compute(OpKernelContext* ctx) const {
                 "DynamicQuantizeMatMul : input B zero point must be a scalar or 1D tensor of size 1. Per-Channel is not supported yet.");
     b_zero_point = *static_cast<const uint8_t*>(b_zero_point_tensor->DataRaw());
   }
-  std::atomic<uint32_t> __core_dbg[64] = {0};
 
   // calculate quantization parameter of a
   const float* a_data = a->template Data<float>();
