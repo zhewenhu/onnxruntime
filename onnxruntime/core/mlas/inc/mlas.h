@@ -671,6 +671,19 @@ MlasQuantizeLinear(
     OutputType ZeroPoint
     );
 
+template<typename ElementType>
+void
+MLASCALL
+MlasRequantizeLinear(
+    const ElementType* Input,
+    float ScaleIn,
+    ElementType ZeroPointIn,
+    ElementType* Output,
+    float ScaleOut,
+    ElementType ZeroPointOut,
+    size_t N
+    );
+
 void
 MLASCALL
 MlasRequantizeOutput(

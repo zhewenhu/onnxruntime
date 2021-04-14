@@ -15,6 +15,8 @@ QLinearConcat::QLinearConcat(const OpKernelInfo& info) : OpKernel(info), ConcatB
   ORT_ENFORCE(input_def_count >= 8 && (input_def_count - 2) % 3 == 0,
               "At lease two inputs are needed, and each input must be (tensor, scale, zero_point) tuple!");
 
+#if defined(QLCONCAT_TABLE)
+
   size_t input_count = (input_def_count - 2) / 3;
   fixed_lookup_tables_.resize(input_count);
 
@@ -54,7 +56,12 @@ QLinearConcat::QLinearConcat(const OpKernelInfo& info) : OpKernel(info), ConcatB
           tensor_y_scale, tensor_y_zero_point, identity_float);
     }
   }
+
+#endif
+
 }
+
+#if defined(QLCONCAT_TABLE)
 
 Status QLinearConcat::Compute(OpKernelContext* ctx) const {
   const Tensor* tensor_y_scale = ctx->Input<Tensor>(0);
@@ -84,7 +91,7 @@ Status QLinearConcat::Compute(OpKernelContext* ctx) const {
 
       ORT_ENFORCE(tensor_x_scale->IsDataType<float>(), "Input scale is not float for quantized input @", tuple_start + 1);
       ORT_ENFORCE(tensor_x_zero_point->GetElementType() == tensor_y_zero_point->GetElementType(),
-                "Wrong input type encountered for zero point of quantized input @", tuple_start + 2);
+                  "Wrong input type encountered for zero point of quantized input @", tuple_start + 2);
 
       dynamic_lookup_tables[input_index].resize(256);
       if (is_signed_int8) {
@@ -138,6 +145,87 @@ Status QLinearConcat::Compute(OpKernelContext* ctx) const {
 
   return Status::OK();
 }
+
+#else
+
+Status QLinearConcat::Compute(OpKernelContext* ctx) const {
+  const Tensor* tensor_y_scale = ctx->Input<Tensor>(0);
+  const Tensor* tensor_y_zero_point = ctx->Input<Tensor>(1);
+  bool is_signed_int8 = tensor_y_zero_point->IsDataType<int8_t>();
+  const auto identity_float = [](float v) -> float { return v; };
+
+  // Number of input tensors to concatenate (tupled)
+  auto input_count_x3 = Node().InputArgCount()[2];
+  ORT_ENFORCE(input_count_x3 >= 6 && input_count_x3 % 3 == 0,
+              "At lease two inputs are needed, and each input must be (tensor, scale, zero_point) tuple!");
+
+  auto input_count = input_count_x3 / 3;
+  // Hold pointers to the input tensors to be used in the PrepareForCompute() step
+  std::vector<const Tensor*> input_tensors(input_count);
+  std::vector<float> input_scales(input_count);
+  std::vector<int> input_zero_points(input_count);
+  float scale_y = *tensor_y_scale->Data<float>();
+
+  for (auto input_index = 0; input_index < input_count; ++input_index) {
+    auto tuple_start = 2 + input_index * 3;
+    input_tensors[input_index] = ctx->Input<Tensor>(static_cast<int>(tuple_start));
+
+    const Tensor* tensor_x_scale = ctx->Input<Tensor>(tuple_start + 1);
+    const Tensor* tensor_x_zero_point = ctx->Input<Tensor>(tuple_start + 2);
+
+    ORT_ENFORCE(tensor_x_scale->IsDataType<float>(), "Input scale is not float for quantized input @", tuple_start + 1);
+    input_scales[input_index] = *tensor_x_scale->Data<float>();
+
+    ORT_ENFORCE(tensor_x_zero_point->GetElementType() == tensor_y_zero_point->GetElementType(),
+                "Wrong input type encountered for zero point of quantized input @", tuple_start + 2);
+    if (is_signed_int8) {
+      input_zero_points[input_index] = *tensor_x_zero_point->Data<int8_t>();
+    } else {
+      input_zero_points[input_index] = *tensor_x_zero_point->Data<uint8_t>();
+    }
+  }
+
+  // Validate inputs and prepare some metadata used during actual compute
+  Prepare p;
+  auto status = PrepareForCompute(ctx, input_tensors, p);
+  if (!status.IsOK())
+    return status;
+
+  // Return at this point if output tensor is going to be empty
+  if (p.output_num_elements == 0)
+    return Status::OK();
+
+  int64_t initial_output_offset = 0;  // initial offset for each input
+  for (int input_index = 0; input_index < input_count; input_index++) {
+    const auto& prep = p.inputs[input_index];
+    if (prep.num_elements == 0)
+      continue;
+
+    auto input_axis_pitch = prep.axis_pitch;
+    if (is_signed_int8) {
+      throw std::runtime_error("does not support yet!");
+    } else {
+      const uint8_t* input = prep.tensor->Data<uint8_t>();
+      auto input_size = prep.num_elements;
+      uint8_t* output = p.output_tensor->MutableData<uint8_t>();
+      int64_t cur_in_offset = 0;
+      int64_t cur_out_offset = initial_output_offset;
+      for (size_t idx_copy = 0, end = input_size / input_axis_pitch; idx_copy < end; ++idx_copy) {
+        MlasRequantizeLinear(input + cur_in_offset, input_scales[input_index], (uint8_t)input_zero_points[input_index],
+                             output + cur_out_offset, scale_y, *tensor_y_zero_point->Data<uint8_t>(),
+                             input_axis_pitch);
+        cur_out_offset += p.output_axis_pitch;
+        cur_in_offset += input_axis_pitch;
+      }
+    }
+
+    initial_output_offset += input_axis_pitch;
+  }
+
+  return Status::OK();
+}
+
+#endif
 
 ONNX_OPERATOR_KERNEL_EX(QLinearConcat, kMSDomain, 1, kCpuExecutionProvider, KernelDefBuilder(), QLinearConcat);
 

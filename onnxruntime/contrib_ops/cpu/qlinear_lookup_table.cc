@@ -82,22 +82,6 @@ void QlinearBuildLookupTable(uint8_t* table,
                                     tensor_y_scale, tensor_y_zero_point, array_values_transformer);
 }
 
-template <>
-void QlinearBuildLookupTable<uint8_t>(uint8_t* table,
-                                      const Tensor* tensor_x_scale,
-                                      const Tensor* tensor_x_zero_point,
-                                      const Tensor* tensor_y_scale,
-                                      const Tensor* tensor_y_zero_point,
-                                      const LookupTableScalarTransformer& value_transformer);
-
-template <>
-void QlinearBuildLookupTable<int8_t>(uint8_t* table,
-                                     const Tensor* tensor_x_scale,
-                                     const Tensor* tensor_x_zero_point,
-                                     const Tensor* tensor_y_scale,
-                                     const Tensor* tensor_y_zero_point,
-                                     const LookupTableScalarTransformer& value_transformer);
-
 template <typename T>
 template <typename Transformer>
 void QLinearLookupBase<T>::BuildLookupTableIfFixed(const OpKernelInfo& info, Transformer fn) {
@@ -195,6 +179,20 @@ REGISTER_QLINEAR_LOOKUPTABLE_TYPED_KERNEL(QLinearLeakyRelu, 1, int8_t, QLinearLe
 REGISTER_QLINEAR_LOOKUPTABLE_TYPED_KERNEL(QLinearLeakyRelu, 1, uint8_t, QLinearLeakyRelu);
 REGISTER_QLINEAR_LOOKUPTABLE_TYPED_KERNEL(QLinearSigmoid, 1, int8_t, QLinearSigmoid);
 REGISTER_QLINEAR_LOOKUPTABLE_TYPED_KERNEL(QLinearSigmoid, 1, uint8_t, QLinearSigmoid);
+
+template void QlinearBuildLookupTable<uint8_t>(uint8_t* table,
+                                               const Tensor* tensor_x_scale,
+                                               const Tensor* tensor_x_zero_point,
+                                               const Tensor* tensor_y_scale,
+                                               const Tensor* tensor_y_zero_point,
+                                               const LookupTableScalarTransformer& value_transformer);
+
+template void QlinearBuildLookupTable<int8_t>(uint8_t* table,
+                                              const Tensor* tensor_x_scale,
+                                              const Tensor* tensor_x_zero_point,
+                                              const Tensor* tensor_y_scale,
+                                              const Tensor* tensor_y_zero_point,
+                                              const LookupTableScalarTransformer& value_transformer);
 
 }  // namespace contrib
 }  // namespace onnxruntime
