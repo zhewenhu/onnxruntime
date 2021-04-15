@@ -1080,7 +1080,7 @@ MlasRequantizeLinear<XInt8>(
     size_t N
     )
 {
-    typedef MLAS_SignedUnsignedIntOps<DataType> SUI;
+    typedef MLAS_SignedUnsignedIntOps<XInt8> SUI;
 
     auto ScaleVector = MlasBroadcastFloat32x4(ScaleOut / ScaleIn);
     auto MinimumValueVector = MlasBroadcastFloat32x4(float((int)std::numeric_limits<XInt8>::min() - ZeroPointOut));
@@ -1100,8 +1100,8 @@ MlasRequantizeLinear<XInt8>(
         va_i32_lo = MlasQuantizeLinearPackBytes<XInt8>(va_i32_lo);
         va_i32_hi = MlasQuantizeLinearPackBytes<XInt8>(va_i32_hi);
 
-        *((int32_t*)Output) = _mm_cvtsi128_si32(va_i32_lo);
-        *((int32_t*)(Output + 4)) = _mm_cvtsi128_si32(va_i32_hi);
+        *((int32_t*)Output) = vgetq_lane_s32(va_i32_lo, 0);
+        *((int32_t*)(Output + 4)) = vgetq_lane_s32(va_i32_hi, 0);
 
         Output += 8;
     }
