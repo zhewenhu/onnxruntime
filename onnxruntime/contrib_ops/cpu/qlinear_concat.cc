@@ -152,7 +152,6 @@ Status QLinearConcat::Compute(OpKernelContext* ctx) const {
   const Tensor* tensor_y_scale = ctx->Input<Tensor>(0);
   const Tensor* tensor_y_zero_point = ctx->Input<Tensor>(1);
   bool is_signed_int8 = tensor_y_zero_point->IsDataType<int8_t>();
-  const auto identity_float = [](float v) -> float { return v; };
 
   // Number of input tensors to concatenate (tupled)
   auto input_count_x3 = Node().InputArgCount()[2];

@@ -1002,7 +1002,7 @@ Return Value:
 template <typename XInt8>
 void
 MLASCALL
-MlasRequantizeLinear<XInt8>(
+MlasRequantizeLinear(
     const XInt8* Input,
     float ScaleIn,
     int32_t ZeroPointIn,
@@ -1070,7 +1070,7 @@ MlasRequantizeLinear<XInt8>(
 template <typename XInt8>
 void
 MLASCALL
-MlasRequantizeLinear<XInt8>(
+MlasRequantizeLinear(
     const XInt8* Input,
     float ScaleIn,
     int32_t ZeroPointIn,
@@ -1141,7 +1141,7 @@ MlasRequantizeLinear<XInt8>(
 template <typename XInt8>
 void
 MLASCALL
-MlasRequantizeLinear<XInt8>(
+MlasRequantizeLinear(
     const XInt8* Input,
     float ScaleIn,
     int32_t ZeroPointIn,
