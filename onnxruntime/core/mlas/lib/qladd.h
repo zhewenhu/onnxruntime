@@ -120,6 +120,11 @@ public:
         return vreinterpret_u16_u8(a);
     }
 
+    static MLAS_FORCEINLINE i8x8_t vld1_i8(T const * ptr)
+    {
+        return vld1_u8(ptr);
+    }
+
     static MLAS_FORCEINLINE i8x16_t vld1q_i8(T const * ptr)
     {
         return vld1q_u8_ex(ptr, 8);
@@ -217,6 +222,11 @@ public:
     static MLAS_FORCEINLINE uint16x4_t vreinterpret_u16_i8(i8x8_t a)
     {
         return vreinterpret_u16_s8(a);
+    }
+
+    static MLAS_FORCEINLINE i8x8_t vld1_i8(T const * ptr)
+    {
+        return vld1_s8(ptr);
     }
 
     static MLAS_FORCEINLINE i8x16_t vld1q_i8(T const * ptr)

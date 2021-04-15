@@ -671,19 +671,6 @@ MlasQuantizeLinear(
     OutputType ZeroPoint
     );
 
-template<typename ElementType>
-void
-MLASCALL
-MlasRequantizeLinear(
-    const ElementType* Input,
-    float ScaleIn,
-    ElementType ZeroPointIn,
-    ElementType* Output,
-    float ScaleOut,
-    ElementType ZeroPointOut,
-    size_t N
-    );
-
 void
 MLASCALL
 MlasRequantizeOutput(
@@ -703,6 +690,19 @@ MlasFindMinMaxElement(
     const float* Input,
     float* Min,
     float* Max,
+    size_t N
+    );
+
+template<typename XInt8>
+void
+MLASCALL
+MlasRequantizeLinear(
+    const XInt8* Input,
+    float ScaleIn,
+    int32_t ZeroPointIn,
+    XInt8* Output,
+    float ScaleOut,
+    int32_t ZeroPointOut,
     size_t N
     );
 

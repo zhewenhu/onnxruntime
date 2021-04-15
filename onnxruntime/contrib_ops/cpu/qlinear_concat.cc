@@ -202,17 +202,25 @@ Status QLinearConcat::Compute(OpKernelContext* ctx) const {
       continue;
 
     auto input_axis_pitch = prep.axis_pitch;
+    auto input_size = prep.num_elements;
+    int64_t cur_in_offset = 0;
+    int64_t cur_out_offset = initial_output_offset;
     if (is_signed_int8) {
-      throw std::runtime_error("does not support yet!");
+      const int8_t* input = prep.tensor->Data<int8_t>();
+      int8_t* output = p.output_tensor->MutableData<int8_t>();
+      for (size_t idx_copy = 0, end = input_size / input_axis_pitch; idx_copy < end; ++idx_copy) {
+        MlasRequantizeLinear<int8_t>(input + cur_in_offset, input_scales[input_index], input_zero_points[input_index],
+                             output + cur_out_offset, scale_y, (int32_t)*tensor_y_zero_point->Data<int8_t>(),
+                             input_axis_pitch);
+        cur_out_offset += p.output_axis_pitch;
+        cur_in_offset += input_axis_pitch;
+      }
     } else {
       const uint8_t* input = prep.tensor->Data<uint8_t>();
-      auto input_size = prep.num_elements;
       uint8_t* output = p.output_tensor->MutableData<uint8_t>();
-      int64_t cur_in_offset = 0;
-      int64_t cur_out_offset = initial_output_offset;
       for (size_t idx_copy = 0, end = input_size / input_axis_pitch; idx_copy < end; ++idx_copy) {
-        MlasRequantizeLinear(input + cur_in_offset, input_scales[input_index], (uint8_t)input_zero_points[input_index],
-                             output + cur_out_offset, scale_y, *tensor_y_zero_point->Data<uint8_t>(),
+        MlasRequantizeLinear<uint8_t>(input + cur_in_offset, input_scales[input_index], input_zero_points[input_index],
+                             output + cur_out_offset, scale_y, (int32_t)*tensor_y_zero_point->Data<uint8_t>(),
                              input_axis_pitch);
         cur_out_offset += p.output_axis_pitch;
         cur_in_offset += input_axis_pitch;
