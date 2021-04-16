@@ -100,34 +100,6 @@ MlasQuantizeLinearPackBytes(
     return vreinterpretq_s32_u8(ByteVector);
 }
 
-#elif defined(MLAS_NEON_INTRINSICS)
-
-template <>
-MLAS_INT32X4
-MlasQuantizeLinearPackBytes<int8_t>(
-    MLAS_INT32X4 IntegerVector
-    )
-{
-    const auto s16x4 = vmovn_s32(IntegerVector);
-    const auto s16x8 = vcombine(s16x4, s16x4);
-    const auto s8x8 = vmovn_s16(s16x8);
-    const auto s8x16 = vcombine_s8(s8x8, s8x8);
-    return vreinterpretq_s32_s8(ByteVector);
-}
-
-template <>
-MLAS_INT32X4
-MlasQuantizeLinearPackBytes<uint8_t>(
-    MLAS_INT32X4 IntegerVector
-    )
-{
-    const auto s16x4 = vmovn_s32(IntegerVector);
-    const auto s16x8 = vcombine(s16x4, s16x4);
-    const auto u8x8 = vmovun_s16(s16x8);
-    const auto u8x16 = vcombine_u8(u8x8, u8x8);
-    return vreinterpretq_s32_u8(ByteVector);
-}
-
 #else
 
 template<>
@@ -1067,6 +1039,92 @@ MlasRequantizeLinear(
 
 #elif defined(MLAS_NEON_INTRINSICS)
 
+
+MLAS_FORCEINLINE
+MLAS_INT32X4
+RScaleQuantizeLinearVector(
+    MLAS_FLOAT32X4 FloatVector,
+    MLAS_FLOAT32X4 ScaleVector,
+    MLAS_FLOAT32X4 MinimumValueVector,
+    MLAS_FLOAT32X4 MaximumValueVector,
+    MLAS_INT32X4 ZeroPointVector
+    )
+{
+
+#if defined(MLAS_NEON64_INTRINSICS)
+    // N.B. FMINNM and FMAXNM returns the numeric value if either of the values is a NaN.
+    FloatVector = vmulq_f32(FloatVector, ScaleVector);
+    FloatVector = vmaxnmq_f32(FloatVector, MinimumValueVector);
+    FloatVector = vminnmq_f32(FloatVector, MaximumValueVector);
+#elif defined(MLAS_NEON_INTRINSICS)
+    // N.B. FMINNM and FMAXNM returns the numeric value if either of the values is a NaN.
+    FloatVector = vmulq_f32(FloatVector, ScaleVector);
+    FloatVector = vmaxq_f32(FloatVector, MinimumValueVector);
+    FloatVector = vminq_f32(FloatVector, MaximumValueVector);
+#else
+    // N.B. MINPS and MAXPS returns the value from the second vector if the value from the first vector is a NaN.
+    FloatVector = _mm_mul_ps(FloatVector, ScaleVector);
+    FloatVector = _mm_max_ps(FloatVector, MinimumValueVector);
+    FloatVector = _mm_min_ps(FloatVector, MaximumValueVector);
+#endif
+
+    //
+    // Convert the float values to integer using "round to nearest even" and
+    // then shift the output range using the zero point value.
+    //
+#if defined(MLAS_NEON64_INTRINSICS)
+    auto IntegerVector = vcvtnq_s32_f32(FloatVector);
+    IntegerVector = vaddq_s32(IntegerVector, ZeroPointVector);
+#elif defined(MLAS_NEON_INTRINSICS)
+    auto IntegerVector = vcvtq_s32_f32(FloatVector);
+    IntegerVector = vaddq_s32(IntegerVector, ZeroPointVector);
+#else
+    // N.B. Assumes MXCSR has been configured with the default rounding mode of
+    // "round to nearest even".
+    auto IntegerVector = _mm_cvtps_epi32(FloatVector);
+    IntegerVector = _mm_add_epi32(IntegerVector, ZeroPointVector);
+#endif
+
+    return IntegerVector;
+}
+
+#if !defined(MLAS_NEON64_INTRINSICS) && defined(MLAS_NEON_INTRINSICS)
+
+template <typename XInt8>
+MLAS_INT32X4
+MlasQuantizeLinearPackBytes(
+    MLAS_INT32X4 IntegerVector
+    );
+
+template <>
+MLAS_INT32X4
+MlasQuantizeLinearPackBytes<int8_t>(
+    MLAS_INT32X4 IntegerVector
+    )
+{
+    const auto s16x4 = vmovn_s32(IntegerVector);
+    const auto s16x8 = vcombine_s16(s16x4, s16x4);
+    const auto s8x8 = vmovn_s16(s16x8);
+    const auto s8x16 = vcombine_s8(s8x8, s8x8);
+    return vreinterpretq_s32_s8(s8x16);
+}
+
+template <>
+MLAS_INT32X4
+MlasQuantizeLinearPackBytes<uint8_t>(
+    MLAS_INT32X4 IntegerVector
+    )
+{
+    const auto s16x4 = vmovn_s32(IntegerVector);
+    const auto s16x8 = vcombine_s16(s16x4, s16x4);
+    const auto u8x8 = vqmovun_s16(s16x8);
+    const auto u8x16 = vcombine_u8(u8x8, u8x8);
+    return vreinterpretq_s32_u8(u8x16);
+}
+
+#endif
+
+
 template <typename XInt8>
 void
 MLASCALL
@@ -1082,7 +1140,7 @@ MlasRequantizeLinear(
 {
     typedef MLAS_SignedUnsignedIntOps<XInt8> SUI;
 
-    auto ScaleVector = MlasBroadcastFloat32x4(ScaleOut / ScaleIn);
+    auto ScaleVector = MlasBroadcastFloat32x4(ScaleIn / ScaleOut); // revered scale ratio
     auto MinimumValueVector = MlasBroadcastFloat32x4(float((int)std::numeric_limits<XInt8>::min() - ZeroPointOut));
     auto MaximumValueVector = MlasBroadcastFloat32x4(float((int)std::numeric_limits<XInt8>::max() - ZeroPointOut));
     auto ZeroPointVectorOut = MlasBroadcastInt32x4(ZeroPointOut);
@@ -1095,8 +1153,8 @@ MlasRequantizeLinear(
         const int16x8_t va_i16x8 = SUI::vreinterpretq_s16_i16(SUI::vsubl_i8(va_i8x8, ZeroPointVectorIn));
         auto va_i32_lo = vmovl_s16(vget_low_s16(va_i16x8));
         auto va_i32_hi = vmovl_s16(vget_high_s16(va_i16x8));
-        va_i32_lo = MlasQuantizeLinearVector(vcvtq_f32_s32(va_i32_lo), ScaleVector, MinimumValueVector, MaximumValueVector, ZeroPointVectorOut);
-        va_i32_hi = MlasQuantizeLinearVector(vcvtq_f32_s32(va_i32_hi), ScaleVector, MinimumValueVector, MaximumValueVector, ZeroPointVectorOut);
+        va_i32_lo = RScaleQuantizeLinearVector(vcvtq_f32_s32(va_i32_lo), ScaleVector, MinimumValueVector, MaximumValueVector, ZeroPointVectorOut);
+        va_i32_hi = RScaleQuantizeLinearVector(vcvtq_f32_s32(va_i32_hi), ScaleVector, MinimumValueVector, MaximumValueVector, ZeroPointVectorOut);
         va_i32_lo = MlasQuantizeLinearPackBytes<XInt8>(va_i32_lo);
         va_i32_hi = MlasQuantizeLinearPackBytes<XInt8>(va_i32_hi);
 
@@ -1116,8 +1174,8 @@ MlasRequantizeLinear(
         const int16x8_t va_i16x8 = SUI::vreinterpretq_s16_i16(SUI::vsubl_i8(va_i8x8, ZeroPointVectorIn));
         auto va_i32_lo = vmovl_s16(vget_low_s16(va_i16x8));
         auto va_i32_hi = vmovl_s16(vget_high_s16(va_i16x8));
-        va_i32_lo = MlasQuantizeLinearVector(vcvtq_f32_s32(va_i32_lo), ScaleVector, MinimumValueVector, MaximumValueVector, ZeroPointVectorOut);
-        va_i32_hi = MlasQuantizeLinearVector(vcvtq_f32_s32(va_i32_hi), ScaleVector, MinimumValueVector, MaximumValueVector, ZeroPointVectorOut);
+        va_i32_lo = RScaleQuantizeLinearVector(vcvtq_f32_s32(va_i32_lo), ScaleVector, MinimumValueVector, MaximumValueVector, ZeroPointVectorOut);
+        va_i32_hi = RScaleQuantizeLinearVector(vcvtq_f32_s32(va_i32_hi), ScaleVector, MinimumValueVector, MaximumValueVector, ZeroPointVectorOut);
         va_i32_lo = MlasQuantizeLinearPackBytes<XInt8>(va_i32_lo);
         va_i32_hi = MlasQuantizeLinearPackBytes<XInt8>(va_i32_hi);
 
