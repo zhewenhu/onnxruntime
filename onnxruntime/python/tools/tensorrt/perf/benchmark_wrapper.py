@@ -156,8 +156,8 @@ def main():
     logger.info("\n===========================================")
     logger.info("=========== System information  ===========")
     logger.info("===========================================")
-    info = get_system_info()
-    pretty_print(pp, info)
+    #info = get_system_info()
+    #pretty_print(pp, info)
 
 if __name__ == "__main__":
     main()

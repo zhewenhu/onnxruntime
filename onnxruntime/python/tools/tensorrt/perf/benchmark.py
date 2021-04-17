@@ -104,8 +104,9 @@ def run_trt_standalone(trtexec, model_path, ort_inputs, all_inputs_shape, fp16):
     return result
 
 def get_trtexec_path(): 
-    trtexec_options = get_output(["find", "/", "-name", "trtexec"])
-    trtexec_path = re.search(r'.*/workspace/.*/bin/trtexec', trtexec_options).group()
+    #trtexec_options = get_output(["find", "/", "-name", "trtexec"])
+    #trtexec_path = re.search(r'.*/bin/trtexec', trtexec_options).group()
+    trtexec_path = "/home/hcsuser/TensorRT-7.2.2.3/targets/x86_64-linux-gnu/bin/trtexec"
     return trtexec_path
 
 def get_latency_result(runtimes, batch_size, mem_mb=None):
@@ -469,7 +470,7 @@ def remove_profiling_files(path):
     for f in files:
         if "custom_test_data" in f:
             continue
-        subprocess.Popen(["sudo","rm","-rf", f], stdout=subprocess.PIPE)
+        subprocess.Popen(["rm","-rf", f], stdout=subprocess.PIPE)
 
 
 def update_fail_report(fail_results, model, ep, e_type, e):
@@ -1686,8 +1687,8 @@ def main():
         logger.info("\n===========================================")
         logger.info("=========== System information  ===========")
         logger.info("===========================================")
-        info = get_system_info()
-        pp.pprint(info)
+        #info = get_system_info()
+        #pp.pprint(info)
         csv_filename = args.benchmark_fail_csv if args.benchmark_fail_csv else f"system_info_csv{time_stamp}.csv"
         csv_filename = os.path.join(path, csv_filename)
         output_system_info(info, csv_filename)

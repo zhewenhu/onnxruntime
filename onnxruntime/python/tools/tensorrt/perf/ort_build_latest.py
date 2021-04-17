@@ -37,7 +37,7 @@ def main():
 
     cmake_tar = "cmake-3.17.4-Linux-x86_64.tar.gz" 
     if not os.path.exists(cmake_tar):
-        p = subprocess.run(["wget", "-c", "https://cmake.org/files/v3.17/" + cmake_tar], check=True)
+        p = subprocess.run(["sudo", "wget", "-c", "https://cmake.org/files/v3.17/" + cmake_tar], check=True)
     tar = tarfile.open(cmake_tar)
     tar.extractall()
     tar.close()
