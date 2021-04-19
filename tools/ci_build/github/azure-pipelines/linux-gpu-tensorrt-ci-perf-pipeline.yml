@@ -10,7 +10,10 @@ jobs:
     # - script: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/build/build_image.sh -p $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/build/Dockerfile.tensorrt-perf -b master -i ort-$(branch)'
     #   displayName: 'Build latest ORT Images'
     #   workingDirectory: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/build'
-    - script: 'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/hcsuser/TensorRT-7.2.2.3/lib'
+
+    - script: |
+        echo '##vso[task.setvariable variable=LD_LIBRARY_PATH]/home/hcsuser/TensorRT-7.2.2.3/lib'
+      displayName: set environment variable for subsequent steps
     
     - script: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/run_perf_machine.sh -o "onnx-zoo-models"'
       displayName: 'Onnx Zoo Models Perf'
