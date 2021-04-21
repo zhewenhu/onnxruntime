@@ -21,19 +21,19 @@ jobs:
     displayName: 'Generate cmake config'
     inputs:
       scriptPath: 'tools/ci_build/build.py'
-      arguments: '--build_dir $(Build.BinariesDirectory) --config Release --skip_submodule_sync --enable_onnx_tests --parallel --build_shared_lib --enable_pybind --use_nuphar --update'
+      arguments: '--build_dir $(Build.BinariesDirectory) --config Release --skip_submodule_sync --enable_onnx_tests --parallel --build_shared_lib --enable_pybind --update'
       pythonInterpreter: /usr/bin/python3
   - task: PythonScript@0
     displayName: 'Build'
     inputs:
       scriptPath: 'tools/ci_build/build.py'
-      arguments: '--build_dir $(Build.BinariesDirectory) --config Release --skip_submodule_sync --enable_onnx_tests --parallel --build_shared_lib --enable_pybind --use_nuphar --build'
+      arguments: '--build_dir $(Build.BinariesDirectory) --config Release --skip_submodule_sync --enable_onnx_tests --parallel --build_shared_lib --enable_pybind --build'
       pythonInterpreter: /usr/bin/python3
   - task: PythonScript@0
     displayName: 'Test'
     inputs:
       scriptPath: 'tools/ci_build/build.py'
-      arguments: '--build_dir $(Build.BinariesDirectory) --config Release --skip_submodule_sync --enable_onnx_tests --parallel --build_shared_lib --enable_pybind --use_nuphar --test'
+      arguments: '--build_dir $(Build.BinariesDirectory) --config Release --skip_submodule_sync --enable_onnx_tests --parallel --build_shared_lib --enable_pybind --test'
       pythonInterpreter: /usr/bin/python3
   - template: templates/component-governance-component-detection-steps.yml
     parameters :
