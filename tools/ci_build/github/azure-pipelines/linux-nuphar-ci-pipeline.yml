@@ -4,7 +4,17 @@ jobs:
   workspace:
     clean: all
   steps:
-  - script: '/usr/bin/python3 -m pip install -r tools/ci_build/github/linux/docker/scripts/requirements.txt'
+  - script: |
+     set -e
+     aria2c -q -d $(Build.BinariesDirectory) -o v3.15.8.tar.gz https://github.com/protocolbuffers/protobuf/archive/v3.15.8.tar.gz
+     tar -xf $(Build.BinariesDirectory)/v3.15.8.tar.gz -C $(Build.BinariesDirectory)
+     cd $(Build.BinariesDirectory)/protobuf-3.15.8
+     cmake ./cmake -DCMAKE_INSTALL_PREFIX=$(Build.BinariesDirectory)/protobuf -DCMAKE_INSTALL_SYSCONFDIR=/etc -DCMAKE_POSITION_INDEPENDENT_CODE=ON -Dprotobuf_BUILD_TESTS=OFF -DCMAKE_BUILD_TYPE=Relwithdebinfo
+     make -j$(getconf _NPROCESSORS_ONLN)
+     make install
+     export PATH=$(Build.BinariesDirectory)/protobuf/bin:$PATH
+     /usr/bin/python3 -m pip uninstall -y onnx -qq
+     /usr/bin/python3 -m pip install -r tools/ci_build/github/linux/docker/scripts/requirements.txt
     displayName: 'Install python packages'
 
   - task: PythonScript@0
