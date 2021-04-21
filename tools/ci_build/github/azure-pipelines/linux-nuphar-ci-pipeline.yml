@@ -14,7 +14,7 @@ jobs:
      make install
      export PATH=$(Build.BinariesDirectory)/protobuf/bin:$PATH
      /usr/bin/python3 -m pip uninstall -y onnx -qq
-     /usr/bin/python3 -m pip install -r tools/ci_build/github/linux/docker/scripts/requirements.txt
+     /usr/bin/python3 -m pip install -r $(Build.SourcesDirectory)/tools/ci_build/github/linux/docker/scripts/requirements.txt
     displayName: 'Install python packages'
 
   - task: PythonScript@0
