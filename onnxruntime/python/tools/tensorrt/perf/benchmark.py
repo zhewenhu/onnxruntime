@@ -104,9 +104,9 @@ def run_trt_standalone(trtexec, model_path, ort_inputs, all_inputs_shape, fp16):
     return result
 
 def get_trtexec_path(): 
-    #trtexec_options = get_output(["find", "/", "-name", "trtexec"])
-    #trtexec_path = re.search(r'.*/bin/trtexec', trtexec_options).group()
-    trtexec_path = "/home/hcsuser/TensorRT-7.2.2.3/targets/x86_64-linux-gnu/bin/trtexec"
+    trtexec_options = get_output(["find", "/", "-name", "trtexec"])
+    trtexec_path = re.search(r'.*/bin/trtexec', trtexec_options).group()
+    #trtexec_path = "/home/hcsuser/TensorRT-7.2.2.3/targets/x86_64-linux-gnu/bin/trtexec"
     return trtexec_path
 
 def get_latency_result(runtimes, batch_size, mem_mb=None):
@@ -223,15 +223,11 @@ def inference_ort(args, name, session, ep, ort_inputs, result_template, repeat_t
             else: 
                 runtime = timeit.repeat(lambda: session.run(sess_outputs, sess_inputs), number=1, repeat=repeat_times)
 
-            runtimes += runtime
+            runtimes += runtime[1:]
 
         except Exception as e:
             logger.error(e)
             return None
-
-    logger.info(runtimes)
-    runtimes[:] = runtimes[1:]
-    logger.info(runtimes)
 
     result = {}
     result.update(result_template)
@@ -242,7 +238,6 @@ def inference_ort(args, name, session, ep, ort_inputs, result_template, repeat_t
     return result
 
 def inference_ort_and_get_prediction(name, session, ort_inputs):
-
     ort_outputs = []
     for ort_input in ort_inputs:
         sess_inputs, sess_outputs = get_ort_session_inputs_and_outputs(name, session, ort_input)
@@ -265,7 +260,7 @@ def inference_ort_and_get_prediction(name, session, ort_inputs):
             ort_outputs.append(result[0])
         else:
             ort_outputs.append(result)
-
+    
     return ort_outputs
 
 def get_acl_version():
@@ -901,6 +896,17 @@ def run_onnxruntime(args, models):
     # iterate model
     #######################
     for name, model_info in models.items():
+        total_benchmark = 0.0
+        total_validate = 0.0
+        parse_model_time = 0.0
+        session_creation = 0.0
+        inferencing = 0.0
+        result_copy = 0.0
+        session_creating_validate = 0.0
+        validating_time = 0.0
+        inference_ort_pred = 0.0
+        total_inference_pred = 0.0
+        
         latency_result = {}
         path = model_info["working_directory"]
 
@@ -924,7 +930,7 @@ def run_onnxruntime(args, models):
         # iterate ep
         #######################
         for ep in ep_list:
-
+            parse_model_start = datetime.now()
             if skip_ep(name, ep, model_to_fail_ep):
                 continue
 
@@ -974,7 +980,8 @@ def run_onnxruntime(args, models):
 
                 inputs, ref_outputs = get_test_data(False, test_data_dir, all_inputs_shape)
 
-
+            parse_model_end = datetime.now()
+            parse_model_time = parse_model_end - parse_model_start
             # generate random input data
             if args.input_data == "random":
                 inputs = generate_onnx_model_random_input(args.test_times+1, inputs[0])
@@ -985,6 +992,7 @@ def run_onnxruntime(args, models):
             if args.running_mode == 'benchmark':
                 logger.info("\n----------------------------- benchmark -------------------------------------")
 
+                session_start = datetime.now()
                 options = onnxruntime.SessionOptions()
                 options.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
 
@@ -995,7 +1003,10 @@ def run_onnxruntime(args, models):
                 except Exception as e:
                     logger.error(e)
                     continue
+                session_end = datetime.now()
 
+                session_creation = session_end - session_start
+                logger.info("session creation {}".format(session_creation))
                 logger.info("start to inference {} with {} ...".format(name, ep))
                 logger.info(sess.get_providers())
 
@@ -1019,7 +1030,7 @@ def run_onnxruntime(args, models):
                     "batch_size": batch_size,
                     "sequence_length": 1,
                     "datetime": str(datetime.now()),}
-                    
+                starting = datetime.now()
                 # get standalone TensorRT perf
                 if trt in ep and args.trtexec:
                     
@@ -1042,8 +1053,10 @@ def run_onnxruntime(args, models):
                 else: 
                     result = inference_ort(args, name, sess, ep, inputs, result_template, args.test_times, batch_size)
                 
+                ending = datetime.now()
+                inferencing = ending - starting
                 if result:
-
+                    starting = datetime.now()
                     latency_result[ep] = {}
                     latency_result[ep]["average_latency_ms"] = result["average_latency_ms"]
                     latency_result[ep]["latency_90_percentile"] = result["latency_90_percentile"]
@@ -1055,14 +1068,16 @@ def run_onnxruntime(args, models):
                         success_results.append(result)
 
                     model_to_latency[name] = copy.deepcopy(latency_result)
-
+                    ending = datetime.now()
+                result_copy = ending - starting
+                total_benchmark = session_creation + inferencing + result_copy 
                 logger.info("---------------------------- benchmark [end] ----------------------------------\n")
 
 
 
             elif args.running_mode == 'validate':
                 logger.info("\n----------------------------- validate -------------------------------------")
-
+                starting = datetime.now()
                 # enable profiling to generate profiling file for analysis
                 options = onnxruntime.SessionOptions()
                 options.enable_profiling = True
@@ -1090,15 +1105,20 @@ def run_onnxruntime(args, models):
                     logger.info("Model outputs nodes:")
                     for output_meta in sess.get_outputs():
                         logger.info(output_meta)
-
+                ending = datetime.now() 
+                session_creating_validate = ending - starting
                 # run inference and validate the result
                 #
                 # currently skip TensorRT float16 validation intentionally
+                start_time = datetime.now()
                 if ep not in validation_exemption:
                     try:
                         ort_outputs = inference_ort_and_get_prediction(name, sess, inputs)
-
+                        starting = datetime.now()
                         status = validate(ref_outputs, ort_outputs, args.rtol, args.atol, args.percent_mismatch)
+                        ending = datetime.now()
+                        validating_time = ending - starting
+                        logger.info("time to validate inputs {}".format(validating_time))
                         if not status[0]:
                             update_fail_model_map(model_to_fail_ep, name, ep, 'result accuracy issue', status[1])
                             continue
@@ -1114,16 +1134,23 @@ def run_onnxruntime(args, models):
                 else:
                     inference_ort_and_get_prediction(name, sess, inputs)
                     inference_ort_and_get_prediction(name, sess, inputs)
-
                 sess.end_profiling()
+                end_time = datetime.now()
+                total_inference_pred =  end_time - start_time
 
+                starting = datetime.now()
                 # get metrics from profiling file
                 metrics = get_profile_metrics(path, profile_already_parsed, logger)
+                ending = datetime.now()
+
+                profiling_time = ending-starting
                 if metrics:
                     logger.info(ep)
                     ep_to_operator[ep] = metrics
-
+                total_validate = parse_model_time + session_creating_validate + total_inference_pred
                 logger.info("---------------------------- validate [end] ----------------------------------\n")
+                
+            logger.info("TOTAL TIMES [running mode: {}]:\nsession creation {}\ninferencing {}\nresult copying {}\ntotal benchmarking time {}\n\nparsing model {}\nsession creation in validate {}\nvalidating time {}\ninference ort and get pred {}\ntotal time validation time {}\n".format(args.running_mode, session_creation, inferencing, result_copy, total_benchmark, parse_model_time, session_creating_validate, validating_time, total_inference_pred, total_validate))
 
         ####################
         # end of iterate ep
