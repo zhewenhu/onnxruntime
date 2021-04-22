@@ -1,16 +1,16 @@
 
 parameters:
-- name: PostToDashboard
-  displayName: Post to Dashboard
+- name: RunDocker
+  displayName: Run in Docker (CUDA 11.0)
   type: boolean
-  default: true
+  default: false
 
 - name: RunOnnxZoo
   displayName: Onnx Zoo Models
   type: boolean
   default: true
 
-- name: RunManyModels
+- name: RunMany
   displayName: Many Models 
   type: boolean
   default: true
@@ -20,17 +20,21 @@ parameters:
   type: boolean
   default: true
 
-- name: RunDocker
-  displayName: Run in Docker (CUDA 11.0)
+- name: RunSelected
+  displayName: Selected Models
   type: boolean
   default: false
+
+- name: PostToDashboard
+  displayName: Post to Dashboard
+  type: boolean
+  default: true
 
 jobs: 
 - job: Linux_CI_GPU_TENSORRT_PERF
   pool: Linux-GPU-TensorRT-Perf 
   variables:
     ALLOW_RELEASED_ONNX_OPSET_ONLY: '1'
-    branch: 'master'
   timeoutInMinutes: 3000 
   steps:
     - ${{ if eq(parameters.RunDocker, true) }}:
@@ -48,7 +52,7 @@ jobs:
         displayName: 'Onnx Zoo Models Perf'
         workingDirectory: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/'
     
-    - ${{ if eq(parameters.RunManyModels, true) }}:
+    - ${{ if eq(parameters.RunMany, true) }}:
       - script: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/run_perf_docker.sh -d  ort-$(branch) -o "many-models" -p $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf'
         displayName: 'Many Models Perf'
         workingDirectory: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/'
@@ -58,6 +62,11 @@ jobs:
         displayName: 'Partner Models Perf'
         workingDirectory: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/'
 
+    - ${{ if neq($(model_path), '') }}:
+      - script: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/run_perf_docker.sh -d  ort-$(branch) -o "selected-models" -p $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf -m $(model_path)'
+        displayName: 'Selected Models Perf'
+        workingDirectory: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/'
+    
     - script: 'mkdir $(Build.SourcesDirectory)/Artifact && cp -r $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/result/ $(Build.SourcesDirectory)/Artifact'
       displayName: 'Prepare Artifacts'
       workingDirectory: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/'
