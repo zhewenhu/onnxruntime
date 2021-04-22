@@ -492,7 +492,8 @@ TEST_P(ModelTest, Run) {
   if (provider_name == "cpu" && is_single_node)
     use_single_thread.push_back(true);
 #endif
-  std::cout << ToMBString(test_case_name) << std::endl;
+  if(provider_name == "tensorrt")
+    std::cout << ToMBString(test_case_name) << std::endl;
   std::unique_ptr<ITestCase> l = CreateOnnxTestCase(ToMBString(test_case_name), std::move(model_info),
                                                     per_sample_tolerance, relative_per_sample_tolerance);
 #ifndef _OPENMP
@@ -790,7 +791,8 @@ TEST_P(ModelTest, Run) {
       ORT_TSTR("tf_resnet_v2_101"),
       ORT_TSTR("tf_resnet_v2_152"),
       ORT_TSTR("tf_resnet_v2_50"),
-	  ORT_TSTR("resnet50v2"),
+      ORT_TSTR("resnet50v2"),
+      ORT_TSTR("inception_v1"),
       ORT_TSTR("convtranspose_1d"),
       ORT_TSTR("convtranspose_3d"),
       ORT_TSTR("conv_with_strides_and_asymmetric_padding"),
