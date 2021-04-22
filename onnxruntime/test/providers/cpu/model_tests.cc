@@ -746,7 +746,6 @@ TEST_P(ModelTest, Run) {
                                                   ORT_TSTR("zfnet512"), ORT_TSTR("keras2coreml_Dense_ImageNet")};
   static const ORTCHAR_T* dnnl_disabled_tests[] = {ORT_TSTR("densenet121"), ORT_TSTR("resnet18v2"),
                                                    ORT_TSTR("resnet34v2"), ORT_TSTR("resnet50v2"),
-                                                   ORT_TSTR("resnet101v2"),
                                                    ORT_TSTR("resnet101v2"), ORT_TSTR("vgg19"),
                                                    ORT_TSTR("tf_inception_resnet_v2"), ORT_TSTR("tf_inception_v1"),
                                                    ORT_TSTR("tf_inception_v3"), ORT_TSTR("tf_inception_v4"),
@@ -791,6 +790,7 @@ TEST_P(ModelTest, Run) {
       ORT_TSTR("tf_resnet_v2_101"),
       ORT_TSTR("tf_resnet_v2_152"),
       ORT_TSTR("tf_resnet_v2_50"),
+	  ORT_TSTR("resnet50v2"),
       ORT_TSTR("convtranspose_1d"),
       ORT_TSTR("convtranspose_3d"),
       ORT_TSTR("conv_with_strides_and_asymmetric_padding"),
