@@ -492,7 +492,7 @@ TEST_P(ModelTest, Run) {
   if (provider_name == "cpu" && is_single_node)
     use_single_thread.push_back(true);
 #endif
-
+  std::cout << ToMBString(test_case_name) << std::endl;
   std::unique_ptr<ITestCase> l = CreateOnnxTestCase(ToMBString(test_case_name), std::move(model_info),
                                                     per_sample_tolerance, relative_per_sample_tolerance);
 #ifndef _OPENMP
