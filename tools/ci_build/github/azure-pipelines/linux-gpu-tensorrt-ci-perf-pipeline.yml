@@ -39,7 +39,7 @@ jobs:
     - name: runenv
       ${{ if eq(parameters.RunDocker, true) }}:
         value: _docker.sh -d ort-$(branch) -e docker
-      ${{ if neq(parameters.RunDocker, true) }}:
+      ${{ if ne(parameters.RunDocker, true) }}:
         value: _perf.sh -e machine
       
   steps:
