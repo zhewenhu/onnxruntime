@@ -43,14 +43,14 @@ jobs:
         value: _perf.sh -e machine
       
   steps:
-    - ${{ if eq(parameters.RunDocker, true) }}:
-      - bash: 'echo $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/build/build_image.sh -p $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/build/Dockerfile.tensorrt-perf -b $(branch) -i ort-$(branch)'
-        displayName: 'Build latest ORT Images'
-        workingDirectory: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/build'
-    - ${{ if eq(parameters.RunDocker, false) }}:
-      - bash: 'echo $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/build/ort_build_latest.py -b $(branch) -c /usr/local/cuda -o ~/repos/onnxruntime/ -t ~/TensorRT-7.2.2.3'
-        displayName: 'Build latest ORT'
-        workingDirectory: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/build'
+    # - ${{ if eq(parameters.RunDocker, true) }}:
+    #   - bash: 'echo $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/build/build_image.sh -p $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/build/Dockerfile.tensorrt-perf -b $(branch) -i ort-$(branch)'
+    #     displayName: 'Build latest ORT Images'
+    #     workingDirectory: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/build'
+    # - ${{ if eq(parameters.RunDocker, false) }}:
+    #   - bash: 'echo $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/build/ort_build_latest.py -b $(branch) -c /usr/local/cuda -o ~/repos/onnxruntime/ -t ~/TensorRT-7.2.2.3'
+    #     displayName: 'Build latest ORT'
+    #     workingDirectory: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/build'
     
     - ${{ if eq(parameters.RunOnnxZoo, true) }}:
       - bash: 'echo $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/run_perf$(runenv) -o "onnx-zoo-models" -p $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf'
@@ -66,10 +66,8 @@ jobs:
       - script: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/run_perf$(runenv) -o "partner-models" -p $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf'
         displayName: 'Partner Models Perf'
         workingDirectory: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/'
-
-    - script: 'echo {{variables.model_path}}'
     
-    - ${{ if ne(variables.model_path, '') }}:
+    - ${{ if ne(variables['model_path'], '') }}:
       - bash: 'echo $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/run_perf$(runenv) -o "selected-models" -p $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf -m $(model_path)'
         displayName: 'Selected Models Perf'
         workingDirectory: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/'
