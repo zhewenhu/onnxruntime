@@ -21,7 +21,7 @@ parameters:
   default: true
 
 - name: RunSelected
-  displayName: Selected Models
+  displayName: Selected Models (set path in advanced variables)
   type: boolean
   default: false
 
@@ -67,7 +67,7 @@ jobs:
         displayName: 'Partner Models Perf'
         workingDirectory: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/'
     
-    - ${{ if ne(variables.model_path, '') }}:
+    - ${{ if eq(parameters.RunSelected, true) }}:
       - bash: 'echo $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/run_perf$(runenv) -o "selected-models" -p $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf -m $(model_path)'
         displayName: 'Selected Models Perf'
         workingDirectory: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/'
