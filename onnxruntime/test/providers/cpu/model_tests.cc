@@ -794,6 +794,7 @@ TEST_P(ModelTest, Run) {
       ORT_TSTR("resnet50v2"),
       ORT_TSTR("inception_v1"),
 	  ORT_TSTR("shufflenet"),
+	  ORT_TSTR("vgg19"),
       ORT_TSTR("convtranspose_1d"),
       ORT_TSTR("convtranspose_3d"),
       ORT_TSTR("conv_with_strides_and_asymmetric_padding"),
