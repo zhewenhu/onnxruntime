@@ -67,7 +67,7 @@ jobs:
         displayName: 'Partner Models Perf'
         workingDirectory: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/'
 
-    - ${{ if ne$(model_path), '') }}:
+    - ${{ if ne($(model_path), '') }}:
       - bash: 'echo $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/run_perf$(runenv) -o "selected-models" -p $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf -m $(model_path)'
         displayName: 'Selected Models Perf'
         workingDirectory: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/'
