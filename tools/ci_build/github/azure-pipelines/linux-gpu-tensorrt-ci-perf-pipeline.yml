@@ -1,4 +1,38 @@
-jobs:
+
+parameters:
+- name: PostToDashboard
+  displayName: Post to Dashboard
+  type: boolean
+  default: true
+
+- name: RunOnnxZoo
+  displayName: Run onnx zoo models.
+  type: boolean
+  default: true
+
+- name: RunManyModels
+  displayName: Run many models. 
+  type: boolean
+  default: true
+
+- name: RunPartner
+  displayName: Run partner models.
+  type: boolean
+  default: true
+
+- name: RunDocker
+  displayName: Run in Docker (CUDA 11.0)
+  type: boolean
+  default: false
+
+- name: Models
+  displayName: Run in Docker (CUDA 11.0)
+  type: string
+  default: 
+  values:
+    - many-models
+
+jobs: 
 - job: Linux_CI_GPU_TENSORRT_PERF
   pool: Linux-GPU-TensorRT-Perf 
   variables:
@@ -6,7 +40,6 @@ jobs:
     branch: 'master'
   timeoutInMinutes: 3000 
   steps:
-  
     - script: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/build/build_image.sh -p $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/build/Dockerfile.tensorrt-perf -b $(branch) -i ort-$(branch)'
       displayName: 'Build latest ORT Images'
       workingDirectory: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/build'
@@ -32,7 +65,6 @@ jobs:
         pathtoPublish: '$(Build.SourcesDirectory)/Artifact'
         artifactName: 'result'
     
-
     - script: 'python3 $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/post.py -r $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/result -c $(Build.SourceVersion) -u "https://dev.azure.com/onnxruntime/onnxruntime/_build/results?buildId=$(Build.BuildId)" ' 
       displayName: 'Post to Dashboard'
       workingDirectory: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/'
