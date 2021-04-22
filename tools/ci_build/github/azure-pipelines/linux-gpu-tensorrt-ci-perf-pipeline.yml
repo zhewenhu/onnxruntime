@@ -26,11 +26,13 @@ parameters:
   default: false
 
 - name: Models
-  displayName: Run in Docker (CUDA 11.0)
+  displayName: Which model groups to run?
   type: string
   default: 
   values:
     - many-models
+    - onnx-zoo-models
+    - partner-models
 
 jobs: 
 - job: Linux_CI_GPU_TENSORRT_PERF
