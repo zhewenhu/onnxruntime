@@ -409,8 +409,8 @@ bool launchSoftmaxKernel(
     Atype = CUDA_R_16F;
     Btype = CUDA_R_16F;
     Ctype = CUDA_R_16F;
-    resultType = CUDA_R_16F;
-    algo = CUBLAS_GEMM_DEFAULT_TENSOR_OP;
+    resultType = CUDA_R_32F;
+    algo = CUBLAS_GEMM_ALGO0_TENSOR_OP; //CUBLAS_GEMM_DEFAULT_TENSOR_OP;
   } else {
     one_fp32 = 1.f;
     zero_fp32 = 0.f;
@@ -956,9 +956,9 @@ bool LaunchLongformerAttentionKernel(
     int window,
     int max_num_global,
     const size_t element_size,
-    bool use_fast_kernel,
-    std::string diff_prefix) {
-  CublasMathModeSetter helper(device_prop, cublas, CUBLAS_TENSOR_OP_MATH);
+    bool use_fast_kernel) {
+  const auto* half_options = HalfGemmOptions::GetInstance();
+  CublasMathModeSetter helper(device_prop, cublas, half_options->GetMathMode());
   size_t softmax_workspace_size = GetLongformerSoftmaxWorkspaceSize(element_size, batch_size, num_heads, sequence_length, window, use_fast_kernel);
   if (element_size == 2) {
     return LongformerQkvToContext(device_prop, cublas, stream,
