@@ -222,14 +222,12 @@ def inference_ort(args, name, session, ep, ort_inputs, result_template, repeat_t
             else: 
                 runtime = timeit.repeat(lambda: session.run(sess_outputs, sess_inputs), number=1, repeat=repeat_times)
 
-            runtimes += runtime
+            runtimes += runtime[1:] # remove warmup
 
         except Exception as e:
             logger.error(e)
             return None
 
-    logger.info(runtimes)
-    runtimes[:] = runtimes[1:]
     logger.info(runtimes)
 
     result = {}
