@@ -146,7 +146,7 @@ __launch_bounds__(blockSize)
   float sum_block = blockReduceSum<blockSize>(sum_input);
   //  BlockReduce(block_reduce_temp).Reduce(sum_input, cub::Sum());
   if (tid == 0) {
-    sum_shared = sum_block;
+    sum_shared = sum_block * 2;
   }
   __syncthreads();
   float recip_sum = 1.f / sum_shared;
