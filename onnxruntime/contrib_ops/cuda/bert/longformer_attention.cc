@@ -59,10 +59,12 @@ LongformerAttention<T>::LongformerAttention(const OpKernelInfo& info) : CudaKern
 static std::map<std::string, std::vector<uint8_t>> records;
 static std::map<std::string, size_t> compute_iters;
 
-void AddOrCheckIntermediateDeterministic(const char* keystr, cudaStream_t stream, const uint8_t* result, size_t len, bool from_device) {
+void AddOrCheckIntermediateDeterministic(const char* keystr, cudaStream_t stream, const void* vresult, size_t len, bool from_device) {
   std::string key(keystr);
   compute_iters[key]++;
   if (compute_iters[key] <= 1) return;
+
+  const uint8_t* result = (const uint8_t*)vresult;
 
   std::vector<uint8_t> dumped;
   uint8_t* pinned_mem = nullptr;
@@ -246,6 +248,7 @@ Status LongformerAttention<T>::ComputeInternal(OpKernelContext* context) const {
 
   size_t workSpaceSize = GetLongformerAttentionWorkspaceSize(element_size, batch_size, num_heads_, head_size, sequence_length, max_num_global, window_, use_fast_kernel);
   auto workspace_buffer = GetScratchBuffer<void>(workSpaceSize);
+  cudaMemset(workspace_buffer.get(), 0, workSpaceSize);
   if (!LaunchLongformerAttentionKernel(
           device_prop,
           cublas,

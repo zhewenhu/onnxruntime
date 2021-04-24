@@ -44,7 +44,8 @@ bool launchSoftmaxFastKernel(
     int num_heads,                // number of heads
     int head_size,                // hidden size per head
     int attention_window,         // one sided windows size
-    size_t element_size);
+    size_t element_size,
+    std::string diff_prefix);
 
 }  // namespace cuda
 }  // namespace contrib

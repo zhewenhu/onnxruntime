@@ -49,6 +49,52 @@ namespace onnxruntime {
 namespace contrib {
 namespace cuda {
 
+#define STRINGIZE_DETAIL(x) #x
+#define STRINGIZE(x) STRINGIZE_DETAIL(x)
+  
+static void AddOrCheckIntermediateDeterministic(const char* prefix, const char* keystr, cudaStream_t stream, const void* vresult, size_t len, bool from_device) {
+  static std::map<std::string, std::vector<uint8_t>> records;
+  static std::map<std::string, size_t> compute_iters;
+
+  std::string key(prefix);
+  key += ".";
+  key += keystr;
+  compute_iters[key]++;
+  if (compute_iters[key] <= 1) return;
+
+  const uint8_t* result = (const uint8_t*)vresult;
+
+  std::vector<uint8_t> dumped;
+  uint8_t* pinned_mem = nullptr;
+  if (from_device) {
+    cudaMallocHost((void**)&pinned_mem, len);
+    cudaMemcpyAsync(pinned_mem, result, len, cudaMemcpyDeviceToHost, stream);
+    cudaStreamSynchronize(stream);
+    result = pinned_mem;
+  }
+  if (records.find(key) == records.end()) {
+    records.emplace(std::make_pair(key, std::vector<uint8_t>(result, result + len)));
+  } else {
+    std::vector<uint8_t>& prev_result = records[key];
+    if (len != prev_result.size()) {
+      std::cerr << "XXXXXXXX Diff size on " << key << std::endl;
+    } else {
+      const uint8_t* pd = prev_result.data();
+      int diff_count = 0;
+      for (size_t i = 0; i < len; ++i) {
+        if (result[i] != pd[i]) {
+          std::cerr << "XXXXXXXX Diff value @" << i << " on " << key << " on iteration:" << compute_iters[key] << std::endl;
+          diff_count++;
+          if (diff_count >= 10)  break;
+        }
+      }
+    }
+  }
+  if (pinned_mem != nullptr) {
+    cudaFreeHost(pinned_mem);
+  }
+}
+
 // Denote: batch size (B), sequence length (S), number of heads (N), dimension per head (H), max number of global tokens (G)
 //
 // Workspace layout (default data type T is float or half):
@@ -827,6 +873,8 @@ bool launchSoftmaxKernel(
   return true;
 }
 
+
+
 template <typename T>
 bool LongformerQkvToContext(
   const cudaDeviceProp& device_prop, cublasHandle_t& cublas, cudaStream_t stream,
@@ -852,6 +900,11 @@ bool LongformerQkvToContext(
     return false;
   }
 
+  if (diff_prefix.size()) {
+    size_t bytes = (3 * elements) * sizeof(T);
+    AddOrCheckIntermediateDeterministic(diff_prefix.c_str(), "transQkv_#" STRINGIZE(__LINE__), stream, qkv, bytes, true);
+  }
+
   // Input 'global_input' should be BxSx3xNxH => global_qkv: 3xBxNxSxH
   T* global_qkv = qkv + 3 * elements;
 
@@ -859,6 +912,10 @@ bool LongformerQkvToContext(
   if (max_num_global > 0 && nullptr != global_input) {
     if (!LaunchTransQkv(stream, sequence_length, batch_size, head_size, num_heads, max_threads_per_block, global_input, global_qkv)) {
       return false;
+    }
+    if (diff_prefix.size()) {
+      size_t bytes = (3 * elements) * sizeof(T);
+      AddOrCheckIntermediateDeterministic(diff_prefix.c_str(), "transGlobal_Qkv_#"  STRINGIZE(__LINE__), stream, global_qkv, bytes, true);
     }
   }
 
@@ -899,8 +956,13 @@ bool LongformerQkvToContext(
             num_heads,         // number of heads
             head_size,         // hidden size per head
             window,            // Half (one-sided) window size
-            element_size)) {
+            element_size,
+            diff_prefix)) {
       return false;
+    }
+    if (diff_prefix.size()) {
+      size_t bytes = elements * sizeof(T);
+      AddOrCheckIntermediateDeterministic(diff_prefix.c_str(), "fastSoftmax_#"  STRINGIZE(__LINE__), stream, temp_output, bytes, true);
     }
   } else {
     assert(max_num_global <= window);
@@ -929,11 +991,23 @@ bool LongformerQkvToContext(
             element_size)) {
       return false;
     }
+    if (diff_prefix.size()) {
+      size_t bytes = elements * sizeof(T);
+      AddOrCheckIntermediateDeterministic(diff_prefix.c_str(), "Softmax_#"  STRINGIZE(__LINE__), stream, temp_output, bytes, true);
+    }
   }
 
 
   // The temp_output is BxNxSxH, transpose it to final output BxSxNxH
-  return LaunchTransCtx(stream, sequence_length, batch_size, head_size, num_heads, max_threads_per_block, temp_output, output);
+  if (!LaunchTransCtx(stream, sequence_length, batch_size, head_size, num_heads, max_threads_per_block, temp_output, output)) {
+    return false;
+  }
+
+  if (diff_prefix.size()) {
+    size_t bytes = elements * sizeof(T);
+    AddOrCheckIntermediateDeterministic(diff_prefix.c_str(), "output_#"  STRINGIZE(__LINE__), stream, output, bytes, true);
+  }
+  return true;
 }
 
 bool LaunchLongformerAttentionKernel(
@@ -956,7 +1030,8 @@ bool LaunchLongformerAttentionKernel(
     int window,
     int max_num_global,
     const size_t element_size,
-    bool use_fast_kernel) {
+    bool use_fast_kernel,
+    std::string diff_prefix) {
   const auto* half_options = HalfGemmOptions::GetInstance();
   CublasMathModeSetter helper(device_prop, cublas, half_options->GetMathMode());
   size_t softmax_workspace_size = GetLongformerSoftmaxWorkspaceSize(element_size, batch_size, num_heads, sequence_length, window, use_fast_kernel);

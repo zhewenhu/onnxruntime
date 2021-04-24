@@ -42,6 +42,52 @@ namespace onnxruntime {
 namespace contrib {
 namespace cuda {
 
+#define STRINGIZE_DETAIL(x) #x
+#define STRINGIZE(x) STRINGIZE_DETAIL(x)
+  
+static void AddOrCheckIntermediateDeterministic(const char* prefix, const char* keystr, cudaStream_t stream, const void* vresult, size_t len, bool from_device) {
+  static std::map<std::string, std::vector<uint8_t>> records;
+  static std::map<std::string, size_t> compute_iters;
+
+  std::string key(prefix);
+  key += ".";
+  key += keystr;
+  compute_iters[key]++;
+  if (compute_iters[key] <= 1) return;
+
+  const uint8_t* result = (const uint8_t*)vresult;
+
+  std::vector<uint8_t> dumped;
+  uint8_t* pinned_mem = nullptr;
+  if (from_device) {
+    cudaMallocHost((void**)&pinned_mem, len);
+    cudaMemcpyAsync(pinned_mem, result, len, cudaMemcpyDeviceToHost, stream);
+    cudaStreamSynchronize(stream);
+    result = pinned_mem;
+  }
+  if (records.find(key) == records.end()) {
+    records.emplace(std::make_pair(key, std::vector<uint8_t>(result, result + len)));
+  } else {
+    std::vector<uint8_t>& prev_result = records[key];
+    if (len != prev_result.size()) {
+      std::cerr << "XXXXXXXX Diff size on " << key << std::endl;
+    } else {
+      const uint8_t* pd = prev_result.data();
+      int diff_count = 0;
+      for (size_t i = 0; i < len; ++i) {
+        if (result[i] != pd[i]) {
+          std::cerr << "XXXXXXXX Diff value @" << i << " on " << key << " on iteration:" << compute_iters[key] << std::endl;
+          diff_count++;
+          if (diff_count >= 10)  break;
+        }
+      }
+    }
+  }
+  if (pinned_mem != nullptr) {
+    cudaFreeHost(pinned_mem);
+  }
+}
+  
 template <typename T, int blockSize>
 __launch_bounds__(blockSize)
     __global__ void LongformerSoftmaxFastKernel(const int* global_attention,
@@ -94,7 +140,6 @@ __launch_bounds__(blockSize)
 
   // calculate max input
   float max_input = -CUDART_INF_F;
-  // #pragma unroll 16
   for (int i = tid + col_start; i < col_end; i += blockSize) {
     float x = input_block[i];
     x = x * scaler + (float)mask_block[i];
@@ -116,7 +161,6 @@ __launch_bounds__(blockSize)
     }
   }
 
-  __syncthreads();
   float max_block = BlockReduce(block_reduce_temp).Reduce(max_input, cub::Max());
   if (tid == 0) {
     max_shared = max_block;
@@ -124,10 +168,9 @@ __launch_bounds__(blockSize)
   __syncthreads();
 
   float sum_input = 0.f;
-  // #pragma unroll 16
   for (int i = tid + col_start; i < col_end; i += blockSize) {
     float x = input_block[i];
-    x = expf((x)*scaler + (float)mask_block[i] - max_shared);
+    x = expf(x * scaler + (float)mask_block[i] - max_shared);
     sum_input += x;
   }
 
@@ -136,17 +179,16 @@ __launch_bounds__(blockSize)
       int i = global_index[g];
       if (i < col_start || i > col_end) {
         float x = input_block[i];
-        x = expf((x)*scaler + (float)mask_block[i] - max_shared);
+        x = expf(x * scaler + (float)mask_block[i] - max_shared);
         sum_input += x;
       }
     }
   }
 
-  __syncthreads();
   float sum_block = blockReduceSum<blockSize>(sum_input);
   //  BlockReduce(block_reduce_temp).Reduce(sum_input, cub::Sum());
   if (tid == 0) {
-    sum_shared = sum_block * 2;
+    sum_shared = sum_block;
   }
   __syncthreads();
   float recip_sum = 1.f / sum_shared;
@@ -175,15 +217,14 @@ __launch_bounds__(blockSize)
     for (int g = tid; g < global_num; g += blockSize) {
       int i = global_index[g];
       float x = input_block[i];
-      x = expf((x)*scaler + (float)mask_block[i] - max_shared);
+      x = expf(x * scaler + (float)mask_block[i] - max_shared);
       output_block[i] = (T)(recip_sum * x);
     }
   }
 
-  // #pragma unroll 16
   for (int i = tid + col_start; i < col_end; i += blockSize) {
     float x = input_block[i];
-    x = expf((x)*scaler + (float)mask_block[i] - max_shared);
+    x = expf(x * scaler + (float)mask_block[i] - max_shared);
     output_block[i] = (T)(recip_sum * x);
   }
 }
@@ -211,7 +252,8 @@ bool launchSoftmaxFastKernel(
     int num_heads,                // number of heads
     int head_size,                // hidden size per head
     int attention_window,         // one sided windows size
-    size_t element_size) {        // size of element: 2 for half, and 4 for float
+    size_t element_size,          // size of element: 2 for half, and 4 for float
+    std::string diff_prefix) {
 
   bool is_fp16 = (element_size == 2);
   void* scratch1 = reinterpret_cast<char*>(workspace);
@@ -387,6 +429,11 @@ bool launchSoftmaxFastKernel(
                                      algo));
   }
 
+  if (diff_prefix.size()) {
+    size_t bytes = GetAttentionScratchSize(element_size, batch_size, num_heads, sequence_length, sequence_length);
+    AddOrCheckIntermediateDeterministic(diff_prefix.c_str(), "scratch1_#" STRINGIZE(__LINE__), stream, scratch1, bytes, true);
+  }
+
   const int* batch_global_count = reinterpret_cast<const int*>(pinned_buffer);
   // Global attention part
   for (int i = 0; i < batch_size; ++i) {
@@ -451,6 +498,11 @@ bool launchSoftmaxFastKernel(
     }
   }
 
+  if (diff_prefix.size()) {
+    size_t bytes = GetAttentionScratchSize(element_size, batch_size, num_heads, sequence_length, sequence_length);;
+    AddOrCheckIntermediateDeterministic(diff_prefix.c_str(), "scratch1_#" STRINGIZE(__LINE__), stream, scratch1, bytes, true);
+  }
+
   int dim0 = sequence_length * num_heads;
   int dim1 = sequence_length;
   void* softmax_out = scratch2;
@@ -473,6 +525,11 @@ bool launchSoftmaxFastKernel(
         static_cast<const float*>(scratch1),
         static_cast<const float*>(attention_mask),
         static_cast<float*>(softmax_out), scaler, dim0, dim1, attention_window);
+  }
+
+  if (diff_prefix.size()) {
+    size_t bytes = element_size * dim0 * dim1;
+    AddOrCheckIntermediateDeterministic(diff_prefix.c_str(), "softmax_out_#" STRINGIZE(__LINE__), stream, softmax_out, bytes, true);
   }
 
   // Run the matrix multiply: output = softmax_out * v
