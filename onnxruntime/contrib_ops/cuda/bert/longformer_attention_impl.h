@@ -41,7 +41,8 @@ bool LaunchLongformerAttentionKernel(
     int window,                         // One sided attention window (W)
     int max_num_global,                 // Maximum number of global tokens (G)
     const size_t element_size,          // Element size of input tensor,
-    bool use_fast_kernel                // Use compact memory
+    bool use_fast_kernel,               // Use compact memory
+    std::string diff_prefix
 );
 
 }  // namespace cuda

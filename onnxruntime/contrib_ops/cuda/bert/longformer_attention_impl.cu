@@ -838,7 +838,8 @@ bool LongformerQkvToContext(
     void* pinned_buffer, T* workspace,
     T* output,
     size_t softmax_workspace_size,
-    bool use_fast_kernel) {
+    bool use_fast_kernel,
+    std::string diff_prefix) {
   T* qkv = reinterpret_cast<T*>((char*)workspace + softmax_workspace_size);
 
   // Number of elements in Q, K, V, Global_Q, Global_K or Global_V are same: BxNxSxH
@@ -955,7 +956,8 @@ bool LaunchLongformerAttentionKernel(
     int window,
     int max_num_global,
     const size_t element_size,
-    bool use_fast_kernel) {
+    bool use_fast_kernel,
+    std::string diff_prefix) {
   CublasMathModeSetter helper(device_prop, cublas, CUBLAS_TENSOR_OP_MATH);
   size_t softmax_workspace_size = GetLongformerSoftmaxWorkspaceSize(element_size, batch_size, num_heads, sequence_length, window, use_fast_kernel);
   if (element_size == 2) {
@@ -972,7 +974,8 @@ bool LaunchLongformerAttentionKernel(
                                   reinterpret_cast<half*>(workspace),
                                   reinterpret_cast<half*>(output),
                                   softmax_workspace_size,
-                                  use_fast_kernel);
+                                  use_fast_kernel,
+                                  diff_prefix);
   } else {
     return LongformerQkvToContext(device_prop, cublas, stream,
                                   batch_size, sequence_length, num_heads, head_size, window, element_size,
@@ -987,7 +990,8 @@ bool LaunchLongformerAttentionKernel(
                                   reinterpret_cast<float*>(workspace),
                                   reinterpret_cast<float*>(output),
                                   softmax_workspace_size,
-                                  use_fast_kernel);
+                                  use_fast_kernel,
+                                  diff_prefix);
   }
 }
 

@@ -239,6 +239,11 @@ Status LongformerAttention<T>::ComputeInternal(OpKernelContext* context) const {
     }
   }
 
+  std::string diff_prefix;
+  if (context->GetNodeName() == std::string("LongformerAttention_47")) {
+    diff_prefix= std::string("Node_47");
+  }
+
   size_t workSpaceSize = GetLongformerAttentionWorkspaceSize(element_size, batch_size, num_heads_, head_size, sequence_length, max_num_global, window_, use_fast_kernel);
   auto workspace_buffer = GetScratchBuffer<void>(workSpaceSize);
   if (!LaunchLongformerAttentionKernel(
@@ -261,7 +266,8 @@ Status LongformerAttention<T>::ComputeInternal(OpKernelContext* context) const {
           window_,
           max_num_global,
           element_size,
-          use_fast_kernel)) {
+          use_fast_kernel,
+          diff_prefix)) {
     // Get last error to reset it to cudaSuccess.
     CUDA_CALL(cudaGetLastError());
     return Status(common::ONNXRUNTIME, common::FAIL);
