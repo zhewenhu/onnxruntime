@@ -45,6 +45,7 @@ class AutoDestoryCudaEvent {
   cudaEvent_t& Get() {
     return cuda_event_;
   }
+
  private:
   cudaEvent_t cuda_event_;
 };
@@ -52,6 +53,46 @@ class AutoDestoryCudaEvent {
 template <typename T>
 LongformerAttention<T>::LongformerAttention(const OpKernelInfo& info) : CudaKernel(info), LongformerAttentionBase(info) {
   use_compact_memory_ = ParseEnvironmentVariableWithDefault<bool>(longformer::kUseCompactMemory, false);
+}
+
+
+static std::map<std::string, std::vector<uint8_t>> records;
+static std::map<std::string, size_t> compute_iters;
+
+void AddOrCheckIntermediateDeterministic(const char* keystr, cudaStream_t stream, const uint8_t* result, size_t len, bool from_device) {
+  std::string key(keystr);
+  compute_iters[key]++;
+  if (compute_iters[key] <= 1) return;
+
+  std::vector<uint8_t> dumped;
+  uint8_t* pinned_mem = nullptr;
+  if (from_device) {
+    cudaMallocHost((void**)&pinned_mem, len);
+    cudaMemcpyAsync(pinned_mem, result, len, cudaMemcpyDeviceToHost, stream);
+    cudaStreamSynchronize(stream);
+    result = pinned_mem;
+  }
+  if (records.find(key) == records.end()) {
+    records.emplace(std::make_pair(key, std::vector<uint8_t>(result, result + len)));
+  } else {
+    std::vector<uint8_t>& prev_result = records[key];
+    if (len != prev_result.size()) {
+      std::cerr << "XXXXXXXX Diff size on " << key << std::endl;
+    } else {
+      const uint8_t* pd = prev_result.data();
+      int diff_count = 0;
+      for (size_t i = 0; i < len; ++i) {
+        if (result[i] != pd[i]) {
+          std::cerr << "XXXXXXXX Diff value @" << i << " on " << key << " on iteration:" << compute_iters[key] << std::endl;
+          diff_count++;
+          if (diff_count >= 10)  break;
+        }
+      }
+    }
+  }
+  if (pinned_mem != nullptr) {
+    cudaFreeHost(pinned_mem);
+  }
 }
 
 template <typename T>
@@ -134,6 +175,10 @@ Status LongformerAttention<T>::ComputeInternal(OpKernelContext* context) const {
       GetConstOnes<CudaT>(m), 1,
       &zero, reinterpret_cast<CudaT*>(gemm_buffer.get()), n, device_prop));
 
+  if (context->GetNodeName() == std::string("LongformerAttention_47")) {
+    AddOrCheckIntermediateDeterministic("Node_47_gemm_buffer_line_177", stream, (const uint8_t*)gemm_buffer.get(), (n * m) * sizeof(CudaT), true);
+  }
+
   // Gemm, note that CUDA assumes col-major, so result(N, M) = 1 * weights x input + 1 x B.
   CUBLAS_RETURN_IF_ERROR(cublasGemmHelper(
       cublas, CUBLAS_OP_N, CUBLAS_OP_N, n, m, k, &one,
@@ -141,8 +186,17 @@ Status LongformerAttention<T>::ComputeInternal(OpKernelContext* context) const {
       reinterpret_cast<const CudaT*>(input->template Data<T>()), k,
       &one, reinterpret_cast<CudaT*>(gemm_buffer.get()), n, device_prop));
 
+  if (context->GetNodeName() == std::string("LongformerAttention_47")) {
+    AddOrCheckIntermediateDeterministic("Node_47_gemm_buffer_line_88", stream, (const uint8_t*)gemm_buffer.get(), (n * m) * sizeof(CudaT), true);
+  }
+
+
   // Wait for async copy of batch_global_num
   CUDA_RETURN_IF_ERROR(cudaEventSynchronize(isCopyDone));
+
+  if (context->GetNodeName() == std::string("LongformerAttention_47")) {
+    AddOrCheckIntermediateDeterministic("Node_47_batch_global_num_pinned", stream, (const uint8_t*)batch_global_num_pinned, batch_size * sizeof(int), false);
+  }
 
   // Find the maximum number of global tokens in all batches
   int max_num_global = 0;
@@ -170,11 +224,19 @@ Status LongformerAttention<T>::ComputeInternal(OpKernelContext* context) const {
         GetConstOnes<CudaT>(m), 1,
         &zero, reinterpret_cast<CudaT*>(global_gemm_buffer.get()), n, device_prop));
 
+    if (context->GetNodeName() == std::string("LongformerAttention_47")) {
+      AddOrCheckIntermediateDeterministic("Node_47_global_gemm_buffer_#226", stream, (const uint8_t*)global_gemm_buffer.get(), n * m * sizeof(CudaT), true);
+    }
+
     CUBLAS_RETURN_IF_ERROR(cublasGemmHelper(
         cublas, CUBLAS_OP_N, CUBLAS_OP_N, n, m, k, &one,
         reinterpret_cast<const CudaT*>(global_weights->template Data<T>()), n,
         reinterpret_cast<const CudaT*>(input->template Data<T>()), k,
         &one, reinterpret_cast<CudaT*>(global_gemm_buffer.get()), n, device_prop));
+
+    if (context->GetNodeName() == std::string("LongformerAttention_47")) {
+      AddOrCheckIntermediateDeterministic("Node_47_global_gemm_buffer_#236", stream, (const uint8_t*)global_gemm_buffer.get(), n * m * sizeof(CudaT), true);
+    }
   }
 
   size_t workSpaceSize = GetLongformerAttentionWorkspaceSize(element_size, batch_size, num_heads_, head_size, sequence_length, max_num_global, window_, use_fast_kernel);
@@ -206,6 +268,10 @@ Status LongformerAttention<T>::ComputeInternal(OpKernelContext* context) const {
   }
 
   CUDA_RETURN_IF_ERROR(cudaStreamSynchronize(stream));
+  if (context->GetNodeName() == std::string("LongformerAttention_47")) {
+    AddOrCheckIntermediateDeterministic("Node_47_output", stream, (const uint8_t*)output->template MutableData<T>(), output->Shape().Size() * sizeof(CudaT), true);
+  }
+
   this->AddDeferredReleaseCPUPtr(pinned_buffer.release());
   return Status::OK();
 }
