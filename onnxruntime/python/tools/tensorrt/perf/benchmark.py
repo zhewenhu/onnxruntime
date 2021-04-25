@@ -876,8 +876,9 @@ def run_onnxruntime(args, models):
     model_to_fail_ep = {} # model -> failing ep
 
     ep_list = []
-    if args.ep_list:
-        ep_list = args.ep_list
+    if args.ep:
+        ep_list.append(args.ep)
+        print("IN THIS")
     else:
         if args.fp16:
             ep_list = [cpu, cuda, trt, cuda_fp16, trt_fp16]
@@ -1559,7 +1560,7 @@ def parse_arguments():
 
     parser.add_argument("--ep", required=False, default=None, help="Specify ORT Execution Provider.")
     
-    parser.add_argument("--ep_list", required=False, default=None, help="Specify ORT Execution Providers list.")
+    parser.add_argument("--ep_list", nargs="+", required=False, default=None, help="Specify ORT Execution Providers list.")
 
     parser.add_argument("--fp16", required=False, default=True, action="store_true", help="Inlcude Float16 into benchmarking.")
 

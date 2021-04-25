@@ -1,13 +1,14 @@
 #!/bin/bash
 
 # Parse Arguments
-while getopts d:o:m:p: parameter
+while getopts d:o:m:p:e: parameter
 do case "${parameter}"
 in 
 d) DOCKER_IMAGE=${OPTARG};;
 o) OPTION=${OPTARG};;
 m) MODEL_PATH=${OPTARG};;
 p) PERF_DIR=${OPTARG};;
+e) EP_LIST=${OPTARG};;
 esac
 done 
 
@@ -44,4 +45,4 @@ then
   VOLUME=$VOLUME$ONNX_ZOO_VOLUME$MANY_MODELS_VOLUME$PARTNER_VOLUME' -v /home/hcsuser/perf/subset_jsons/:/usr/share/perf/subset_jsons'
 fi
 
-sudo docker run --gpus all -v $VOLUME $DOCKER_IMAGE /bin/bash $PERF_SCRIPT -d $DOCKER_PERF_DIR -o $OPTION -m $MODEL_PATH -w $WORKSPACE
+sudo docker run --gpus all -v $VOLUME $DOCKER_IMAGE /bin/bash $PERF_SCRIPT -d $DOCKER_PERF_DIR -o $OPTION -m $MODEL_PATH -w $WORKSPACE -e "$EP_LIST"
