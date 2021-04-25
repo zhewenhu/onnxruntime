@@ -1,11 +1,13 @@
 #!/bin/bash
 
-while getopts d:o:m: parameter
+while getopts d:o:m:w: parameter
 do case "${parameter}"
 in 
 d) PERF_DIR=${OPTARG};;
 o) OPTION=${OPTARG};;
 m) MODEL_PATH=${OPTARG};;
+w) WORKSPACE=${OPTARG};;
+e) EP_LIST=${OPTARG};;
 esac
 done 
 
@@ -43,5 +45,5 @@ setup() {
 }
 
 setup
-python3 benchmark_wrapper.py -r validate -m $MODEL_PATH -o result/$OPTION
-python3 benchmark_wrapper.py -r benchmark -t 10 -m $MODEL_PATH -o result/$OPTION
+python3 benchmark_wrapper.py -r validate -m $MODEL_PATH -o result/$OPTION -w $WORKSPACE
+python3 benchmark_wrapper.py -r benchmark -t 10 -m $MODEL_PATH -o result/$OPTION -w $WORKSPACE

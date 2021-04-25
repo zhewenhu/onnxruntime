@@ -18,6 +18,7 @@ VOLUME=$PERF_DIR:$DOCKER_PERF_DIR
 ONNX_ZOO_VOLUME=' -v /home/hcsuser/perf/models:/usr/share/perf/models'
 MANY_MODELS_VOLUME=' -v /home/hcsuser/mount/many-models:/usr/share/mount/many-models'
 PARTNER_VOLUME=' -v /home/hcsuser/perf/partner:/usr/share/perf/partner'
+WORKSPACE="/"
 
 # Add Remaining Variables
 if [ $OPTION == "onnx-zoo-models" ]
@@ -43,4 +44,4 @@ then
   VOLUME=$VOLUME$ONNX_ZOO_VOLUME$MANY_MODELS_VOLUME$PARTNER_VOLUME' -v /home/hcsuser/perf/subset_jsons/:/usr/share/perf/subset_jsons'
 fi
 
-sudo docker run --gpus all -v $VOLUME $DOCKER_IMAGE /bin/bash $PERF_SCRIPT -d $DOCKER_PERF_DIR -o $OPTION -m $MODEL_PATH
+sudo docker run --gpus all -v $VOLUME $DOCKER_IMAGE /bin/bash $PERF_SCRIPT -d $DOCKER_PERF_DIR -o $OPTION -m $MODEL_PATH -w $WORKSPACE
