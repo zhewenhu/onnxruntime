@@ -99,6 +99,8 @@ void AddOrCheckIntermediateDeterministic(const char* keystr, cudaStream_t stream
 
 template <typename T>
 Status LongformerAttention<T>::ComputeInternal(OpKernelContext* context) const {
+  cudaDeviceSynchronize();
+  
   const Tensor* input = context->Input<Tensor>(0);
   const Tensor* weights = context->Input<Tensor>(1);
   const Tensor* bias = context->Input<Tensor>(2);
@@ -177,9 +179,9 @@ Status LongformerAttention<T>::ComputeInternal(OpKernelContext* context) const {
       GetConstOnes<CudaT>(m), 1,
       &zero, reinterpret_cast<CudaT*>(gemm_buffer.get()), n, device_prop));
 
-  if (context->GetNodeName() == std::string("LongformerAttention_47")) {
-    AddOrCheckIntermediateDeterministic("Node_47_gemm_buffer_line_177", stream, (const uint8_t*)gemm_buffer.get(), (n * m) * sizeof(CudaT), true);
-  }
+  // if (context->GetNodeName() == std::string("LongformerAttention_47")) {
+  //   AddOrCheckIntermediateDeterministic("Node_47_gemm_buffer_line_177", stream, (const uint8_t*)gemm_buffer.get(), (n * m) * sizeof(CudaT), true);
+  // }
 
   // Gemm, note that CUDA assumes col-major, so result(N, M) = 1 * weights x input + 1 x B.
   CUBLAS_RETURN_IF_ERROR(cublasGemmHelper(
@@ -188,17 +190,17 @@ Status LongformerAttention<T>::ComputeInternal(OpKernelContext* context) const {
       reinterpret_cast<const CudaT*>(input->template Data<T>()), k,
       &one, reinterpret_cast<CudaT*>(gemm_buffer.get()), n, device_prop));
 
-  if (context->GetNodeName() == std::string("LongformerAttention_47")) {
-    AddOrCheckIntermediateDeterministic("Node_47_gemm_buffer_line_88", stream, (const uint8_t*)gemm_buffer.get(), (n * m) * sizeof(CudaT), true);
-  }
+  // if (context->GetNodeName() == std::string("LongformerAttention_47")) {
+  //   AddOrCheckIntermediateDeterministic("Node_47_gemm_buffer_line_88", stream, (const uint8_t*)gemm_buffer.get(), (n * m) * sizeof(CudaT), true);
+  // }
 
 
   // Wait for async copy of batch_global_num
   CUDA_RETURN_IF_ERROR(cudaEventSynchronize(isCopyDone));
 
-  if (context->GetNodeName() == std::string("LongformerAttention_47")) {
-    AddOrCheckIntermediateDeterministic("Node_47_batch_global_num_pinned", stream, (const uint8_t*)batch_global_num_pinned, batch_size * sizeof(int), false);
-  }
+  // if (context->GetNodeName() == std::string("LongformerAttention_47")) {
+  //   AddOrCheckIntermediateDeterministic("Node_47_batch_global_num_pinned", stream, (const uint8_t*)batch_global_num_pinned, batch_size * sizeof(int), false);
+  // }
 
   // Find the maximum number of global tokens in all batches
   int max_num_global = 0;
@@ -226,9 +228,9 @@ Status LongformerAttention<T>::ComputeInternal(OpKernelContext* context) const {
         GetConstOnes<CudaT>(m), 1,
         &zero, reinterpret_cast<CudaT*>(global_gemm_buffer.get()), n, device_prop));
 
-    if (context->GetNodeName() == std::string("LongformerAttention_47")) {
-      AddOrCheckIntermediateDeterministic("Node_47_global_gemm_buffer_#226", stream, (const uint8_t*)global_gemm_buffer.get(), n * m * sizeof(CudaT), true);
-    }
+    // if (context->GetNodeName() == std::string("LongformerAttention_47")) {
+    //   AddOrCheckIntermediateDeterministic("Node_47_global_gemm_buffer_#226", stream, (const uint8_t*)global_gemm_buffer.get(), n * m * sizeof(CudaT), true);
+    // }
 
     CUBLAS_RETURN_IF_ERROR(cublasGemmHelper(
         cublas, CUBLAS_OP_N, CUBLAS_OP_N, n, m, k, &one,
@@ -236,9 +238,9 @@ Status LongformerAttention<T>::ComputeInternal(OpKernelContext* context) const {
         reinterpret_cast<const CudaT*>(input->template Data<T>()), k,
         &one, reinterpret_cast<CudaT*>(global_gemm_buffer.get()), n, device_prop));
 
-    if (context->GetNodeName() == std::string("LongformerAttention_47")) {
-      AddOrCheckIntermediateDeterministic("Node_47_global_gemm_buffer_#236", stream, (const uint8_t*)global_gemm_buffer.get(), n * m * sizeof(CudaT), true);
-    }
+    // if (context->GetNodeName() == std::string("LongformerAttention_47")) {
+    //   AddOrCheckIntermediateDeterministic("Node_47_global_gemm_buffer_#236", stream, (const uint8_t*)global_gemm_buffer.get(), n * m * sizeof(CudaT), true);
+    // }
   }
 
   std::string diff_prefix;

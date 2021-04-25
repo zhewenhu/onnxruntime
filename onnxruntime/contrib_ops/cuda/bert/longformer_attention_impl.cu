@@ -166,8 +166,8 @@ __launch_bounds__(blockSize)
                                             int sequence_length,
                                             int window,
                                             int num_heads) {
-  typedef cub::BlockReduce<float, blockSize, cub::BLOCK_REDUCE_RAKING> BlockReduce;
-  __shared__ typename BlockReduce::TempStorage block_reduce_temp;
+  // typedef cub::BlockReduce<float, blockSize, cub::BLOCK_REDUCE_RAKING> BlockReduce;
+  // __shared__ typename BlockReduce::TempStorage block_reduce_temp;
   __shared__ float max_shared;
   __shared__ float sum_shared;
 
@@ -315,7 +315,8 @@ __launch_bounds__(blockSize)
       }
     }
 
-    float max_block = BlockReduce(block_reduce_temp).Reduce(max_input, cub::Max());
+    float max_block = blockReduceMax(max_input, blockSize);
+    // float max_block = BlockReduce(block_reduce_temp).Reduce(max_input, cub::Max());
     if (tid == 0) {
       max_shared = max_block;
     }
@@ -335,7 +336,7 @@ __launch_bounds__(blockSize)
       }
     }
 
-    float sum_block = blockReduceSum<blockSize>(sum_input);
+    float sum_block = blockReduceSum(sum_input, blockSize);
     // float sum_block = BlockReduce(block_reduce_temp).Reduce(sum_input, cub::Sum());
     if (tid == 0) {
       sum_shared = sum_block * 2;
@@ -378,7 +379,8 @@ __launch_bounds__(blockSize)
         max_input = x;
     }
 
-    float max_block = BlockReduce(block_reduce_temp).Reduce(max_input, cub::Max());
+    float max_block = blockReduceMax(max_input, blockSize);
+    // float max_block = BlockReduce(block_reduce_temp).Reduce(max_input, cub::Max());
     if (tid == 0) {
       max_shared = max_block;
     }
@@ -390,7 +392,7 @@ __launch_bounds__(blockSize)
       sum_input += x;
     }
 
-    float sum_block = blockReduceSum<blockSize>(sum_input);
+    float sum_block = blockReduceSum(sum_input, blockSize);
     // float sum_block = BlockReduce(block_reduce_temp).Reduce(sum_input, cub::Sum());
     if (tid == 0) {
       sum_shared = sum_block * 2;
@@ -1003,10 +1005,10 @@ bool LongformerQkvToContext(
     return false;
   }
 
-  if (diff_prefix.size()) {
-    size_t bytes = elements * sizeof(T);
-    AddOrCheckIntermediateDeterministic(diff_prefix.c_str(), "output_#"  STRINGIZE(__LINE__), stream, output, bytes, true);
-  }
+  // if (diff_prefix.size()) {
+  //   size_t bytes = elements * sizeof(T);
+  //   AddOrCheckIntermediateDeterministic(diff_prefix.c_str(), "output_#"  STRINGIZE(__LINE__), stream, output, bytes, true);
+  // }
   return true;
 }
 

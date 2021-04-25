@@ -100,8 +100,8 @@ __launch_bounds__(blockSize)
                                                 int dim0,
                                                 int sequence_length,
                                                 int attention_window) {
-  typedef cub::BlockReduce<float, blockSize, cub::BLOCK_REDUCE_RAKING> BlockReduce;
-  __shared__ typename BlockReduce::TempStorage block_reduce_temp;
+  // typedef cub::BlockReduce<float, blockSize, cub::BLOCK_REDUCE_RAKING> BlockReduce;
+  // __shared__ typename BlockReduce::TempStorage block_reduce_temp;
   __shared__ float max_shared;
   __shared__ float sum_shared;
 
@@ -161,7 +161,8 @@ __launch_bounds__(blockSize)
     }
   }
 
-  float max_block = BlockReduce(block_reduce_temp).Reduce(max_input, cub::Max());
+  float max_block = blockReduceMax(max_input, blockSize);
+  // float max_block = BlockReduce(block_reduce_temp).Reduce(max_input, cub::Max());
   if (tid == 0) {
     max_shared = max_block;
   }
@@ -185,7 +186,7 @@ __launch_bounds__(blockSize)
     }
   }
 
-  float sum_block = blockReduceSum<blockSize>(sum_input);
+  float sum_block = blockReduceSum(sum_input, blockSize);
   //  BlockReduce(block_reduce_temp).Reduce(sum_input, cub::Sum());
   if (tid == 0) {
     sum_shared = sum_block;
@@ -517,6 +518,11 @@ bool launchSoftmaxFastKernel(
         static_cast<const __half*>(scratch1),
         static_cast<const __half*>(attention_mask),
         static_cast<__half*>(softmax_out), scaler, dim0, dim1, attention_window);
+
+    if (diff_prefix.size()) {
+      size_t bytes = element_size* dim0 * dim1;
+      AddOrCheckIntermediateDeterministic(diff_prefix.c_str(), "fastsoftmax_out_#" STRINGIZE(__LINE__), stream, softmax_out, bytes, true);
+    }
   } else {
     LongformerSoftmaxFastKernel<float, blockSize><<<gridSize, blockSize, 0, stream>>>(
         global_attention,
@@ -525,11 +531,11 @@ bool launchSoftmaxFastKernel(
         static_cast<const float*>(scratch1),
         static_cast<const float*>(attention_mask),
         static_cast<float*>(softmax_out), scaler, dim0, dim1, attention_window);
-  }
 
-  if (diff_prefix.size()) {
-    size_t bytes = element_size * dim0 * dim1;
-    AddOrCheckIntermediateDeterministic(diff_prefix.c_str(), "softmax_out_#" STRINGIZE(__LINE__), stream, softmax_out, bytes, true);
+    if (diff_prefix.size()) {
+      size_t bytes = element_size * dim0 * dim1;
+      AddOrCheckIntermediateDeterministic(diff_prefix.c_str(), "normalsoftmax_out_#" STRINGIZE(__LINE__), stream, softmax_out, bytes, true);
+    }
   }
 
   // Run the matrix multiply: output = softmax_out * v
