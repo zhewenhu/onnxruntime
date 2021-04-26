@@ -45,8 +45,6 @@ jobs:
 - job: Linux_CI_GPU_TENSORRT_PERF
   pool: Linux-GPU-TensorRT-Perf 
   variables:
-    - name: timeoutInMinutes
-      value: 3000 
     - name: runenv
       ${{ if eq(parameters.RunDocker, true) }}:
         value: _docker.sh -d ort-$(branch) 
@@ -54,6 +52,7 @@ jobs:
         value: _machine.sh
     - name: args
       value: $(runenv) -e "$(ep_list)" -p $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf
+  timeoutInMinutes: 3000 
       
   steps:
     - ${{ if eq(parameters.BuildORT, true) }}:
