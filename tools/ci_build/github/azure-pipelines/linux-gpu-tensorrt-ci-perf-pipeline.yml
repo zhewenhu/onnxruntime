@@ -45,8 +45,6 @@ jobs:
 - job: Linux_CI_GPU_TENSORRT_PERF
   pool: Linux-GPU-TensorRT-Perf 
   variables:
-    - name: timeoutInMinutes
-      value: 3000 
     - name: runenv
       ${{ if eq(parameters.RunDocker, true) }}:
         value: _docker.sh -d ort-$(branch) 
@@ -54,6 +52,7 @@ jobs:
         value: _machine.sh
     - name: args
       value: $(runenv) -e "$(ep_list)" -p $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf
+  timeoutInMinutes: 3000 
       
   steps:
     - ${{ if eq(parameters.BuildORT, true) }}:
@@ -62,7 +61,7 @@ jobs:
           displayName: 'Build latest ORT Images'
           workingDirectory: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/build'
       - ${{ if eq(parameters.RunDocker, false) }}:
-        - script: 'python3 $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/build/ort_build_latest.py -b $(branch) -c /usr/local/cuda -o ~/repos/onnxruntime/ -t ~/TensorRT-7.2.2.3'
+        - script: 'sudo python3 $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/build/ort_build_latest.py -b $(branch) -c /usr/local/cuda -o ~/repos/onnxruntime/ -t ~/TensorRT-7.2.2.3'
           displayName: 'Build latest ORT'
           workingDirectory: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/build'
       
