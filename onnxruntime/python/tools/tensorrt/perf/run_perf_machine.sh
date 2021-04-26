@@ -27,7 +27,7 @@ fi
 
 if [ $OPTION == "partner-models" ]
 then 
-    MODEL_PATH='/home/hcsuser/perf/partner/partner_model_list.json'
+    MODEL_PATH='partner/partner_model_list.json'
 fi
 
 ./perf.sh -d $PERF_DIR -o $OPTION -m $MODEL_PATH -w $WORKSPACE -e "$EP_LIST"
