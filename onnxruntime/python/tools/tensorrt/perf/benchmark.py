@@ -878,7 +878,6 @@ def run_onnxruntime(args, models):
     ep_list = []
     if args.ep:
         ep_list.append(args.ep)
-        print("IN THIS")
     else:
         if args.fp16:
             ep_list = [cpu, cuda, trt, cuda_fp16, trt_fp16]
