@@ -2,7 +2,7 @@
 parameters:
 
 - name: BuildORT
-  displayName: Build Latest ORT (specify image variable if false + choosing docker)
+  displayName: Build Latest ORT (specify branch variable if false + choosing docker)
   type: boolean
   default: true
 
@@ -49,10 +49,7 @@ jobs:
       value: 3000 
     - name: runenv
       ${{ if eq(parameters.RunDocker, true) }}:
-        ${{ if eq(parameters.BuildORT, true) }}:
-          value: _docker.sh -d ort-$(branch)
-        ${{ if eq(parameters.BuildORT, false) }}:
-          value: _docker.sh -d $(image)
+        value: _docker.sh -d ort-$(branch)
       ${{ if ne(parameters.RunDocker, true) }}:
         value: _perf.sh
       
