@@ -14,7 +14,7 @@ done
 
 # add ep list
 RUN_EPS=""
-if [ ! -z "$EP_LIST" ];
+if [ ! -z "$EP_LIST" ]
 then 
     RUN_EPS="--ep_list $EP_LIST"
 fi
@@ -47,7 +47,7 @@ download_files() {
 }
 
 run_environment_setup() {
-    if [ $ENVIRONMENT = "docker" ];
+    if [ $ENVIRONMENT == "docker" ]
     then 
         cd $PERF_DIR
 	WORKING_DIR=./

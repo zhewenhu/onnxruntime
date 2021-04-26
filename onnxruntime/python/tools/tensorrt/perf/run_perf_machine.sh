@@ -31,4 +31,4 @@ then
     MODEL_PATH='partner/partner_model_list.json'
 fi
 
-./perf.sh -d $HOME_PERF_DIR -o $OPTION -m $MODEL_PATH -w $WORKSPACE -e "$EP_LIST" -r $PERF_DIR/result
+./perf.sh -d $HOME_PERF_DIR -o $OPTION -m $MODEL_PATH -w $WORKSPACE -e "$EP_LIST" -v "machine"
