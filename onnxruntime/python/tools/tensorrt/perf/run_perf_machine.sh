@@ -1,17 +1,17 @@
 #!/bin/bash
 
 # Parse Arguments
-while getopts o:m:e: parameter
+while getopts o:m:p:e: parameter
 do case "${parameter}"
 in 
 o) OPTION=${OPTARG};;
 m) MODEL_PATH=${OPTARG};;
+p) PERF_DIR=${OPTARG};;
 e) EP_LIST=${OPTARG};;
 esac
 done 
 
 # Variables
-PERF_DIR=/home/hcsuser/perf/
 WORKSPACE=/home/hcsuser/
 
 # Select models to be tested or run selected-models 
@@ -27,7 +27,7 @@ fi
 
 if [ $OPTION == "partner-models" ]
 then 
-    MODEL_PATH='partner_model_list.json'
+    MODEL_PATH='/home/hcsuser/perf/partner/partner_model_list.json'
 fi
 
 ./perf.sh -d $PERF_DIR -o $OPTION -m $MODEL_PATH -w $WORKSPACE -e "$EP_LIST"
