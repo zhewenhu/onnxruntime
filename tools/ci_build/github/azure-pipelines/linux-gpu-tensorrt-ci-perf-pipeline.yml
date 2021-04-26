@@ -24,9 +24,9 @@ parameters:
 - name: PostToDashboard
   displayName: Post to Dashboard
   type: boolean
-  default: false
+  default: true
+  
 - name: RunDocker
-
   displayName: Run in Docker (CUDA 11.0)
   type: boolean
   default: false
