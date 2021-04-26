@@ -49,11 +49,11 @@ jobs:
       value: 3000 
     - name: runenv
       ${{ if eq(parameters.RunDocker, true) }}:
-        value: _docker.sh -d ort-$(branch) -p $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf
+        value: _docker.sh -d ort-$(branch) 
       ${{ if ne(parameters.RunDocker, true) }}:
         value: _machine.sh
     - name: args
-      value: $(runenv) -e "$(ep_list)"
+      value: $(runenv) -e "$(ep_list) -p $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf"
       
   steps:
     - ${{ if eq(parameters.BuildORT, true) }}:
