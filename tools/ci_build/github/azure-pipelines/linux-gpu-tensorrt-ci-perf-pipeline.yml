@@ -32,7 +32,12 @@ parameters:
   default: false
 
 - name: RunSelected
-  displayName: Selected Models (set ModelsPath variables)
+  displayName: Selected Models (set ModelsPath variable)
+  type: boolean
+  default: false
+
+- name: ConfigureEPs
+  displayName: Configure EPs (set ep_list variable - separate by spaces)
   type: boolean
   default: false
 
@@ -44,7 +49,10 @@ jobs:
       value: 3000 
     - name: runenv
       ${{ if eq(parameters.RunDocker, true) }}:
-        value: _docker.sh -d ort-$(branch)
+        ${{ if eq(parameters.BuildORT, true) }}:
+          value: _docker.sh -d ort-$(branch)
+        ${{ if eq(parameters.BuildORT, false) }}:
+          value: _docker.sh -d $(image)
       ${{ if ne(parameters.RunDocker, true) }}:
         value: _perf.sh
       
