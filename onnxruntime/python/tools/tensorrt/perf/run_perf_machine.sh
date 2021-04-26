@@ -1,18 +1,18 @@
 #!/bin/bash
 
 # Parse Arguments
-while getopts o:m:p:e: parameter
+while getopts o:m:e: parameter
 do case "${parameter}"
 in 
 o) OPTION=${OPTARG};;
 m) MODEL_PATH=${OPTARG};;
-p) PERF_DIR=${OPTARG};;
 e) EP_LIST=${OPTARG};;
 esac
 done 
 
 # Variables
 WORKSPACE=/home/hcsuser/
+PERF_DIR=/home/hcsuser/perf
 
 # Select models to be tested or run selected-models 
 if [ $OPTION == "onnx-zoo-models" ]

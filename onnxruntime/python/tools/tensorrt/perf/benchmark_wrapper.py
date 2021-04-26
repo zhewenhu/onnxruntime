@@ -91,7 +91,6 @@ def main():
                                 "--benchmark_latency_csv", benchmark_latency_csv,
                                 "--benchmark_success_csv", benchmark_success_csv]) 
            
-            print(command)
             p = subprocess.run(command)
             logger.info(p)
 
