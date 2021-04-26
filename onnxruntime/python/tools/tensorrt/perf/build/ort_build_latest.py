@@ -9,7 +9,7 @@ def parse_arguments():
     parser.add_argument("-o", "--ort_master_path", required=True, help="ORT master repo")
     parser.add_argument("-t", "--tensorrt_home", required=True, help="TensorRT home directory")
     parser.add_argument("-c", "--cuda_home", required=True, help="CUDA home directory")
-    parser.add_argument("-b", "--branch", required = False, help="Github branch to test perf off of")
+    parser.add_argument("-b", "--branch", required=False, default="master", help="Github branch to test perf off of")
     parser.add_argument("-s", "--save", required=False, help="Directory to archive wheel file")
     parser.add_argument("-a", "--use_archived", required=False, help="Archived wheel file")
     args = parser.parse_args()
@@ -50,10 +50,8 @@ def main():
         subprocess.run(["pip3", "install", "-I", ort_wheel_filei], check=True)
     
     else:
-        subprocess.run(["git", "pull", "origin", "master"], check=True)
-        if args.branch:
-            subprocess.run(["git", "checkout", args.branch], check=True)
-
+        subprocess.run(["git", "checkout", args.branch], check=True)
+        subprocess.run(["git", "pull"], check=True)
         subprocess.run(["./build.sh", "--config", "Release", "--use_tensorrt", "--tensorrt_home", args.tensorrt_home, "--cuda_home", args.cuda_home, "--cudnn", "/usr/lib/x86_64-linux-gnu", "--build_wheel", "--skip_tests", "--parallel"], check=True)
 
         ort_wheel_file = install_new_ort_wheel(ort_master_path)
