@@ -22,11 +22,13 @@ namespace Microsoft.ML.OnnxRuntime.FasterRcnnSample
             string outImageFilePath = args[2];
 
             // Read image
-            using Image<Rgb24> image = Image.Load<Rgb24>(imageFilePath);
+            using Image<Rgb24> image = Image.Load<Rgb24>(imageFilePath, out IImageFormat format);
 
             // Resize image
             float ratio = 800f / Math.Min(image.Width, image.Height);
+            using Stream imageStream = new MemoryStream();
             image.Mutate(x => x.Resize((int)(ratio * image.Width), (int)(ratio * image.Height)));
+            image.Save(imageStream, format);
 
             // Preprocess image
             var paddedHeight = (int)(Math.Ceiling(image.Height / 32f) * 32f);
@@ -99,7 +101,7 @@ namespace Microsoft.ML.OnnxRuntime.FasterRcnnSample
                     x.DrawText($"{p.Label}, {p.Confidence:0.00}", font, Color.White, new PointF(p.Box.Xmin, p.Box.Ymin));
                 });
             }
-            image.SaveAsJpeg(outputImage);
+            image.Save(outputImage, format);
         }
     }
 }

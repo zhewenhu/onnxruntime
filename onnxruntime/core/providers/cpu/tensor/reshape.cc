@@ -6,15 +6,6 @@ namespace onnxruntime {
 
 ONNX_CPU_OPERATOR_VERSIONED_KERNEL(
     Reshape,
-    1,
-    4,
-    KernelDefBuilder()
-        .Alias(0, 0)
-        .TypeConstraint("T", DataTypeImpl::AllTensorTypes()),
-    Reshape_1);
-
-ONNX_CPU_OPERATOR_VERSIONED_KERNEL(
-    Reshape,
     5,
     12,
     KernelDefBuilder()
@@ -23,9 +14,8 @@ ONNX_CPU_OPERATOR_VERSIONED_KERNEL(
         .TypeConstraint("shape", DataTypeImpl::GetTensorType<int64_t>()),
     Reshape);
 
-ONNX_CPU_OPERATOR_VERSIONED_KERNEL(
+ONNX_CPU_OPERATOR_KERNEL(
     Reshape,
-    13,
     13,
     KernelDefBuilder()
         .Alias(0, 0)
@@ -33,13 +23,13 @@ ONNX_CPU_OPERATOR_VERSIONED_KERNEL(
         .TypeConstraint("shape", DataTypeImpl::GetTensorType<int64_t>()),
     Reshape);
 
-ONNX_CPU_OPERATOR_KERNEL(
+ONNX_CPU_OPERATOR_VERSIONED_KERNEL(
     Reshape,
-    14,
+    1,
+    4,
     KernelDefBuilder()
         .Alias(0, 0)
-        .TypeConstraint("T", DataTypeImpl::AllTensorTypes())
-        .TypeConstraint("shape", DataTypeImpl::GetTensorType<int64_t>()),
-    Reshape);
+        .TypeConstraint("T", DataTypeImpl::AllTensorTypes()),
+    Reshape_1);
 
 }  // namespace onnxruntime

@@ -149,7 +149,8 @@ class TensorrtExecutionProvider : public IExecutionProvider {
   bool dump_subgraphs_ = false;
   bool engine_cache_enable_ = false;
   std::string cache_path_;
-  tensorrt_ptr::unique_pointer<nvinfer1::IRuntime> runtime_ = nullptr;
+  nvinfer1::IRuntime* runtime_ = nullptr;
+  nvinfer1::IOptimizationProfile* trt_profile_ = nullptr;
   OrtMutex tensorrt_mu_;
   int device_id_;
   AllocatorPtr allocator_;

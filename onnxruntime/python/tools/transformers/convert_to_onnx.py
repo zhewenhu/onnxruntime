@@ -25,9 +25,8 @@ import json
 from pathlib import Path
 from packaging import version
 from transformers import AutoConfig
-from gpt2_helper import DEFAULT_TOLERANCE, PRETRAINED_GPT2_MODELS
-from gpt2_beamsearch_helper import Gpt2HelperFactory, MODEL_CLASSES
-from gpt2_beamsearch_tester import Gpt2TesterFactory
+from gpt2_helper import Gpt2Helper, MODEL_CLASSES, DEFAULT_TOLERANCE, PRETRAINED_GPT2_MODELS
+from gpt2_tester import Gpt2Tester
 from quantize_helper import QuantizeHelper
 from benchmark_helper import create_onnxruntime_session, setup_logger, prepare_environment, Precision
 
@@ -100,9 +99,6 @@ def parse_arguments():
     parser.add_argument('-e', '--use_external_data_format', required=False, action='store_true')
     parser.set_defaults(use_external_data_format=False)
 
-    parser.add_argument('--batch_size', required=False, type=int, default=1, help='Batch size for GPT model with beam search')
-    parser.add_argument('--beam_size', required=False, type=int, default=4, help='Beam size for beam search')
-
     args = parser.parse_args()
 
     return args
@@ -138,14 +134,8 @@ def main():
         assert not args.output.endswith('.onnx'), "output shall be a directory for --use_external_data_format"
 
     model_class = MODEL_CLASSES[args.model_class][0]
-    model_type = "beam_search_step" if args.model_class == "GPT2LMHeadModel_BeamSearchStep" else "default"
-    gpt2helper = Gpt2HelperFactory.create_helper(model_type)
-    gpt2tester = Gpt2TesterFactory.create_tester(model_type)
     config = AutoConfig.from_pretrained(args.model_name_or_path, cache_dir=cache_dir)
-    if model_type == 'beam_search_step':
-        model = model_class.from_pretrained(args.model_name_or_path, config=config, batch_size=args.batch_size, beam_size=args.beam_size, cache_dir=cache_dir)
-    else:
-        model = model_class.from_pretrained(args.model_name_or_path, config=config, cache_dir=cache_dir)
+    model = model_class.from_pretrained(args.model_name_or_path, config=config, cache_dir=cache_dir)
 
     device = torch.device("cuda:0" if args.use_gpu else "cpu")
     model.eval().to(device)
@@ -153,7 +143,7 @@ def main():
     if (not args.use_external_data_format) and (config.n_layer > 24):
         logger.info(f"Try --use_external_data_format when model size > 2GB")
 
-    onnx_model_paths = gpt2helper.get_onnx_paths(output_dir,
+    onnx_model_paths = Gpt2Helper.get_onnx_paths(output_dir,
                                                  args.model_name_or_path,
                                                  args.model_class,
                                                  new_folder=args.use_external_data_format)
@@ -162,7 +152,7 @@ def main():
 
     logger.info(f"Exporting ONNX model to {raw_onnx_model}")
     use_padding = MODEL_CLASSES[args.model_class][2]
-    gpt2helper.export_onnx(model,
+    Gpt2Helper.export_onnx(model,
                            device,
                            raw_onnx_model,
                            args.verbose,
@@ -174,7 +164,7 @@ def main():
         output_path = onnx_model_paths[str(args.precision) if args.precision != Precision.INT8 else 'fp32']
 
         logger.info(f"Optimizing model to {output_path}")
-        gpt2helper.optimize_onnx(raw_onnx_model, output_path, args.precision == Precision.FLOAT16,
+        Gpt2Helper.optimize_onnx(raw_onnx_model, output_path, args.precision == Precision.FLOAT16,
                                  model.config.num_attention_heads, model.config.hidden_size,
                                  args.use_external_data_format)
     else:
@@ -196,7 +186,7 @@ def main():
 
     session = create_onnxruntime_session(output_path, args.use_gpu, enable_all_optimization=True, verbose=args.verbose)
     if session is not None:
-        gpt2helper.test_parity(session,
+        Gpt2Helper.test_parity(session,
                                model,
                                device,
                                args.precision == Precision.FLOAT16,
@@ -239,24 +229,9 @@ def main():
                 else:
                     inputs = {"input_ids": input_ids}
 
-                if model_type == "beam_search_step":
-                    beam_select_idx = torch.zeros([1, input_ids.shape[0]]).long()
-
-                    input_log_probs = torch.zeros([input_ids.shape[0], 1])
-                    input_unfinished_sents = torch.ones(
-                        [input_ids.shape[0], 1], dtype=torch.bool
-                    )
-                    inputs.update(
-                        {
-                            "beam_select_idx": beam_select_idx,
-                            "input_log_probs": input_log_probs,
-                            "input_unfinished_sents": input_unfinished_sents,
-                        }
-                    )
-
                 test_inputs.append(inputs)
 
-        gpt2tester.test_generation(session,
+        Gpt2Tester.test_generation(session,
                                    model,
                                    device,
                                    test_inputs,

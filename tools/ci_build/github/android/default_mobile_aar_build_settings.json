@@ -5,7 +5,8 @@
         "x86",
         "x86_64"
     ],
-    "android_min_sdk_version": 24,
+    "build_flavor": "Release",
+    "android_min_sdk_version": 21,
     "android_target_sdk_version": 28,
     "build_params": [
         "--android",

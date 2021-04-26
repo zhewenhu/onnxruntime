@@ -36,7 +36,6 @@ class Profiler;
 #define WINML_TLM_RUNTIME_PERF_VERSION 0
 #define WINML_TLM_NATIVE_API_INTRAOP_THREADS_VERSION 0
 #define WINML_TLM_NAMED_DIMENSION_OVERRIDE_VERSION 0
-#define WINML_TLM_EXPERIMENTAL_API_VERSION 0
 
 #define WinMLTraceLoggingWrite(hProvider, EventName, ...)                \
   TraceLoggingWrite(hProvider,                                           \
@@ -83,7 +82,6 @@ class WinMLTelemetryHelper {
     TraceLoggingUnregister(provider_);
   }
 
-  void LogApiUsage(const char* name);
   void LogWinMLShutDown();
   void LogWinMLSuspended();
   void LogRuntimeError(HRESULT hr, std::string message, PCSTR file, PCSTR function, int line);

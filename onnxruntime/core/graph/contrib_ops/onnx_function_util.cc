@@ -1,6 +1,5 @@
 #include "core/graph/contrib_ops/onnx_function_util.h"
 #include "core/util/math.h"
-#include "core/framework/float16.h"
 
 namespace ONNX_NAMESPACE {
 
@@ -16,9 +15,6 @@ TensorProto ToTensor(double value, TensorProto_DataType elem_type) {
       break;
     case TensorProto_DataType::TensorProto_DataType_FLOAT16:
       t.add_int32_data(onnxruntime::math::floatToHalf((float)value));
-      break;
-    case TensorProto_DataType::TensorProto_DataType_BFLOAT16:
-      t.add_int32_data(onnxruntime::BFloat16((float)value).val);
       break;
     default:
       assert(false);

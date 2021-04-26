@@ -12,8 +12,6 @@ LearningModelSessionOptionsExperimental::LearningModelSessionOptionsExperimental
 }
 
 wfc::IMapView<winrt::hstring, uint32_t> LearningModelSessionOptionsExperimental::GetNamedDimensionOverrides() {
-  telemetry_helper.LogApiUsage("LearningModelSessionOptionsExperimental::GetNamedDimensionOverrides");
-
   return overrides_;
 }
 

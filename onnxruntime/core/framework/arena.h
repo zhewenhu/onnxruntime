@@ -35,7 +35,6 @@ using ArenaPtr = std::shared_ptr<IArenaAllocator>;
 // Runtime statistics collected by an allocator.
 struct AllocatorStats {
   int64_t num_allocs;             // Number of allocations.
-  int64_t num_reserves;           // Number of reserves. (Number of calls to Reserve() in arena-based allocators)
   int64_t bytes_in_use;           // Number of bytes in use.
   int64_t total_allocated_bytes;  // The total number of allocated bytes by the allocator.
   int64_t max_bytes_in_use;       // The maximum bytes in use.
@@ -49,7 +48,6 @@ struct AllocatorStats {
 
   void Clear() {
     this->num_allocs = 0;
-    this->num_reserves = 0;
     this->bytes_in_use = 0;
     this->max_bytes_in_use = 0;
     this->max_alloc_size = 0;
@@ -64,7 +62,6 @@ struct AllocatorStats {
        << "TotalAllocated: " << this->total_allocated_bytes << "\n"
        << "MaxInUse:       " << this->max_bytes_in_use << "\n"
        << "NumAllocs:      " << this->num_allocs << "\n"
-       << "NumReserves:    " << this->num_reserves << "\n"
        << "MaxAllocSize:   " << this->max_alloc_size << "\n";
     return ss.str();
   }
