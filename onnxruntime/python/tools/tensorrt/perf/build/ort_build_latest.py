@@ -51,7 +51,7 @@ def main():
     
     else:
         subprocess.run(["git", "checkout", args.branch], check=True)
-        subprocess.run(["git", "pull"], check=True)
+        subprocess.run(["git", "pull", "origin", args.branch], check=True)
         subprocess.run(["./build.sh", "--config", "Release", "--use_tensorrt", "--tensorrt_home", args.tensorrt_home, "--cuda_home", args.cuda_home, "--cudnn", "/usr/lib/x86_64-linux-gnu", "--build_wheel", "--skip_tests", "--parallel"], check=True)
 
         ort_wheel_file = install_new_ort_wheel(ort_master_path)

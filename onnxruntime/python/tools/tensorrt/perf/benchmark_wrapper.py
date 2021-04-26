@@ -43,6 +43,7 @@ def main():
 
     models = {}
     parse_models_helper(args, models)
+    print(models)
 
     model_to_fail_ep = {}
 

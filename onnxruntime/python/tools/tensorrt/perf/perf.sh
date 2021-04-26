@@ -1,6 +1,6 @@
 #!/bin/bash
 
-while getopts d:o:m:w:e:r: parameter
+while getopts d:o:m:w:e:v: parameter
 do case "${parameter}"
 in
 d) PERF_DIR=${OPTARG};;
@@ -8,13 +8,13 @@ o) OPTION=${OPTARG};;
 m) MODEL_PATH=${OPTARG};;
 w) WORKSPACE=${OPTARG};;
 e) EP_LIST=${OPTARG};;
-r) RESULT_PATH=${OPTARG};;
+v) ENVIRONMENT=${OPTARG};;
 esac
 done 
 
 # add ep list
 RUN_EPS=""
-if [ ! -z "$EP_LIST" ]
+if [ ! -z "$EP_LIST" ];
 then 
     RUN_EPS="--ep_list $EP_LIST"
 fi
@@ -46,12 +46,23 @@ download_files() {
     wget --no-check-certificate -c $FLOAT_16_LINK 
 }
 
+run_environment_setup() {
+    if [ $ENVIRONMENT = "docker" ];
+    then 
+        cd $PERF_DIR
+	WORKING_DIR=./
+    else 
+        WORKING_DIR=/home/hcsuser/perf/
+    fi
+}
+
 setup() {
-    cd $PERF_DIR
+    run_environment_setup
     cleanup_files
     download_files
 }
 
+
 setup
-python3 benchmark_wrapper.py -r validate -m $MODEL_PATH -o $RESULT_PATH/$OPTION -w $WORKSPACE $RUN_EPS
-python3 benchmark_wrapper.py -r benchmark -t 10 -m $MODEL_PATH -o $RESULT_PATH/$OPTION -w $WORKSPACE $RUN_EPS
+python3 benchmark_wrapper.py -r validate -m $MODEL_PATH -o result/$OPTION -w $WORKSPACE $RUN_EPS -d $WORKING_DIR
+python3 benchmark_wrapper.py -r benchmark -t 10 -m $MODEL_PATH -o result/$OPTION -w $WORKSPACE $RUN_EPS -d $WORKING_DIR

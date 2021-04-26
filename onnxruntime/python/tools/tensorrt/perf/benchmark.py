@@ -800,7 +800,7 @@ def parse_models_info_from_file(root_dir, path, models):
                 if os.path.isabs(row['working_directory']):
                     model['working_directory'] = row['working_directory']
                 else:
-                    model['working_directory'] = os.path.join(root_working_directory + row['working_directory'])
+                    model['working_directory'] = os.path.join(root_working_directory, row['working_directory'])
             else:
                 logger.error('Model path must be provided in models_info.json')
                 raise
@@ -1543,7 +1543,7 @@ def parse_arguments():
     
     parser.add_argument("-c", "--comparison", required=False, default="cuda_trt", choices=["cuda_trt", "acl"], help="EPs to compare: CPU vs. CUDA vs. TRT or CPU vs. ACL")
 
-    parser.add_argument("-d", "--working_dir", required=False, default="./", help="Perf folder path")
+    parser.add_argument("-d", "--working_dir", required=False, default="./", help="Perf folder path with models")
     
     parser.add_argument("-m", "--model_source", required=False, default="model_list.json", help="Model source: (1) model list file (2) model directory.")
 
