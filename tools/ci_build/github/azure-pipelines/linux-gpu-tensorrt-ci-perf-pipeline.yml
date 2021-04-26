@@ -51,7 +51,7 @@ jobs:
       ${{ if eq(parameters.RunDocker, true) }}:
         value: _docker.sh -d ort-$(branch)
       ${{ if ne(parameters.RunDocker, true) }}:
-        value: _perf.sh
+        value: _machine.sh
     - name: args
       value: $(runenv) -p $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf -e "$(ep_list)"
       
