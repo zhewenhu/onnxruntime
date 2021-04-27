@@ -14,7 +14,7 @@ jobs:
     - script: |
         echo '##vso[task.setvariable variable=LD_LIBRARY_PATH]/home/hcsuser/TensorRT-7.2.2.3/lib'
       displayName: set environment variable for subsequent steps
-    - script: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/run_perf_docker.sh -d /home/hcsuser/perf -o "selected-models" -m /home/hcsuser/perf/vggs.json'
+    - script: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/run_perf_machine.sh -d /home/hcsuser/perf -o "selected-models" -m /home/hcsuser/perf/vggs.json'
       displayName: 'Onnx Zoo Models Perf'
       workingDirectory: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/'
     
