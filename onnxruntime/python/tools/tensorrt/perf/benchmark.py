@@ -104,9 +104,9 @@ def run_trt_standalone(trtexec, model_path, ort_inputs, all_inputs_shape, fp16):
     return result
 
 def get_trtexec_path(): 
-    trtexec_options = get_output(["find", "/", "-name", "trtexec"])
-    trtexec_path = re.search(r'.*/bin/trtexec', trtexec_options).group()
-    #trtexec_path = "/home/hcsuser/TensorRT-7.2.2.3/targets/x86_64-linux-gnu/bin/trtexec"
+    #trtexec_options = get_output(["find", "/", "-name", "trtexec"])
+    #trtexec_path = re.search(r'.*/bin/trtexec', trtexec_options).group()
+    trtexec_path = "/home/hcsuser/TensorRT-7.2.2.3/targets/x86_64-linux-gnu/bin/trtexec"
     return trtexec_path
 
 def get_latency_result(runtimes, batch_size, mem_mb=None):
