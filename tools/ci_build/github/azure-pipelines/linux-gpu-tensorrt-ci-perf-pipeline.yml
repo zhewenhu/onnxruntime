@@ -11,13 +11,16 @@ jobs:
     #   displayName: 'Build latest ORT Images'
     #   workingDirectory: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/build'
 
-    # - script: |
-    #     echo '##vso[task.setvariable variable=LD_LIBRARY_PATH]/home/hcsuser/TensorRT-7.2.2.3/lib'
-    #   displayName: set environment variable for subsequent steps
-    
-    - script: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/run_perf_docker.sh -d ort-master -o "onnx-zoo-models"'
+    - script: |
+        echo '##vso[task.setvariable variable=LD_LIBRARY_PATH]/home/hcsuser/TensorRT-7.2.2.3/lib'
+      displayName: set environment variable for subsequent steps
+    - script: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/run_perf_machine.sh -o "selected-models" -m /home/hcsuser/perf/vggs.json'
       displayName: 'Onnx Zoo Models Perf'
       workingDirectory: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/'
+    
+    # - script: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/run_perf_docker.sh -d ort-master -o "onnx-zoo-models"'
+    #   displayName: 'Onnx Zoo Models Perf'
+    #   workingDirectory: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/'
 
     # - script: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/run_perf_machine.sh -o "many-models"'
     #   displayName: 'Many Models Perf'
