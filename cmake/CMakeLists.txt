@@ -345,8 +345,9 @@ if(onnxruntime_ENABLE_LTO)
       set(onnxruntime_ENABLE_LTO OFF)
     else()
       if (onnxruntime_BUILD_WEBASSEMBLY)
-        # wasm-ld does not support "-flto=thin" (default flag when CMAKE_INTERPROCEDURAL_OPTIMIZATION is on). use "-flto" instead.
+        # wasm-ld does not work correctly with "-flto=thin" (default flag when CMAKE_INTERPROCEDURAL_OPTIMIZATION is on). use "-flto" instead.
         string(APPEND CMAKE_CXX_FLAGS " -flto")
+        set (CMAKE_INTERPROCEDURAL_OPTIMIZATION OFF)
       else()
         set (CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
       endif()
