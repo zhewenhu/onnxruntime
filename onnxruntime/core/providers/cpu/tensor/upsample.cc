@@ -54,14 +54,95 @@ void UpsampleNearest2x(int64_t batch_size,
   }
 }
 
-static Status UpsampleNearestImpl(const std::function<void(bool, size_t, size_t)>& apply,
+static std::vector<int64_t> UpsampleNearestSetupRank1InputMapping(int64_t length_original,
+                                                                  int64_t length_resized,
+                                                                  float x_scale,
+                                                                  float roi_start,
+                                                                  float roi_end,
+                                                                  bool extrapolation_enabled,
+                                                                  const GetOriginalCoordinateFunc& get_original_coordinate,
+                                                                  const GetNearestPixelFunc& get_nearest_pixel) {
+  std::vector<int64_t> input_mapping(length_resized);
+
+  for (int64_t output_dim0_idx = 0; output_dim0_idx < length_resized; ++output_dim0_idx) {
+    float original_0_idx = get_original_coordinate(static_cast<float>(output_dim0_idx),
+                                                   x_scale,
+                                                   static_cast<float>(length_resized),
+                                                   static_cast<float>(length_original),
+                                                   roi_start, roi_end);
+    int64_t input_dim0_idx = -1;
+    if (extrapolation_enabled && (original_0_idx < 0 || original_0_idx > length_original - 1)) {
+      // leave as -1 to indicate the extrapolation value should be used
+    } else {
+      input_dim0_idx = get_nearest_pixel(original_0_idx, x_scale < 1);
+      if (input_dim0_idx > length_original - 1) input_dim0_idx = length_original - 1;
+      if (input_dim0_idx < 0) input_dim0_idx = 0;
+    }
+
+    input_mapping[output_dim0_idx] = input_dim0_idx;
+  }
+
+  return input_mapping;
+}
+
+static std::vector<std::vector<int64_t>>
+UpsampleNearestSetupInputMappings(int64_t n_dim,
+                                  const TensorShape& input_shape,
+                                  const TensorShape& output_shape,
+                                  const std::vector<int64_t>& input_dim_factor,
+                                  const vector<float>& scales,
+                                  const vector<float>& roi,
+                                  bool extrapolation_enabled,
+                                  const GetOriginalCoordinateFunc& get_original_coordinate,
+                                  const GetNearestPixelFunc& get_nearest_pixel) {
+  std::vector<std::vector<int64_t>> input_mappings(n_dim);
+
+  for (int64_t axis = 0; axis < n_dim; ++axis) {
+    std::vector<int64_t>& input_mapping = input_mappings[axis];
+    input_mapping.resize(output_shape[axis]);
+
+    // When scale is 1.0, there is a one-to-one mapping between the dimension
+    // in the input and the output and there is no need to apply the co-ordinate
+    // transformation which should only be done when there is "resizing" required
+    if (scales[axis] == 1.0f) {
+      for (int64_t dim = 0; dim < output_shape[axis]; dim++) {
+        input_mapping[dim] = dim * input_dim_factor[axis];
+      }
+      continue;
+    }
+
+    // scale != 1.0
+    const int64_t input_size = input_dim_factor[0] * input_shape[0];
+    for (int64_t dim = 0; dim < output_shape[axis]; dim++) {
+      float original_dim = get_original_coordinate(static_cast<float>(dim),
+                                                   scales[axis],
+                                                   static_cast<float>(output_shape[axis]),
+                                                   static_cast<float>(input_shape[axis]),
+                                                   roi[axis], roi[n_dim + axis]);
+
+      bool need_extrapolation = (extrapolation_enabled && (original_dim < 0 || original_dim > input_shape[axis] - 1));
+      int64_t input_dim = get_nearest_pixel(original_dim, scales[axis] < 1);
+      if (input_dim >= input_shape[axis]) input_dim = input_shape[axis] - 1;
+      if (input_dim < 0) input_dim = 0;
+
+      input_mapping[dim] = need_extrapolation ? (-input_size) : (input_dim * input_dim_factor[axis]);
+    }
+  }
+
+  return input_mappings;
+};
+
+template <typename T>
+static Status UpsampleNearestImpl(const T* input,
+                                  T* output,
                                   const TensorShape& input_shape,
                                   const TensorShape& output_shape,
                                   const vector<float>& scales,
                                   const vector<float>& roi,
                                   bool extrapolation_enabled,
-                                  GetOriginalCoordinateFunc get_original_coordinate,
-                                  GetNearestPixelFunc get_nearest_pixel) {
+                                  const T extrapolation_value,
+                                  const GetOriginalCoordinateFunc& get_original_coordinate,
+                                  const GetNearestPixelFunc& get_nearest_pixel) {
   int64_t n_dim = static_cast<int64_t>(input_shape.NumDimensions());
 
   std::vector<int64_t> input_dim_counters(n_dim);
@@ -75,86 +156,56 @@ static Status UpsampleNearestImpl(const std::function<void(bool, size_t, size_t)
   int64_t input_idx = 0;
 
   if (n_dim == 1) {
-    for (int64_t output_dim0_inx = 0; output_dim0_inx < output_shape[0]; output_dim0_inx++) {
-      bool use_extrapolation_value = false;
-      float original_0_idx = get_original_coordinate(static_cast<float>(output_dim0_inx), scales[0],
-                                                     static_cast<float>(output_shape[0]),
-                                                     static_cast<float>(input_shape[0]),
-                                                     roi[0], roi[n_dim + 0]);
-      if (extrapolation_enabled && (original_0_idx < 0 || original_0_idx > input_shape[0] - 1))
-        use_extrapolation_value = true;
+    std::vector<int64_t> input_mapping = UpsampleNearestSetupRank1InputMapping(input_shape[0],
+                                                                               output_shape[0],
+                                                                               scales[0],
+                                                                               roi[0], roi[n_dim + 0],
+                                                                               extrapolation_enabled,
+                                                                               get_original_coordinate,
+                                                                               get_nearest_pixel);
 
-      int64_t input_dim0_inx = get_nearest_pixel(original_0_idx, scales[0] < 1);
-      if (input_dim0_inx > input_shape[0] - 1) input_dim0_inx = input_shape[0] - 1;
-      if (input_dim0_inx < 0) input_dim0_inx = 0;
-
-      // output[output_idx++] = use_extrapolation_value ? static_cast<T>(extrapolation_value) : input[input_dim0_inx];
-      apply(use_extrapolation_value, input_dim0_inx, output_idx++);
+    for (int64_t output_dim0_idx = 0; output_dim0_idx < output_shape[0]; output_dim0_idx++) {
+      int64_t input_dim0_idx = input_mapping[output_dim0_idx];
+      output[output_dim0_idx] = input_dim0_idx < 0 ? extrapolation_value : input[input_dim0_idx];
     }
+
     return Status::OK();
   }
 
-  auto CalculateInputMapping =
-      [n_dim, &input_shape, &output_shape, &input_dim_factor, &scales, &roi, extrapolation_enabled,
-       &get_original_coordinate, &get_nearest_pixel](
-          std::vector<int64_t>& input_mapping, const int64_t axis) {
-        // When scale is 1.0, there is a one-to-one mapping between the dimension
-        // in the input and the output and there is no need to apply the co-ordinate
-        // transformation which should only be done when there is "resizing" required
-        if (scales[axis] == 1.0f) {
-          for (int64_t dim = 0; dim < output_shape[axis]; dim++) {
-            input_mapping[dim] = dim * input_dim_factor[axis];
-          }
-          return;
-        }
-
-        // scale != 1.0
-        const int64_t input_size = input_dim_factor[0] * input_shape[0];
-        for (int64_t dim = 0; dim < output_shape[axis]; dim++) {
-          float original_dim = get_original_coordinate(static_cast<float>(dim), scales[axis], static_cast<float>(output_shape[axis]),
-                                                       static_cast<float>(input_shape[axis]), roi[axis], roi[n_dim + axis]);
-          bool need_extrapolation = (extrapolation_enabled && (original_dim < 0 || original_dim > input_shape[axis] - 1));
-          int64_t input_dim = get_nearest_pixel(original_dim, scales[axis] < 1);
-          if (input_dim >= input_shape[axis]) input_dim = input_shape[axis] - 1;
-          if (input_dim < 0) input_dim = 0;
-          input_mapping[dim] = need_extrapolation ? (-input_size) : (input_dim * input_dim_factor[axis]);
-        }
-        return;
-      };
+  std::vector<std::vector<int64_t>> input_mappings =
+      UpsampleNearestSetupInputMappings(n_dim, input_shape, output_shape, input_dim_factor, scales, roi,
+                                        extrapolation_enabled, get_original_coordinate, get_nearest_pixel);
 
   if (n_dim == 2) {
-    std::vector<int64_t> input_mapping_0(output_shape[0]);
-    std::vector<int64_t> input_mapping_1(output_shape[1]);
-    CalculateInputMapping(input_mapping_0, 0);
-    CalculateInputMapping(input_mapping_1, 1);
+    const std::vector<int64_t>& input_mapping_0 = input_mappings[0];
+    const std::vector<int64_t>& input_mapping_1 = input_mappings[1];
+
     for (int64_t output_dim0_inx = 0; output_dim0_inx < output_shape[0]; output_dim0_inx++) {
       int64_t input_idx_0 = input_mapping_0[output_dim0_inx];
       for (int64_t output_dim1_inx = 0; output_dim1_inx < output_shape[1]; output_dim1_inx++) {
         int64_t input_idx_1 = input_idx_0 + input_mapping_1[output_dim1_inx];
-        //output[output_idx++] = (input_idx_1 < 0) ? static_cast<T>(extrapolation_value) : input[input_idx_1];
-        bool use_extrapolation_value = input_idx_1 < 0;
-        apply(use_extrapolation_value, input_idx_1, output_idx++);
+        output[output_idx++] = (input_idx_1 < 0) ? extrapolation_value : input[input_idx_1];
+        //bool use_extrapolation_value = input_idx_1 < 0;
+        //apply(use_extrapolation_value, input_idx_1, output_idx++);
       }
     }
     return Status::OK();
   }
 
   if (n_dim == 3) {
-    std::vector<int64_t> input_mapping_0(output_shape[0]);
-    std::vector<int64_t> input_mapping_1(output_shape[1]);
-    std::vector<int64_t> input_mapping_2(output_shape[2]);
-    CalculateInputMapping(input_mapping_0, 0);
-    CalculateInputMapping(input_mapping_1, 1);
-    CalculateInputMapping(input_mapping_2, 2);
+    const std::vector<int64_t>& input_mapping_0 = input_mappings[0];
+    const std::vector<int64_t>& input_mapping_1 = input_mappings[1];
+    const std::vector<int64_t>& input_mapping_2 = input_mappings[2];
+
     for (int64_t output_dim0_inx = 0; output_dim0_inx < output_shape[0]; output_dim0_inx++) {
       int64_t input_idx_0 = input_mapping_0[output_dim0_inx];
       for (int64_t output_dim1_inx = 0; output_dim1_inx < output_shape[1]; output_dim1_inx++) {
         int64_t input_idx_1 = input_idx_0 + input_mapping_1[output_dim1_inx];
         for (int64_t output_dim2_inx = 0; output_dim2_inx < output_shape[2]; output_dim2_inx++) {
           int64_t input_idx_2 = input_idx_1 + input_mapping_2[output_dim2_inx];
-          // output[output_idx++] = (input_idx_2 < 0) ? static_cast<T>(extrapolation_value) : input[input_idx_2];
-          bool use_extrapolation_value = input_idx_2 < 0;
-          apply(use_extrapolation_value, input_idx_2, output_idx++);
+          output[output_idx++] = (input_idx_2 < 0) ? extrapolation_value : input[input_idx_2];
+          //bool use_extrapolation_value = input_idx_2 < 0;
+          //apply(use_extrapolation_value, input_idx_2, output_idx++);
         }
       }
     }
@@ -162,14 +213,11 @@ static Status UpsampleNearestImpl(const std::function<void(bool, size_t, size_t)
   }
 
   if (n_dim == 4) {
-    std::vector<int64_t> input_mapping_0(output_shape[0]);
-    std::vector<int64_t> input_mapping_1(output_shape[1]);
-    std::vector<int64_t> input_mapping_2(output_shape[2]);
-    std::vector<int64_t> input_mapping_3(output_shape[3]);
-    CalculateInputMapping(input_mapping_0, 0);
-    CalculateInputMapping(input_mapping_1, 1);
-    CalculateInputMapping(input_mapping_2, 2);
-    CalculateInputMapping(input_mapping_3, 3);
+    const std::vector<int64_t>& input_mapping_0 = input_mappings[0];
+    const std::vector<int64_t>& input_mapping_1 = input_mappings[1];
+    const std::vector<int64_t>& input_mapping_2 = input_mappings[2];
+    const std::vector<int64_t>& input_mapping_3 = input_mappings[3];
+
     for (int64_t output_dim0_inx = 0; output_dim0_inx < output_shape[0]; output_dim0_inx++) {
       int64_t input_idx_0 = input_mapping_0[output_dim0_inx];
       for (int64_t output_dim1_inx = 0; output_dim1_inx < output_shape[1]; output_dim1_inx++) {
@@ -178,20 +226,14 @@ static Status UpsampleNearestImpl(const std::function<void(bool, size_t, size_t)
           int64_t input_idx_2 = input_idx_1 + input_mapping_2[output_dim2_inx];
           for (int64_t output_dim3_inx = 0; output_dim3_inx < output_shape[3]; output_dim3_inx++) {
             int64_t input_idx_3 = input_idx_2 + input_mapping_3[output_dim3_inx];
-            // output[output_idx++] = (input_idx_3 < 0) ? static_cast<T>(extrapolation_value) : input[input_idx_3];
-            bool use_extrapolation_value = input_idx_3 < 0;
-            apply(use_extrapolation_value, input_idx_3, output_idx++);
+            output[output_idx++] = (input_idx_3 < 0) ? static_cast<T>(extrapolation_value) : input[input_idx_3];
+            //bool use_extrapolation_value = input_idx_3 < 0;
+            //apply(use_extrapolation_value, input_idx_3, output_idx++);
           }
         }
       }
     }
     return Status::OK();
-  }
-
-  std::vector<std::vector<int64_t>> input_mappings(n_dim);
-  for (int64_t dim_idx = 0; dim_idx < n_dim; ++dim_idx) {
-    input_mappings[dim_idx].resize(output_shape[dim_idx]);
-    CalculateInputMapping(input_mappings[dim_idx], dim_idx);
   }
 
   std::vector<int64_t> output_dim_counter(n_dim);
@@ -200,9 +242,9 @@ static Status UpsampleNearestImpl(const std::function<void(bool, size_t, size_t)
   }
 
   for (int64_t output_size = output_shape.Size(); output_idx < output_size; output_idx++) {
-    // output[output_idx] = (input_idx < 0) ? static_cast<T>(extrapolation_value) : input[input_idx];
-    bool use_extrapolation_value = input_idx < 0;
-    apply(use_extrapolation_value, input_idx, output_idx);
+    output[output_idx] = (input_idx < 0) ? extrapolation_value : input[input_idx];
+    //bool use_extrapolation_value = input_idx < 0;
+    //apply(use_extrapolation_value, input_idx, output_idx);
 
     for (int64_t dim_idx = n_dim - 1; dim_idx >= 0; dim_idx--) {
       input_idx -= input_mappings[dim_idx][output_dim_counter[dim_idx]];
@@ -247,26 +289,22 @@ static Status UpsampleNearest(const T* input,
                               const vector<float>& roi,
                               bool is_resize,
                               bool extrapolation_enabled,
-                              float extrapolation_value,
+                              T extrapolation_value,
                               bool use_nearest2x_optimization,
-                              GetOriginalCoordinateFunc get_original_coordinate,
-                              GetNearestPixelFunc get_nearest_pixel) {
+                              const GetOriginalCoordinateFunc& get_original_coordinate,
+                              const GetNearestPixelFunc& get_nearest_pixel) {
   ORT_RETURN_IF_ERROR(ValidateUpsampleInput(input, output, input_shape, output_shape, is_resize));
 
-  // one special case requires calling a typed implementation from here
+  // special case with fast path
   if (use_nearest2x_optimization && input_shape.NumDimensions() == 4 &&
       scales[0] == 1 && scales[1] == 1 && scales[2] == 2 && scales[3] == 2) {
     UpsampleNearest2x<T>(input_shape[0], input_shape[1], input_shape[2], input_shape[3], input, output);
     return Status::OK();
   }
 
-  // otherwise we put the typed logic inside a lambda and call the untyped implementation
-  auto apply = [&](bool use_extrapolation_value, size_t input_idx, size_t output_idx) {
-    output[output_idx] = use_extrapolation_value ? static_cast<T>(extrapolation_value) : input[input_idx];
-  };
-
-  return UpsampleNearestImpl(apply, input_shape, output_shape, scales, roi,
-                             extrapolation_enabled, get_original_coordinate, get_nearest_pixel);
+  return UpsampleNearestImpl(input, output, input_shape, output_shape, scales, roi,
+                             extrapolation_enabled, extrapolation_value,
+                             get_original_coordinate, get_nearest_pixel);
 }
 
 /*
@@ -282,7 +320,7 @@ static Status UpsampleLinearImpl(const std::function<void(size_t, size_t, float)
                                  const vector<float>& scales,
                                  bool is_resize,
                                  const std::vector<float>& roi,
-                                 GetOriginalCoordinateFunc get_original_coordinate) {
+                                 const GetOriginalCoordinateFunc& get_original_coordinate) {
   auto n_dim = input_shape.NumDimensions();
   for (size_t i = 0, size = output_shape.Size(); i < size; i++) {
     std::vector<int64_t> val1;
@@ -346,7 +384,7 @@ static Status UpsampleLinear(const T* input,
                              const vector<float>& scales,
                              bool is_resize,
                              const std::vector<float>& roi,
-                             GetOriginalCoordinateFunc get_original_coordinate) {
+                             const GetOriginalCoordinateFunc& get_original_coordinate) {
   ORT_RETURN_IF_ERROR(ValidateUpsampleInput(input, output, input_shape, output_shape, is_resize));
 
   // need to initialize the output to 0 as UpsampleLineary always does += when updating
@@ -392,7 +430,7 @@ static BilinearParams UpsampleBilinearSetup(int64_t input_height,
                                             float width_scale,
                                             const std::vector<float>& roi,
                                             AllocatorPtr& alloc,
-                                            GetOriginalCoordinateFunc get_original_coordinate) {
+                                            const GetOriginalCoordinateFunc& get_original_coordinate) {
   BilinearParams p;
 
   p.x_original.reserve(output_width);
@@ -500,7 +538,7 @@ void UpsampleBilinear(int64_t batch_size,
                       const T* XdataBase,
                       T* YdataBase,
                       AllocatorPtr& alloc,
-                      GetOriginalCoordinateFunc get_original_coordinate,
+                      const GetOriginalCoordinateFunc& get_original_coordinate,
                       concurrency::ThreadPool* tp) {
   BilinearParams p = UpsampleBilinearSetup(input_height, input_width, output_height, output_width,
                                            height_scale, width_scale, roi,
@@ -573,7 +611,7 @@ static TrilinearParams UpsampleTrilinearSetup(int64_t input_depth,
                                               float width_scale,
                                               const std::vector<float>& roi,
                                               AllocatorPtr& alloc,
-                                              GetOriginalCoordinateFunc get_original_coordinate) {
+                                              const GetOriginalCoordinateFunc& get_original_coordinate) {
   TrilinearParams p;
 
   p.z_original.reserve(output_depth);
@@ -722,7 +760,7 @@ void UpsampleTrilinear(int64_t batch_size,
                        const T* XdataBase,
                        T* YdataBase,
                        AllocatorPtr& alloc,
-                       GetOriginalCoordinateFunc get_original_coordinate,
+                       const GetOriginalCoordinateFunc& get_original_coordinate,
                        concurrency::ThreadPool* tp) {
   auto p = UpsampleTrilinearSetup(input_depth, input_height, input_width,
                                   output_depth, output_height, output_width,
@@ -851,7 +889,7 @@ void ResizeBiCubic(
     const std::vector<float>& roi,
     const T* Xdata,
     T* Ydata,
-    GetOriginalCoordinateFunc get_original_coordinate) {
+    const GetOriginalCoordinateFunc& get_original_coordinate) {
   std::vector<float> y_original;
   y_original.reserve(output_height);
 
@@ -1022,8 +1060,8 @@ Status Upsample<T>::BaseCompute(OpKernelContext* context,
 
   switch (mode_) {
     case UpsampleMode::NN:
-      return UpsampleNearest<T>(X->template Data<T>(), Y->template MutableData<T>(), X->Shape(), Y->Shape(),
-                                scales, roi, is_resize_, use_extrapolation_, extrapolation_value_,
+      return UpsampleNearest<T>(X->Data<T>(), Y->MutableData<T>(), X->Shape(), Y->Shape(),
+                                scales, roi, is_resize_, use_extrapolation_, static_cast<T>(extrapolation_value_),
                                 use_nearest2x_optimization_, get_original_coordinate_, get_nearest_pixel_);
     case UpsampleMode::LINEAR: {
       // Supports 'bilinear' and 'trilinear' sampling only
