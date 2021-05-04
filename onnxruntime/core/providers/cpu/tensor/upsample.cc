@@ -54,14 +54,15 @@ void UpsampleNearest2x(int64_t batch_size,
   }
 }
 
-static std::vector<int64_t> UpsampleNearestSetupRank1InputMapping(int64_t length_original,
-                                                                  int64_t length_resized,
-                                                                  float x_scale,
-                                                                  float roi_start,
-                                                                  float roi_end,
-                                                                  bool extrapolation_enabled,
-                                                                  const GetOriginalCoordinateFunc& get_original_coordinate,
-                                                                  const GetNearestPixelFunc& get_nearest_pixel) {
+static std::vector<int64_t> UpsampleNearestSetupRank1InputMapping(
+    int64_t length_original,
+    int64_t length_resized,
+    float x_scale,
+    float roi_start,
+    float roi_end,
+    bool extrapolation_enabled,
+    const GetOriginalCoordinateFunc& get_original_coordinate,
+    const GetNearestPixelFunc& get_nearest_pixel) {
   std::vector<int64_t> input_mapping(length_resized);
 
   for (int64_t output_dim0_idx = 0; output_dim0_idx < length_resized; ++output_dim0_idx) {
@@ -185,8 +186,6 @@ static Status UpsampleNearestImpl(const T* input,
       for (int64_t output_dim1_inx = 0; output_dim1_inx < output_shape[1]; output_dim1_inx++) {
         int64_t input_idx_1 = input_idx_0 + input_mapping_1[output_dim1_inx];
         output[output_idx++] = (input_idx_1 < 0) ? extrapolation_value : input[input_idx_1];
-        //bool use_extrapolation_value = input_idx_1 < 0;
-        //apply(use_extrapolation_value, input_idx_1, output_idx++);
       }
     }
     return Status::OK();
@@ -204,8 +203,6 @@ static Status UpsampleNearestImpl(const T* input,
         for (int64_t output_dim2_inx = 0; output_dim2_inx < output_shape[2]; output_dim2_inx++) {
           int64_t input_idx_2 = input_idx_1 + input_mapping_2[output_dim2_inx];
           output[output_idx++] = (input_idx_2 < 0) ? extrapolation_value : input[input_idx_2];
-          //bool use_extrapolation_value = input_idx_2 < 0;
-          //apply(use_extrapolation_value, input_idx_2, output_idx++);
         }
       }
     }
@@ -227,8 +224,6 @@ static Status UpsampleNearestImpl(const T* input,
           for (int64_t output_dim3_inx = 0; output_dim3_inx < output_shape[3]; output_dim3_inx++) {
             int64_t input_idx_3 = input_idx_2 + input_mapping_3[output_dim3_inx];
             output[output_idx++] = (input_idx_3 < 0) ? static_cast<T>(extrapolation_value) : input[input_idx_3];
-            //bool use_extrapolation_value = input_idx_3 < 0;
-            //apply(use_extrapolation_value, input_idx_3, output_idx++);
           }
         }
       }
@@ -243,8 +238,6 @@ static Status UpsampleNearestImpl(const T* input,
 
   for (int64_t output_size = output_shape.Size(); output_idx < output_size; output_idx++) {
     output[output_idx] = (input_idx < 0) ? extrapolation_value : input[input_idx];
-    //bool use_extrapolation_value = input_idx < 0;
-    //apply(use_extrapolation_value, input_idx, output_idx);
 
     for (int64_t dim_idx = n_dim - 1; dim_idx >= 0; dim_idx--) {
       input_idx -= input_mappings[dim_idx][output_dim_counter[dim_idx]];
@@ -263,14 +256,18 @@ static Status UpsampleNearestImpl(const T* input,
 static Status ValidateUpsampleInput(const void* input, const void* output,
                                     const TensorShape& input_shape, const TensorShape& output_shape,
                                     bool is_resize) {
-  if (!input || !output)
+  if (!input || !output) {
     return Status(ONNXRUNTIME, FAIL,
                   is_resize ? "Resize: input/output value is nullptr"
                             : "Upsample: input/output value is nullptr");
-  if (input_shape.NumDimensions() != output_shape.NumDimensions())
+  }
+
+  if (input_shape.NumDimensions() != output_shape.NumDimensions()) {
     return Status(ONNXRUNTIME, FAIL,
                   is_resize ? "Resize: input/output value's dimension mismatch"
                             : "Upsample: input/output value's dimension mismatch");
+  }
+
   if (input_shape.NumDimensions() == 0) {
     return Status(common::ONNXRUNTIME, common::INVALID_ARGUMENT,
                   is_resize ? "Resize: input shape needs to be at least a single dimension"
@@ -422,7 +419,7 @@ struct BilinearParams {
 // the scale values for the outermost 2 dimensions are 1.
 // This is the common use-case where the 4-D input (batched multi-channel images)
 // is usually of shape [N, C, H, W] and the scales are [1.0, 1.0, height_scale, width_scale]
-static BilinearParams UpsampleBilinearSetup(int64_t input_height,
+static BilinearParams SetupUpsampleBilinear(int64_t input_height,
                                             int64_t input_width,
                                             int64_t output_height,
                                             int64_t output_width,
@@ -540,7 +537,7 @@ void UpsampleBilinear(int64_t batch_size,
                       AllocatorPtr& alloc,
                       const GetOriginalCoordinateFunc& get_original_coordinate,
                       concurrency::ThreadPool* tp) {
-  BilinearParams p = UpsampleBilinearSetup(input_height, input_width, output_height, output_width,
+  BilinearParams p = SetupUpsampleBilinear(input_height, input_width, output_height, output_width,
                                            height_scale, width_scale, roi,
                                            alloc, get_original_coordinate);
 
@@ -600,7 +597,7 @@ struct TrilinearParams {
   float* dz2;
 };
 
-static TrilinearParams UpsampleTrilinearSetup(int64_t input_depth,
+static TrilinearParams SetupUpsampleTrilinear(int64_t input_depth,
                                               int64_t input_height,
                                               int64_t input_width,
                                               int64_t output_depth,
@@ -668,7 +665,8 @@ static TrilinearParams UpsampleTrilinearSetup(int64_t input_depth,
   for (int64_t z = 0; z < output_depth; ++z) {
     float in_z = depth_scale == 1 ? static_cast<float>(z)
                                   : get_original_coordinate(static_cast<float>(z), depth_scale,
-                                                            static_cast<float>(output_depth), static_cast<float>(input_depth),
+                                                            static_cast<float>(output_depth),
+                                                            static_cast<float>(input_depth),
                                                             roi[roi_z_start], roi[roi_z_end]);
     p.z_original.emplace_back(in_z);
     in_z = std::max(0.0f, std::min(in_z, static_cast<float>(input_depth - 1)));
@@ -762,10 +760,10 @@ void UpsampleTrilinear(int64_t batch_size,
                        AllocatorPtr& alloc,
                        const GetOriginalCoordinateFunc& get_original_coordinate,
                        concurrency::ThreadPool* tp) {
-  auto p = UpsampleTrilinearSetup(input_depth, input_height, input_width,
-                                  output_depth, output_height, output_width,
-                                  depth_scale, height_scale, width_scale, roi,
-                                  alloc, get_original_coordinate);
+  TrilinearParams p = SetupUpsampleTrilinear(input_depth, input_height, input_width,
+                                             output_depth, output_height, output_width,
+                                             depth_scale, height_scale, width_scale, roi,
+                                             alloc, get_original_coordinate);
 
   for (int64_t n = 0; n < batch_size; ++n) {
     concurrency::ThreadPool::TrySimpleParallelFor(
@@ -822,10 +820,12 @@ void UpsampleTrilinear(int64_t batch_size,
 std::array<float, CubicModeGridLength> GetCubicCoeffs(float s, float cubic_coeff_a = -0.75) {
   auto abs_s = std::abs(s);
   std::array<float, CubicModeGridLength> coeffs;
-  coeffs[0] = static_cast<float>(((cubic_coeff_a * (abs_s + 1) - 5 * cubic_coeff_a) * (abs_s + 1) + 8 * cubic_coeff_a) * (abs_s + 1) - 4 * cubic_coeff_a);
+  coeffs[0] = static_cast<float>(
+      ((cubic_coeff_a * (abs_s + 1) - 5 * cubic_coeff_a) * (abs_s + 1) + 8 * cubic_coeff_a) * (abs_s + 1) - 4 * cubic_coeff_a);
   coeffs[1] = static_cast<float>(((cubic_coeff_a + 2) * abs_s - (cubic_coeff_a + 3)) * abs_s * abs_s + 1);
   coeffs[2] = static_cast<float>(((cubic_coeff_a + 2) * (1 - abs_s) - (cubic_coeff_a + 3)) * (1 - abs_s) * (1 - abs_s) + 1);
-  coeffs[3] = static_cast<float>(((cubic_coeff_a * (2 - abs_s) - 5 * cubic_coeff_a) * (2 - abs_s) + 8 * cubic_coeff_a) * (2 - abs_s) - 4 * cubic_coeff_a);
+  coeffs[3] = static_cast<float>(
+      ((cubic_coeff_a * (2 - abs_s) - 5 * cubic_coeff_a) * (2 - abs_s) + 8 * cubic_coeff_a) * (2 - abs_s) - 4 * cubic_coeff_a);
   return coeffs;
 }
 
@@ -1112,11 +1112,10 @@ Status Upsample<T>::BaseCompute(OpKernelContext* context,
       } else {
         // User shouldn't hit this as the check has been performed in ScalesValidation()
         std::ostringstream oss;
-        oss << "'Linear' mode only support 2-D inputs or 3-D inputs ('Bilinear', 'Trilinear') "
-               "or 4-D inputs or 5-D inputs with the corresponding outermost 2 scale values "
-               "being 1 in the ";
-        oss << (is_resize_ ? "Resize operator" : "Upsample operator");
-        return Status(ONNXRUNTIME, FAIL, oss.str());
+        return ORT_MAKE_STATUS(ONNXRUNTIME, FAIL, (is_resize_ ? "Resize" : "Upsample"),
+                               ": 'Linear' mode only support 2-D inputs or 3-D inputs ('Bilinear', 'Trilinear') "
+                               "or 4-D inputs or 5-D inputs with the corresponding outermost 2 scale values "
+                               "being 1.");
       }
     }
     case UpsampleMode::CUBIC: {
@@ -1124,12 +1123,11 @@ Status Upsample<T>::BaseCompute(OpKernelContext* context,
 
       // User shouldn't hit this as the check has been performed in ScalesValidation()
       if (dims.size() != 2 && dims.size() != 4) {
-        std::ostringstream oss;
-        oss << "'Cubic' mode only support 2-D inputs ('Bicubic') or 4-D inputs "
-               "with the corresponding outermost 2 scale values being 1 in the ";
-        oss << (is_resize_ ? "Resize operator" : "Upsample operator");
-        return Status(ONNXRUNTIME, FAIL, oss.str());
+        return ORT_MAKE_STATUS(ONNXRUNTIME, FAIL, (is_resize_ ? "Resize" : "Upsample"),
+                               ": 'Cubic' mode only support 2-D inputs ('Bicubic') or 4-D inputs "
+                               "with the corresponding outermost 2 scale values being 1.");
       }
+
       bool is_2D = dims.size() == 2;
       const int64_t batch_size = is_2D ? 1 : dims[0];
       const int64_t num_channels = is_2D ? 1 : dims[1];
@@ -1140,8 +1138,8 @@ Status Upsample<T>::BaseCompute(OpKernelContext* context,
 
       ResizeBiCubic(batch_size, num_channels, input_height, input_width, output_height, output_width,
                     is_2D ? scales[0] : scales[2], is_2D ? scales[1] : scales[3], cubic_coeff_a_, use_extrapolation_,
-                    extrapolation_value_, exclude_outside_, roi, X->template Data<float>(), Y->template MutableData<float>(),
-                    get_original_coordinate_);
+                    extrapolation_value_, exclude_outside_, roi, X->template Data<float>(),
+                    Y->template MutableData<float>(), get_original_coordinate_);
       return Status::OK();
     }
     default:
