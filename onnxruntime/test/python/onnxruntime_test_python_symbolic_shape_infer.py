@@ -7,7 +7,7 @@ from onnx import helper, AttributeProto, TensorProto, GraphProto
 import os
 
 if os.path.exists(os.path.join(os.path.dirname(__file__), '..', '..', 'python', 'tools', 'symbolic_shape_infer.py')):
-    # Running this test script without installing onnxruntime package.
+    # Allow running this test script without installing onnxruntime package.
     import sys
     sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'python', 'tools'))
     from symbolic_shape_infer import SymbolicShapeInference
@@ -92,6 +92,21 @@ class TestSymbolicShapeInferenceForOperators(unittest.TestCase):
             helper.make_tensor_value_info('temp', TensorProto.FLOAT, ['b', 's', 1]),
             helper.make_tensor_value_info('output', TensorProto.FLOAT, ['b', 's', 1])
         ]
+        self._check_shapes(graph, inferred.graph, expected_shapes)
+
+    def test_squeeze_opset_13_no_axes(self):
+        graph = helper.make_graph([
+            helper.make_node("Squeeze", ["input", ""], ["output"]),
+        ], "Unsqueeze_Test", [
+            helper.make_tensor_value_info('input', TensorProto.FLOAT, ['b', 's', 1]),
+        ], [
+            helper.make_tensor_value_info('output', TensorProto.FLOAT, None),
+        ])
+        model = helper.make_model(graph)
+        model.opset_import[0].version = 13
+
+        inferred = SymbolicShapeInference.infer_shapes(model, auto_merge=True)
+        expected_shapes = [helper.make_tensor_value_info('output', TensorProto.FLOAT, ['b', 's'])]
         self._check_shapes(graph, inferred.graph, expected_shapes)
 
     def test_embed_layer_norm(self):
