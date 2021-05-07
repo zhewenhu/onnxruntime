@@ -327,8 +327,11 @@ class SymbolicShapeInference:
                         self.symbolic_dims_[str(new_dim)] = new_dim
 
     def _onnx_infer_single_node(self, node):
-        # skip onnx shape inference for some ops, as they are handled in _infer_* or it is not in onnx domain
-        skip_infer = (node.domain in ['com.microsoft']) or (node.op_type in ['If', 'Loop', 'Scan', 'SplitToSequence', 'ZipMap'])
+        # skip onnx shape inference for some ops, as they are handled in _infer_*
+        skip_infer = node.op_type in [
+            'If', 'Loop', 'Scan', 'SplitToSequence', 'ZipMap', 'Attention', 'BiasGelu', 'FastGelu', 'Gelu',
+            'LayerNormalization', 'LongformerAttention', 'EmbedLayerNormalization', 'SkipLayerNormalization'
+        ]
 
         if not skip_infer:
             # Some operators need initializers for shape inference. For example, Unsqueeze in opset 13 has axes in the second input.
