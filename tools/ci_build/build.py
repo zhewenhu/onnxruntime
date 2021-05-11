@@ -1805,18 +1805,6 @@ def generate_documentation(source_dir, build_dir, configs):
         [sys.executable,
          'gen_opkernel_doc.py',
          '--output_path', opkernel_doc_path], cwd=cwd)
-    docdiff = ''
-    try:
-        docdiff = subprocess.check_output(['git', 'diff', opkernel_doc_path], cwd=source_dir)
-    except subprocess.CalledProcessError:
-        print('git diff returned non-zero error code')
-
-    docdiff = ''
-    try:
-        docdiff = subprocess.check_output(['git', 'diff', operator_doc_path], cwd=source_dir)
-    except subprocess.CalledProcessError:
-        print('git diff returned non-zero error code')
-
 
 def main():
     args = parse_arguments()
