@@ -4,10 +4,6 @@
 #pragma warning(disable : 4541)
 #endif
 
-#ifndef _WIN32
-#define dynamic_cast static_cast
-#endif
-
 #ifdef _WIN32
 #pragma warning(pop)
 #endif
