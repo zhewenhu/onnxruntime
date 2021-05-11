@@ -174,7 +174,7 @@ jobs:
     displayName: 'Run tests'
 
   - script: |
-     copy $(Build.SourcesDirectory)\docs\OperatorKernels.md $(Build.ArtifactStagingDirectory)
+     copy $(Build.SourcesDirectory)\docs\*.md $(Build.ArtifactStagingDirectory)
     displayName: 'Copy doc'
 
   - task: PublishPipelineArtifact@0
