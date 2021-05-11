@@ -48,6 +48,7 @@ void UpsampleNearest2x(int64_t batch_size,
           output[oidx + 1] = v;
         }
       }
+
       input += input_height * input_width;
       output += output_height * output_width;
     }
@@ -83,7 +84,7 @@ static std::vector<int64_t> UpsampleNearestSetupRank1InputMapping(
     input_mapping[output_dim0_idx] = input_dim0_idx;
   }
 
-  return input_mapping;
+  return std::move(input_mapping);
 }
 
 static std::vector<std::vector<int64_t>>
@@ -130,7 +131,7 @@ UpsampleNearestSetupInputMappings(int64_t n_dim,
     }
   }
 
-  return input_mappings;
+  return std::move(input_mappings);
 };
 
 template <typename T>
@@ -873,23 +874,22 @@ float CubicInterpolation1D(const T* Xdata,
 #pragma warning(disable : 6001)
 #endif
 template <typename T>
-void ResizeBiCubic(
-    int64_t batch_size,
-    int64_t num_channels,
-    int64_t input_height,
-    int64_t input_width,
-    int64_t output_height,
-    int64_t output_width,
-    float height_scale,
-    float width_scale,
-    float cubic_coeff_a,
-    bool use_extrapolation,
-    float extrapolation_value,
-    bool exclude_outside,
-    const std::vector<float>& roi,
-    const T* Xdata,
-    T* Ydata,
-    const GetOriginalCoordinateFunc& get_original_coordinate) {
+void ResizeBiCubic(int64_t batch_size,
+                   int64_t num_channels,
+                   int64_t input_height,
+                   int64_t input_width,
+                   int64_t output_height,
+                   int64_t output_width,
+                   float height_scale,
+                   float width_scale,
+                   float cubic_coeff_a,
+                   bool use_extrapolation,
+                   float extrapolation_value,
+                   bool exclude_outside,
+                   const std::vector<float>& roi,
+                   const T* Xdata,
+                   T* Ydata,
+                   const GetOriginalCoordinateFunc& get_original_coordinate) {
   std::vector<float> y_original;
   y_original.reserve(output_height);
 
@@ -1082,8 +1082,8 @@ Status Upsample<T>::BaseCompute(OpKernelContext* context,
         ORT_RETURN_IF_ERROR(context->GetTempSpaceAllocator(&alloc));
         UpsampleBilinear(batch_size, num_channels, input_height, input_width, output_height, output_width,
                          is_2D ? scales[0] : scales[2], is_2D ? scales[1] : scales[3], roi,
-                         use_extrapolation_, extrapolation_value_, X->template Data<T>(),
-                         Y->template MutableData<T>(), alloc, get_original_coordinate_,
+                         use_extrapolation_, extrapolation_value_, X->Data<T>(),
+                         Y->MutableData<T>(), alloc, get_original_coordinate_,
                          output_height * output_width > 64 ? context->GetOperatorThreadPool() : nullptr);
         return Status::OK();
       } else if (dims.size() == 3 || dims.size() == 5) {
@@ -1106,7 +1106,7 @@ Status Upsample<T>::BaseCompute(OpKernelContext* context,
                           output_depth, output_height, output_width,
                           is_3D ? scales[0] : scales[2], is_3D ? scales[1] : scales[3],
                           is_3D ? scales[2] : scales[4], roi, use_extrapolation_, extrapolation_value_,
-                          X->template Data<T>(), Y->template MutableData<T>(), alloc, get_original_coordinate_,
+                          X->Data<T>(), Y->MutableData<T>(), alloc, get_original_coordinate_,
                           output_height * output_width > 64 ? context->GetOperatorThreadPool() : nullptr);
         return Status::OK();
       } else {
@@ -1138,8 +1138,8 @@ Status Upsample<T>::BaseCompute(OpKernelContext* context,
 
       ResizeBiCubic(batch_size, num_channels, input_height, input_width, output_height, output_width,
                     is_2D ? scales[0] : scales[2], is_2D ? scales[1] : scales[3], cubic_coeff_a_, use_extrapolation_,
-                    extrapolation_value_, exclude_outside_, roi, X->template Data<float>(),
-                    Y->template MutableData<float>(), get_original_coordinate_);
+                    extrapolation_value_, exclude_outside_, roi, X->Data<float>(),
+                    Y->MutableData<float>(), get_original_coordinate_);
       return Status::OK();
     }
     default:
@@ -1214,7 +1214,7 @@ Status Upsample<T>::Compute(OpKernelContext* context) const {
     ORT_ENFORCE(sizes != nullptr && sizes->Shape().Size() != 0, "Either scales or sizes MUST be provided as input.");
 
     // When sizes input is available directly populate it into the output_dims array.
-    memcpy(output_dims.data(), sizes->template Data<int64_t>(), sizes->Shape().Size() * sizeof(int64_t));
+    memcpy(output_dims.data(), sizes->Data<int64_t>(), sizes->Shape().Size() * sizeof(int64_t));
 
     ORT_ENFORCE(X->Shape().GetDims().size() == output_dims.size(),
                 "Resize: input tensor's rank does not match the output tensor's rank.");
