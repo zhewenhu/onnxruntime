@@ -1806,6 +1806,7 @@ def generate_documentation(source_dir, build_dir, configs):
          'gen_opkernel_doc.py',
          '--output_path', opkernel_doc_path], cwd=cwd)
 
+
 def main():
     args = parse_arguments()
     cmake_extra_defines = (args.cmake_extra_defines
