@@ -26,11 +26,11 @@ class Snpe : public OpKernel {
       }
     }
 
-    const auto payload = info.GetAttrOrDefault<std::string>("payload", "");
-    ORT_ENFORCE((payload.length() > 0), "dlc model payload is empty!");
-    const auto snpe_Ep = static_cast<const SNPEExecutionProvider*>(info.GetExecutionProvider());
-    const bool enfore_Dsp = snpe_Ep->GetEnforceDsp();
-    snpe_rt_ = SnpeLibFactory(reinterpret_cast<const unsigned char*>(payload.c_str()), payload.length(), nullptr, enfore_Dsp, false, false);
+    const auto dlc_payload = info.GetAttrOrDefault<std::string>("DLC", "");
+    ORT_ENFORCE((dlc_payload.length() > 0), "dlc model payload is empty!");
+    const auto snpe_ep = static_cast<const SNPEExecutionProvider*>(info.GetExecutionProvider());
+    const bool enfore_dsp = snpe_ep->GetEnforceDsp();
+    snpe_rt_ = SnpeLibFactory(reinterpret_cast<const unsigned char*>(dlc_payload.c_str()), dlc_payload.length(), nullptr, enfore_dsp, false, false);
   }
 
   Status Compute(OpKernelContext* context) const override {
