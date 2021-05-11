@@ -172,6 +172,16 @@ jobs:
     workingDirectory: '$(Build.BinariesDirectory)\$(BuildConfig)\$(BuildConfig)'
     condition: and(succeeded(), eq('${{ parameters.RunOnnxRuntimeTests}}', true))
     displayName: 'Run tests'
+    
+  - script: |
+       copy $(Build.SourcesDirectory)\docs\OperatorKernels.md $(Build.ArtifactStagingDirectory)
+      displayName: 'Copy doc'
+
+  - task: PublishPipelineArtifact@0
+    displayName: 'Publish Pipeline Artifact: $(ArtifactName)'
+    inputs:
+      artifactName: '$(ArtifactName)'
+      targetPath: '$(Build.ArtifactStagingDirectory)'
 
   - task: PythonScript@0
     displayName: 'Regenerate cmake config with STATIC_ANALYSIS=ON '
