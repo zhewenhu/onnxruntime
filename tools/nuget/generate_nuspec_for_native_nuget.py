@@ -25,7 +25,7 @@ def parse_arguments():
     parser.add_argument("--is_release_build", required=False, default=None, type=str,
                         help="Flag indicating if the build is a release build. Accepted values: true/false.")
     parser.add_argument("--execution_provider", required=False, default='None', type=str,
-                        choices=['dnnl', 'openvino', 'tensorrt', 'None'],
+                        choices=['dnnl', 'openvino', 'tensorrt', 'snpe', 'None'],
                         help="The selected execution provider for this build.")
 
     return parser.parse_args()
@@ -76,6 +76,9 @@ def generate_repo_url(list, repo_url, commit_id):
 
 
 def generate_dependencies(list, package_name, version):
+    if (package_name == 'Microsoft.ML.OnnxRuntime.Snpe'):
+        return
+
     dml_dependency = '<dependency id="Microsoft.AI.DirectML" version="1.5.1"/>'
 
     if (package_name == 'Microsoft.AI.MachineLearning'):
@@ -175,10 +178,12 @@ def generate_files(list, args):
     is_mklml_package = args.package_name == 'Microsoft.ML.OnnxRuntime.MKLML'
     is_cuda_gpu_package = args.package_name == 'Microsoft.ML.OnnxRuntime.Gpu'
     is_dml_package = args.package_name == 'Microsoft.ML.OnnxRuntime.DirectML'
+    is_snpe_package = args.package_name == 'Microsoft.ML.OnnxRuntime.Snpe'
     is_windowsai_package = args.package_name == 'Microsoft.AI.MachineLearning'
 
     includes_cuda = is_cuda_gpu_package or is_cpu_package  # Why does the CPU package ship the cuda provider headers?
     includes_winml = is_windowsai_package
+    includes_snpe = is_snpe_package
     includes_directml = (is_dml_package or is_windowsai_package) and not args.is_store_build and (
         args.target_architecture == 'x64' or args.target_architecture == 'x86')
 
@@ -262,6 +267,12 @@ def generate_files(list, args):
         files_list.append('<file src=' + '"' +
                           os.path.join(args.sources_path,
                                        'include\\onnxruntime\\core\\providers\\dml\\dml_provider_factory.h') +
+                          '" target="build\\native\\include" />')
+
+    if includes_snpe:
+        files_list.append('<file src=' + '"' +
+                          os.path.join(args.sources_path,
+                                       'include\\onnxruntime\\core\\providers\\snpe\\snpe_provider_factory.h') +
                           '" target="build\\native\\include" />')
 
     if includes_winml:

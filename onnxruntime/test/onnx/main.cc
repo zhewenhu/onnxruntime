@@ -36,7 +36,7 @@ void usage() {
       "\t-v: verbose\n"
       "\t-n [test_case_name]: Specifies a single test case to run.\n"
       "\t-e [EXECUTION_PROVIDER]: EXECUTION_PROVIDER could be 'cpu', 'cuda', 'dnnl', 'tensorrt', "
-      "'openvino', 'nuphar', 'rocm', 'migraphx', 'acl', 'armnn', 'nnapi' or 'coreml'. "
+      "'openvino', 'nuphar', 'rocm', 'migraphx', 'acl', 'armnn', 'nnapi', 'coreml' or 'snpe'. "
       "Default: 'cpu'.\n"
       "\t-p: Pause after launch, can attach debugger and continue\n"
       "\t-x: Use parallel executor, default (without -x): sequential executor.\n"
@@ -99,6 +99,7 @@ int real_main(int argc, char* argv[], Ort::Env& env) {
   bool enable_mem_pattern = true;
   bool enable_nnapi = false;
   bool enable_coreml = false;
+  bool enable_snpe = false;
   bool enable_dml = false;
   bool enable_acl = false;
   bool enable_armnn = false;
@@ -169,6 +170,8 @@ int real_main(int argc, char* argv[], Ort::Env& env) {
             enable_nnapi = true;
           } else if (!CompareCString(optarg, ORT_TSTR("coreml"))) {
             enable_coreml = true;
+          } else if (!CompareCString(optarg, ORT_TSTR("snpe"))) {
+            enable_snpe = true;
           } else if (!CompareCString(optarg, ORT_TSTR("dml"))) {
             enable_dml = true;
           } else if (!CompareCString(optarg, ORT_TSTR("acl"))) {
@@ -394,6 +397,14 @@ int real_main(int argc, char* argv[], Ort::Env& env) {
       Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_CoreML(sf, 0));
 #else
       fprintf(stderr, "CoreML is not supported in this build");
+      return -1;
+#endif
+    }
+    if (enable_snpe) {
+#ifdef USE_SNPE
+      Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_SNPE(sf, true));
+#else
+      fprintf(stderr, "SNPE is not supported in this build");
       return -1;
 #endif
     }

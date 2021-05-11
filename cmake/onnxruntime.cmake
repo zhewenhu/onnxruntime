@@ -144,6 +144,7 @@ target_link_libraries(onnxruntime PRIVATE
     ${PROVIDERS_ROCM}
     ${PROVIDERS_VITISAI}
     ${PROVIDERS_INTERNAL_TESTING}
+    ${PROVIDERS_SNPE}
     ${onnxruntime_winml}
     onnxruntime_optimizer
     onnxruntime_providers

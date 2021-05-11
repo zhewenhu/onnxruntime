@@ -71,6 +71,9 @@ endif()
 if(onnxruntime_USE_NNAPI_BUILTIN)
   set(PROVIDERS_NNAPI onnxruntime_providers_nnapi)
 endif()
+if(onnxruntime_USE_SNPE)
+  set(PROVIDERS_SNPE onnxruntime_providers_snpe)
+endif()
 if(onnxruntime_USE_RKNPU)
   set(PROVIDERS_RKNPU onnxruntime_providers_rknpu)
 endif()
@@ -751,6 +754,27 @@ if (onnxruntime_USE_NNAPI_BUILTIN)
   if(NOT MSVC)
     target_compile_options(onnxruntime_providers_nnapi PRIVATE "-Wno-unknown-pragmas")
   endif()
+endif()
+
+if (onnxruntime_USE_SNPE)
+  add_compile_definitions(USE_SNPE=1)
+
+  file(GLOB_RECURSE
+    onnxruntime_providers_snpe_cc_srcs CONFIGURE_DEPENDS
+    "${ONNXRUNTIME_ROOT}/core/providers/snpe/*.h"
+    "${ONNXRUNTIME_ROOT}/core/providers/snpe/*.cc"
+  )
+
+  source_group(TREE ${ONNXRUNTIME_ROOT}/core FILES ${onnxruntime_providers_snpe_cc_srcs})
+  add_library(onnxruntime_providers_snpe ${onnxruntime_providers_snpe_cc_srcs})
+  onnxruntime_add_include_to_target(onnxruntime_providers_snpe onnxruntime_common onnxruntime_framework onnx onnx_proto protobuf::libprotobuf-lite flatbuffers)
+  target_link_libraries(onnxruntime_providers_snpe PRIVATE SNPE.lib)
+  add_dependencies(onnxruntime_providers_snpe onnx ${onnxruntime_EXTERNAL_DEPENDENCIES})
+  set_target_properties(onnxruntime_providers_snpe PROPERTIES CXX_STANDARD_REQUIRED ON)
+  set_target_properties(onnxruntime_providers_snpe PROPERTIES FOLDER "ONNXRuntime")
+  target_include_directories(onnxruntime_providers_snpe PRIVATE ${ONNXRUNTIME_ROOT} ${SNPE_ROOT}/include/zdl)
+  set_target_properties(onnxruntime_providers_snpe PROPERTIES LINKER_LANGUAGE CXX)
+  install(DIRECTORY ${PROJECT_SOURCE_DIR}/../include/onnxruntime/core/providers/snpe  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/onnxruntime/core/providers)
 endif()
 
 if (onnxruntime_USE_RKNPU)

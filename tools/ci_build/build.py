@@ -380,6 +380,10 @@ def parse_arguments():
     parser.add_argument(
         "--use_coreml", action='store_true', help="Build with CoreML support.")
     parser.add_argument(
+        "--use_snpe", action='store_true', help="Build with SNPE support.")
+    parser.add_argument(
+        "--snpe_root", help="Path to SNPE SDK root.")
+    parser.add_argument(
         "--use_nnapi", action='store_true', help="Build with NNAPI support.")
     parser.add_argument(
         "--nnapi_min_api", type=int,
@@ -645,8 +649,8 @@ def use_dev_mode(args):
     return 'ON'
 
 
-def generate_build_tree(cmake_path, source_dir, build_dir, cuda_home, cudnn_home, rocm_home,
-                        mpi_home, nccl_home, tensorrt_home, migraphx_home, acl_home, acl_libs, armnn_home, armnn_libs,
+def generate_build_tree(cmake_path, source_dir, build_dir, cuda_home, cudnn_home, rocm_home, mpi_home,
+                        nccl_home, tensorrt_home, migraphx_home, acl_home, acl_libs, armnn_home, armnn_libs, snpe_root,
                         path_to_protoc_exe, configs, cmake_extra_defines, args, cmake_extra_args):
     log.info("Generating CMake build tree")
     cmake_dir = os.path.join(source_dir, "cmake")
@@ -771,6 +775,9 @@ def generate_build_tree(cmake_path, source_dir, build_dir, cuda_home, cudnn_home
     if nccl_home and os.path.exists(nccl_home):
         cmake_args += ["-Donnxruntime_NCCL_HOME=" + nccl_home]
 
+    if snpe_root and os.path.exists(snpe_root):
+        cmake_args += ["-DSNPE_ROOT=" + snpe_root]
+
     if args.winml_root_namespace_override:
         cmake_args += ["-Donnxruntime_WINML_NAMESPACE_OVERRIDE=" +
                        args.winml_root_namespace_override]
@@ -850,6 +857,9 @@ def generate_build_tree(cmake_path, source_dir, build_dir, cuda_home, cudnn_home
         if not is_macOS():
             raise BuildError("Build CoreML EP requires macOS")
         cmake_args += ["-Donnxruntime_USE_COREML=ON"]
+
+    if args.use_snpe:
+        cmake_args += ["-Donnxruntime_USE_SNPE=ON"]
 
     if args.ios:
         if is_macOS():
@@ -1595,7 +1605,9 @@ def derive_linux_build_property():
         return "/p:IsLinuxBuild=\"true\""
 
 
-def build_nuget_package(source_dir, build_dir, configs, use_cuda, use_openvino, use_tensorrt, use_dnnl, use_nuphar):
+def build_nuget_package(
+        source_dir, build_dir, configs, use_cuda,
+        use_openvino, use_tensorrt, use_dnnl, use_nuphar, use_snpe, arm64, path_to_protoc_exe):
     if not (is_windows() or is_linux()):
         raise BuildError(
             'Currently csharp builds and nuget package creation is only supportted '
@@ -1620,6 +1632,9 @@ def build_nuget_package(source_dir, build_dir, configs, use_cuda, use_openvino, 
         package_name = "/p:OrtPackageId=\"Microsoft.ML.OnnxRuntime.Gpu\""
     elif use_nuphar:
         package_name = "/p:OrtPackageId=\"Microsoft.ML.OnnxRuntime.Nuphar\""
+    if use_snpe:
+        execution_provider = "/p:ExecutionProvider=\"snpe\""
+        package_name = "/p:OrtPackageId=\"Microsoft.ML.OnnxRuntime.Snpe\""
     else:
         pass
 
@@ -1642,11 +1657,22 @@ def build_nuget_package(source_dir, build_dir, configs, use_cuda, use_openvino, 
 
         cmd_args = ["dotnet", "msbuild", "OnnxRuntime.CSharp.sln", configuration, package_name, is_linux_build,
                     ort_build_dir]
+
+        target_arch = ""
+        protoc_dir = ""
+        if arm64:
+            target_arch = "/p:TargetArchitecture=arm64"
+            protoc_path, filename = os.path.split(path_to_protoc_exe)
+            protoc_dir = "/p:ProtocDirectory=" + protoc_path
+            cmd_args.extend([target_arch, protoc_dir])
+
         run_subprocess(cmd_args, cwd=csharp_build_dir)
 
         cmd_args = [
             "dotnet", "msbuild", "OnnxRuntime.CSharp.proj", "/t:CreatePackage",
             package_name, configuration, execution_provider, is_linux_build, ort_build_dir]
+        if arm64:
+            cmd_args.extend([target_arch, protoc_dir])
         run_subprocess(cmd_args, cwd=csharp_build_dir)
 
 
@@ -1839,7 +1865,7 @@ def main():
     if args.build_csharp or args.build_nuget or args.build_java or args.build_nodejs:
         args.build_shared_lib = True
 
-    if args.build_nuget and cross_compiling:
+    if args.build_nuget and cross_compiling and not args.arm64:
         raise BuildError('Currently nuget package creation is not supported while cross-compiling')
 
     if args.enable_pybind and args.disable_exceptions:
@@ -1887,6 +1913,8 @@ def main():
 
     mpi_home = args.mpi_home
     nccl_home = args.nccl_home
+
+    snpe_root = args.snpe_root
 
     acl_home = args.acl_home
     acl_libs = args.acl_libs
@@ -1938,6 +1966,9 @@ def main():
                 elif args.arm64ec:
                     cmake_extra_args = ['-A', 'ARM64EC']
                 cmake_extra_args += ['-G', args.cmake_generator]
+                if args.msvc_toolset:
+                    toolset = 'host=x64,version=' + args.msvc_toolset
+                    cmake_extra_args += ['-G', args.cmake_generator, '-T', toolset]
                 # Cannot test on host build machine for cross-compiled
                 # builds (Override any user-defined behaviour for test if any)
                 if args.test:
@@ -2046,7 +2077,7 @@ def main():
             args.rocm_version = ""
         generate_build_tree(
             cmake_path, source_dir, build_dir, cuda_home, cudnn_home, rocm_home, mpi_home, nccl_home,
-            tensorrt_home, migraphx_home, acl_home, acl_libs, armnn_home, armnn_libs,
+            tensorrt_home, migraphx_home, acl_home, acl_libs, armnn_home, armnn_libs, snpe_root,
             path_to_protoc_exe, configs, cmake_extra_defines, args, cmake_extra_args)
 
     if args.clean:
@@ -2107,7 +2138,10 @@ def main():
                 args.use_openvino,
                 args.use_tensorrt,
                 args.use_dnnl,
-                args.use_nuphar
+                args.use_nuphar,
+                args.use_snpe,
+                args.arm64,
+                path_to_protoc_exe
             )
 
     if args.test and args.build_nuget:

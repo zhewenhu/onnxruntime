@@ -2684,6 +2684,28 @@ It's an extension of Gelu. It takes the sum of input A and bias input B as the i
         updateOutputElemType(ctx, 0, ONNX_NAMESPACE::TensorProto::BOOL);
       });
 
+  ONNX_CONTRIB_OPERATOR_SCHEMA(Snpe)
+      .SetDomain(kMSDomain)
+      .SinceVersion(1)
+      .SetDoc("Onnx node for SNPE.")
+      .Attr("payload", "payload of the SNPE DLC file.", AttributeProto::STRING)
+      .Attr("snpe_version", "(Optional) SNPE version used to convert the model.", AttributeProto::STRING, OPTIONAL_VALUE)
+      .Attr("target_device", "(Optional) Target device like CPU, DSP, etc.", AttributeProto::STRING, OPTIONAL_VALUE)
+      .Attr("notes", "(Optional) Some notes for the model", AttributeProto::STRING, OPTIONAL_VALUE)
+      .AllowUncheckedAttributes()
+      .Input(0, "input1", "The input data1 as Tensor.", "T")
+      .Input(1, "input2", "The input data2 as Tensor.", "T", OpSchema::Optional)
+      .Output(0, "output1", "The output1.", "T")
+      .Output(1, "output2", "The output2.", "T", OpSchema::Optional)
+      .TypeConstraint(
+          "T",
+          {"tensor(uint8)", "tensor(float16)", "tensor(float)", "tensor(double)", "tensor(bfloat16)"},
+          "Constrain input and output types to float tensors.")
+      .TypeAndShapeInferenceFunction([](ONNX_NAMESPACE::InferenceContext& ctx) {
+        // Type inference
+        propagateElemTypeFromInputToOutput(ctx, 0, 0);
+      });
+
   // Register the NCHWc schemas if supported by the platform.
   if (MlasNchwcGetBlockSize() > 1) {
     RegisterNchwcSchemas();
