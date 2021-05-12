@@ -199,8 +199,9 @@ def convert_onnx_models_to_ort():
     if args.use_nnapi and 'NnapiExecutionProvider' not in ort.get_available_providers():
         raise ValueError('The NNAPI Execution Provider was not included in this build of ONNX Runtime.')
 
-    _convert(model_path_or_dir, args.optimization_level, args.use_nnapi, custom_op_library,
-             args.save_optimized_onnx_model)
+    for opt in ['disable', 'basic', 'extended', 'all']:
+        _convert(model_path_or_dir, opt, args.use_nnapi, custom_op_library,
+                 args.save_optimized_onnx_model)
 
     _create_config_file_from_ort_models(model_path_or_dir, args.enable_type_reduction)
 
