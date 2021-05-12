@@ -26,6 +26,7 @@ static std::string s_getRuntimeString(const zdl::DlSystem::Runtime_t& t) {
   return "RUNTIME_UNKNOWN";
 }
 
+#if !defined(_WIN32)
 static zdl::DlSystem::Runtime_t s_getPreferredRuntime(bool enforce_dsp, bool device_uses_dsp_only, bool device_must_not_use_dsp) {
   zdl::DlSystem::Runtime_t runtimes[] = {zdl::DlSystem::Runtime_t::DSP_FIXED8_TF,
                                          zdl::DlSystem::Runtime_t::AIP_FIXED8_TF,
@@ -55,6 +56,7 @@ static zdl::DlSystem::Runtime_t s_getPreferredRuntime(bool enforce_dsp, bool dev
   LOGS_DEFAULT(INFO) << "using runtime %d" << (int)runtime;
   return runtime;
 }
+#endif
 
 class SnpeLib {
 

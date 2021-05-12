@@ -269,12 +269,6 @@ def generate_files(list, args):
                                        'include\\onnxruntime\\core\\providers\\dml\\dml_provider_factory.h') +
                           '" target="build\\native\\include" />')
 
-    if includes_snpe:
-        files_list.append('<file src=' + '"' +
-                          os.path.join(args.sources_path,
-                                       'include\\onnxruntime\\core\\providers\\snpe\\snpe_provider_factory.h') +
-                          '" target="build\\native\\include" />')
-
     if includes_winml:
         # Add microsoft.ai.machinelearning headers
         files_list.append('<file src=' + '"' + os.path.join(args.ort_build_path, args.build_config,

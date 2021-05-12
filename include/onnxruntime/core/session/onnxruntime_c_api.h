@@ -1316,6 +1316,13 @@ struct OrtApi {
      */
   ORT_API2_STATUS(AddRunConfigEntry, _Inout_ OrtRunOptions* options,
                   _In_z_ const char* config_key, _In_z_ const char* config_value);
+
+  /**
+   * Append SNPE execution provider to the session options
+   * If SNPE is not available (due to a non Snpe enabled build or its dependencies not being installed), this function will fail.
+   */
+  ORT_API2_STATUS(SessionOptionsAppendExecutionProvider_SNPE,
+                  _In_ OrtSessionOptions* options, bool enforce_dsp);
 };
 
 /*

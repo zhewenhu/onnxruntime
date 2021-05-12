@@ -402,7 +402,7 @@ int real_main(int argc, char* argv[], Ort::Env& env) {
     }
     if (enable_snpe) {
 #ifdef USE_SNPE
-      Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_SNPE(sf, true));
+      sf.AppendExecutionProvider_SNPE(true);
 #else
       fprintf(stderr, "SNPE is not supported in this build");
       return -1;

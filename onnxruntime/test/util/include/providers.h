@@ -25,9 +25,6 @@
 #ifdef USE_COREML
 #include "core/providers/coreml/coreml_provider_factory.h"
 #endif
-#ifdef USE_SNPE
-#include "core/providers/snpe/snpe_provider_factory.h"
-#endif
 #ifdef USE_DML
 #include "core/providers/dml/dml_provider_factory.h"
 #endif

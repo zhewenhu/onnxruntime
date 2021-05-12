@@ -267,4 +267,6 @@ ORT_API_STATUS_IMPL(CreateArenaCfgV2, _In_reads_(num_keys) const char* const* ar
                     _In_ size_t num_keys, _Outptr_ OrtArenaCfg** out);
 ORT_API_STATUS_IMPL(AddRunConfigEntry, _Inout_ OrtRunOptions* options,
                     _In_z_ const char* config_key, _In_z_ const char* config_value);
+ORT_API_STATUS_IMPL(SessionOptionsAppendExecutionProvider_SNPE,
+                    _In_ OrtSessionOptions* options, bool enforce_dsp);
 }  // namespace OrtApis

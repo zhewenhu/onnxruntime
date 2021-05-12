@@ -1910,6 +1910,15 @@ ORT_API_STATUS_IMPL(OrtApis::SessionOptionsAppendExecutionProvider_TensorRT,
 }
 #endif
 
+#ifndef USE_SNPE
+ORT_API_STATUS_IMPL(OrtApis::SessionOptionsAppendExecutionProvider_SNPE,
+                    _In_ OrtSessionOptions* options, bool enforce_dsp) {
+  ORT_UNUSED_PARAMETER(options);
+  ORT_UNUSED_PARAMETER(enforce_dsp);
+  return CreateStatus(ORT_FAIL, "SNPE execution provider is not enabled.");
+}
+#endif
+
 static constexpr OrtApiBase ort_api_base = {
     &OrtApis::GetApi,
     &OrtApis::GetVersionString,
@@ -2154,6 +2163,7 @@ static constexpr OrtApi ort_api_1_to_8 = {
     &OrtApis::KernelInfoGetAttributeArray_int64,
     &OrtApis::CreateArenaCfgV2,
     &OrtApis::AddRunConfigEntry,
+    &OrtApis::SessionOptionsAppendExecutionProvider_SNPE,
 };
 
 // Assert to do a limited check to ensure Version 1 of OrtApi never changes (will detect an addition or deletion but not if they cancel out each other)

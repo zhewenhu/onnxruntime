@@ -2432,10 +2432,10 @@ This version of the operator has been available since version 1 of the 'com.micr
 #### Attributes
 
 <dl>
-<dt><tt>notes</tt> : string</dt>
-<dd>(Optional) Some notes for the model</dd>
 <dt><tt>DLC</tt> : string (required)</dt>
 <dd>payload of the SNPE DLC file.</dd>
+<dt><tt>notes</tt> : string</dt>
+<dd>(Optional) Some notes for the model</dd>
 <dt><tt>snpe_version</tt> : string</dt>
 <dd>(Optional) SNPE version used to convert the model.</dd>
 <dt><tt>target_device</tt> : string</dt>

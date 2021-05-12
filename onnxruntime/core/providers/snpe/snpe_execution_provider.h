@@ -4,7 +4,6 @@
 #pragma once
 
 #include "core/framework/execution_provider.h"
-#include "core/providers/snpe/snpe_provider_factory.h"
 #include "SnpeLib.h"
 
 namespace onnxruntime {

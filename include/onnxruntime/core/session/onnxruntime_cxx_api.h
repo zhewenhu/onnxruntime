@@ -330,6 +330,7 @@ struct SessionOptions : Base<OrtSessionOptions> {
   SessionOptions& AppendExecutionProvider_ROCM(const OrtROCMProviderOptions& provider_options);
   SessionOptions& AppendExecutionProvider_OpenVINO(const OrtOpenVINOProviderOptions& provider_options);
   SessionOptions& AppendExecutionProvider_TensorRT(const OrtTensorRTProviderOptions& provider_options);
+  SessionOptions& AppendExecutionProvider_SNPE(bool enforce_dsp);
 };
 
 struct ModelMetadata : Base<OrtModelMetadata> {
