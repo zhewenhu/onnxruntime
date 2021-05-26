@@ -185,8 +185,9 @@ def parse_arguments():
 
     # generate documentation
     parser.add_argument(
-        "--gen_doc", action='store_true',
-        help="Generate documentation on contrib ops")
+        "--gen_doc", nargs='?', const='yes', type=str,
+        help="Generate operator kernels and contrib operator documentation. "
+             "Use `--gen_doc validate` to validate these match the current contents in /docs.")
 
     parser.add_argument(
         "--gen-api-doc", action='store_true',
@@ -1761,52 +1762,46 @@ def build_protoc_for_host(cmake_path, source_dir, build_dir, args):
     return expected_protoc_path
 
 
-def generate_documentation(source_dir, build_dir, configs):
+def generate_documentation(source_dir, build_dir, configs, validate):
     # Randomly choose one build config
     config = next(iter(configs))
     cwd = get_config_build_dir(build_dir, config)
     if is_windows():
         cwd = os.path.join(cwd, config)
-    operator_doc_path = os.path.join(source_dir, 'docs', 'ContribOperators.md')
-    opkernel_doc_path = os.path.join(source_dir, 'docs', 'OperatorKernels.md')
-    shutil.copy(
-        os.path.join(source_dir, 'tools', 'python', 'gen_contrib_doc.py'), cwd)
-    shutil.copy(
-         os.path.join(source_dir, 'tools', 'python', 'gen_opkernel_doc.py'),
-         cwd)
-    run_subprocess(
-        [sys.executable,
-         'gen_contrib_doc.py',
-         '--output_path', operator_doc_path], cwd=cwd)
-    run_subprocess(
-        [sys.executable,
-         'gen_opkernel_doc.py',
-         '--output_path', opkernel_doc_path], cwd=cwd)
-    docdiff = ''
-    try:
-        docdiff = subprocess.check_output(['git', 'diff', opkernel_doc_path], cwd=source_dir)
-    except subprocess.CalledProcessError:
-        print('git diff returned non-zero error code')
-    if len(docdiff) > 0:
-        # Show warning instead of throwing exception, because it is
-        # dependent on build configuration for including
-        # execution propviders
-        log.warning(
-            'The updated opkernel document file ' + str(opkernel_doc_path) +
-            ' is different from the checked in version. Consider '
-            'regenerating the file with CPU, DNNL and CUDA providers enabled.')
-        log.debug('diff:\n' + str(docdiff))
 
-    docdiff = ''
-    try:
-        docdiff = subprocess.check_output(['git', 'diff', operator_doc_path], cwd=source_dir)
-    except subprocess.CalledProcessError:
-        print('git diff returned non-zero error code')
-    if len(docdiff) > 0:
-        raise BuildError(
-            'The updated operator document file ' +
-            str(operator_doc_path) + ' must be checked in.\n diff:\n' +
-            str(docdiff))
+    contrib_op_doc_path = os.path.join(source_dir, 'docs', 'ContribOperators.md')
+    opkernel_doc_path = os.path.join(source_dir, 'docs', 'OperatorKernels.md')
+    shutil.copy(os.path.join(source_dir, 'tools', 'python', 'gen_contrib_doc.py'), cwd)
+    shutil.copy(os.path.join(source_dir, 'tools', 'python', 'gen_opkernel_doc.py'), cwd)
+    run_subprocess([sys.executable, 'gen_contrib_doc.py', '--output_path', contrib_op_doc_path], cwd=cwd)
+    # we currently limit the documentation created by a build to the CPU and CUDA EPs.
+    # Run get_opkernel_doc.py directly if you need/want documentation from other EPs that are enabled in the build.
+    run_subprocess([sys.executable, 'gen_opkernel_doc.py', '--output_path', opkernel_doc_path,
+                    '--providers', 'CPU', 'CUDA'], cwd=cwd)
+
+    if validate:
+        try:
+            have_diff = False
+
+            def diff_file(path, regenerate_qualifiers=''):
+                diff = subprocess.check_output(['git', 'diff', path], cwd=source_dir)
+                if diff:
+                    nonlocal have_diff
+                    have_diff = True
+                    log.warning('The updated document {} is different from the checked in version. '
+                                'Please regenerate the file{}, or copy the updated version from the '
+                                'CI build\'s published artifacts if applicable.'.format(path, regenerate_qualifiers))
+                    log.debug('diff:\n' + str(diff))
+
+            diff_file(opkernel_doc_path, ' with CPU and CUDA execution providers enabled')
+            diff_file(contrib_op_doc_path)
+
+            if have_diff:
+                # Output for the CI to publish the updated md files as an artifact
+                print('##vso[task.setvariable variable=DocUpdateNeeded]true')
+
+        except subprocess.CalledProcessError:
+            raise BuildError('git diff returned non-zero error code')
 
 
 def main():
@@ -2131,7 +2126,7 @@ def main():
             args.use_dnnl)
 
     if args.gen_doc and (args.build or args.test):
-        generate_documentation(source_dir, build_dir, configs)
+        generate_documentation(source_dir, build_dir, configs, args.gen_doc == 'validate')
 
     if args.gen_api_doc and (args.build or args.test):
         print('Generating Python doc for ORTModule...')
