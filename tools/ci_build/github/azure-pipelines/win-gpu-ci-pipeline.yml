@@ -154,7 +154,7 @@ jobs:
     condition: and(succeeded(), eq('${{ parameters.RunOnnxRuntimeTests}}', true))
     displayName: 'Run tests'
 
- - script: |
+  - script: |
       echo ${{ variables.DocUpdateNeeded }} # should output initial value
       echo $(DocUpdateNeeded) # should output post-script value
     displayName: 'Check DocUpdateNeeded value' 
