@@ -19,7 +19,7 @@ import numpy as np  # type: ignore
 import onnxruntime.capi.onnxruntime_pybind11_state as rtpy
 from onnxruntime.capi.onnxruntime_pybind11_state import schemadef  # noqa: F401
 from onnxruntime.capi.onnxruntime_pybind11_state.schemadef import OpSchema  # noqa: F401
-from typing import Any, Text, Sequence, Dict, List, Type, Set, Tuple
+from typing import Any, Text, Sequence, Dict, List, Set, Tuple
 from onnx import AttributeProto, FunctionProto
 
 ONNX_ML = not bool(os.getenv('ONNX_ML') == '0')
