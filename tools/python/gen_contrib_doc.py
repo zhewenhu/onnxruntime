@@ -390,7 +390,7 @@ def main(output_path: str, domain_filter: [str]):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='ONNX Runtime Contrib Operator Documentation Generator')
     parser.add_argument('--domains', nargs='+',
-                        help="Filter to specified domains. "                                                          
+                        help="Filter to specified domains. "
                              "e.g. `--domains com.microsoft com.microsoft.nchwc`")
     parser.add_argument('--output_path', help='output markdown file path', type=pathlib.Path, required=True,
                         default=os.path.join(os.path.dirname(os.path.realpath(__file__)), 'ContribOperators.md'))
