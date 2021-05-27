@@ -183,10 +183,9 @@ def parse_arguments():
         available test data directories.""")
 
     # generate documentation
-    parser.add_argument(
-        "--gen_doc", nargs='?', const='yes', type=str,
-        help="Generate operator kernels and contrib operator documentation. "
-             "Use `--gen_doc validate` to validate these match the current contents in /docs.")
+    parser.add_argument("--gen_doc", nargs='?', const='yes', type=str,
+                        help="Generate operator kernels and contrib operator documentation. "
+                             "Use `--gen_doc validate` to validate these match the current contents in /docs.")
 
     parser.add_argument(
         "--gen-api-doc", action='store_true',
