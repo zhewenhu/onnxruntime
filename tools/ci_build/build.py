@@ -149,8 +149,7 @@ def parse_arguments():
         help="Use parallel build. The optional value specifies the maximum number of parallel jobs. "
              "If the optional value is 0 or unspecified, it is interpreted as the number of CPUs.")
     parser.add_argument("--test", action='store_true', help="Run unit tests.")
-    parser.add_argument(
-        "--skip_tests", action='store_true', help="Skip all tests.")
+    parser.add_argument("--skip_tests", action='store_true', help="Skip all tests.")
 
     # Training options
     parser.add_argument(
@@ -412,15 +411,11 @@ def parse_arguments():
         "--use_full_protobuf", action='store_true',
         help="Use the full protobuf library")
 
-    parser.add_argument(
-        "--skip_onnx_tests", action='store_true', help="Explicitly disable "
-        "all onnx related tests. Note: Use --skip_tests to skip all tests.")
-    parser.add_argument(
-        "--skip_winml_tests", action='store_true',
-        help="Explicitly disable all WinML related tests")
-    parser.add_argument(
-        "--skip_nodejs_tests", action='store_true',
-        help="Explicitly disable all Node.js binding tests")
+    parser.add_argument("--skip_onnx_tests", action='store_true',
+                        help="Explicitly disable all onnx related tests. Note: Use --skip_tests to skip all tests.")
+    parser.add_argument("--skip_winml_tests", action='store_true', help="Explicitly disable all WinML related tests")
+    parser.add_argument("--skip_nodejs_tests", action='store_true', help="Explicitly disable all Node.js binding tests")
+
     parser.add_argument(
         "--enable_msvc_static_runtime", action='store_true',
         help="Enable static linking of MSVC runtimes.")
@@ -1799,6 +1794,7 @@ def generate_documentation(source_dir, build_dir, configs, validate):
             if have_diff:
                 # Output for the CI to publish the updated md files as an artifact
                 print('##vso[task.setvariable variable=DocUpdateNeeded]true')
+                raise BuildError('Generated documents have diffs. Check build output for details.')
 
         except subprocess.CalledProcessError:
             raise BuildError('git diff returned non-zero error code')
@@ -2038,10 +2034,13 @@ def main():
                     "currently through this script")
             if not is_docker() and not args.use_acl and not args.use_armnn:
                 install_python_deps()
+
         if args.enable_pybind and is_windows():
             install_python_deps(args.numpy_version)
+
         if args.enable_onnx_tests:
             setup_test_data(build_dir, configs)
+
         if args.use_cuda and args.cuda_version is None:
             if is_windows():
                 # cuda_version is used while generating version_info.py on Windows.
@@ -2050,6 +2049,7 @@ def main():
                 args.cuda_version = ""
         if args.use_rocm and args.rocm_version is None:
             args.rocm_version = ""
+
         generate_build_tree(
             cmake_path, source_dir, build_dir, cuda_home, cudnn_home, rocm_home, mpi_home, nccl_home,
             tensorrt_home, migraphx_home, acl_home, acl_libs, armnn_home, armnn_libs,

@@ -151,15 +151,9 @@ jobs:
   - powershell: |
      Get-ChildItem -Path dist/*.whl | foreach {pip --disable-pip-version-check install --upgrade $_.fullname}
      python $(Build.SourcesDirectory)\tools\ci_build\build.py --config $(BuildConfig) --build_dir $(Build.BinariesDirectory) $(UseOmp) --test --gen_doc validate $(additionalBuildFlags)
-   
     workingDirectory: '$(Build.BinariesDirectory)\$(BuildConfig)\$(BuildConfig)'
     condition: and(succeeded(), eq('${{ parameters.RunOnnxRuntimeTests}}', true))
     displayName: 'Run tests'
-
-  - script: |
-      echo ${{ variables.DocUpdateNeeded }} # should output initial value
-      echo $(DocUpdateNeeded) # should output post-script value
-    displayName: 'Check DocUpdateNeeded value' 
 
   # if the validation from gen_docs failed it sets a variable so we can publish the latest version of the docs
   # as an artifact, allowing a developer to download this and replace the current version instead of having to build
