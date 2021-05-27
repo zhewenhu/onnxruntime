@@ -38,9 +38,13 @@ def display_number(v):  # type: (int) -> Text
     return Text(v)
 
 
-def should_render_domain(domain):  # type: (Text) -> bool
+def should_render_domain(domain, domain_filter):  # type: (Text) -> bool
     if domain == ONNX_DOMAIN or domain == '' or domain == ONNX_ML_DOMAIN or domain == 'ai.onnx.ml':
         return False
+
+    if domain_filter and domain not in domain_filter:
+        return False
+
     return True
 
 
@@ -309,7 +313,7 @@ def support_level_str(level):  # type: (OpSchema.SupportType) -> Text
 #         "<sub>experimental</sub> " if status == OperatorStatus.Value('EXPERIMENTAL') else ""  # type: ignore
 
 
-def main(output_path: str):
+def main(output_path: str, domain_filter: [str]):
 
     with io.open(output_path, 'w', newline='', encoding="utf-8") as fout:
         fout.write('## Contrib Operator Schemas\n')
@@ -331,7 +335,7 @@ def main(output_path: str):
         operator_schemas = list()  # type: List[Tuple[Text, List[Tuple[int, List[Tuple[Text, OpSchema, List[OpSchema]]]]]]]  # noqa: E501
         exsting_ops = set()  # type: Set[Text]
         for domain, _supportmap in sorted(index.items()):
-            if not should_render_domain(domain):
+            if not should_render_domain(domain, domain_filter):
                 continue
 
             processed_supportmap = list()
@@ -385,9 +389,12 @@ def main(output_path: str):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='ONNX Runtime Contrib Operator Documentation Generator')
+    parser.add_argument('--domains', nargs='+',
+                        help="Filter to specified domains. "                                                          
+                             "e.g. `--domains com.microsoft com.microsoft.nchwc`")
     parser.add_argument('--output_path', help='output markdown file path', type=pathlib.Path, required=True,
                         default=os.path.join(os.path.dirname(os.path.realpath(__file__)), 'ContribOperators.md'))
     args = parser.parse_args()
-    output_path = args.output_path.resolve(strict=True)
+    output_path = args.output_path.resolve()
 
-    main(output_path)
+    main(output_path, args.domains)
