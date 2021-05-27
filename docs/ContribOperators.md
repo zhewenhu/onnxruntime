@@ -76,45 +76,45 @@ This version of the operator has been available since version 1 of the 'com.micr
 
 #### Attributes
 
-<table><dl>
-<dt>num_heads [int] (required)</dt>
+<dl>
+<dt><tt>num_heads</tt> : int (required)</dt>
 <dd>Number of attention heads</dd>
-<dt>unidirectional [int]</dt>
+<dt><tt>unidirectional</tt> : int</dt>
 <dd>Whether every token can only attend to previous tokens. Default value is 0.</dd>
-</dl></table>
+</dl>
 
 #### Inputs (3 - 5)
 
 <table><dl>
-<dt>input [T]</dt>
+<dt><tt>input</tt> : T</dt>
 <dd>3D input tensor with shape (batch_size, sequence_length, input_hidden_size)</dd>
-<dt>weight [T]</dt>
+<dt><tt>weight</tt> : T</dt>
 <dd>2D input tensor with shape (input_hidden_size, 3 * hidden_size), where hidden_size = num_heads * head_size</dd>
-<dt>bias [T]</dt>
+<dt><tt>bias</tt> : T</dt>
 <dd>1D input tensor with shape (3 * hidden_size)</dd>
-<dt>mask_index (optional) [M]</dt>
+<dt><tt>mask_index</tt> (optional) : M</dt>
 <dd>Attention mask with shape (batch_size, 1, max_sequence_length, max_sequence_length), (batch_size, past_sequence_length + sequence_length)or (batch_size, sequence_length, past_sequence_length + sequence_length), or index with shape (batch_size) or (2 * batch_size).</dd>
-<dt>past (optional) [T]</dt>
+<dt><tt>past</tt> (optional) : T</dt>
 <dd>past state for key and value with shape (2, batch_size, num_heads, past_sequence_length, head_size).</dd>
-</dl></table>
+</dl>
 
 #### Outputs (1 - 2)
 
-<table><dl>
-<dt>output [T]</dt>
+<dl>
+<dt><tt>output</tt> : T</dt>
 <dd>3D output tensor with shape (batch_size, append_length, hidden_size)</dd>
-<dt>present (optional) [T]</dt>
+<dt><tt>present</tt> (optional) : T</dt>
 <dd>present state for key and value with shape (2, batch_size, num_heads, past_sequence_length + sequence_length, head_size)</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T : tensor(float), tensor(float16)</dt>
+<dl>
+<dt><tt>T</tt> : tensor(float), tensor(float16)</dt>
 <dd>Constrain input and output types to float tensors.</dd>
-<dt>M : tensor(int32)</dt>
+<dt><tt>M</tt> : tensor(int32)</dt>
 <dd>Constrain mask index to integer types</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.AttnLSTM"></a><a name="com.microsoft.attnlstm">**com.microsoft.AttnLSTM**</a>
@@ -255,75 +255,75 @@ This version of the operator has been available since version 1 of the 'com.micr
 
 #### Attributes
 
-<table><dl>
-<dt>activation_alpha [list of floats]</dt>
+<dl>
+<dt><tt>activation_alpha</tt> : list of floats</dt>
 <dd>Optional scaling values used by some activation functions. The values are consumed in the order of activation functions, for example (f, g, h) in LSTM. Default values are the same as of corresponding ONNX operators.For example with LeakyRelu, the default alpha is 0.01.</dd>
-<dt>activation_beta [list of floats]</dt>
+<dt><tt>activation_beta</tt> : list of floats</dt>
 <dd>Optional scaling values used by some activation functions. The values are consumed in the order of activation functions, for example (f, g, h) in LSTM. Default values are the same as of corresponding ONNX operators.</dd>
-<dt>activations [list of strings]</dt>
+<dt><tt>activations</tt> : list of strings</dt>
 <dd>A list of 3 (or 6 if bidirectional) activation functions for input, output, forget, cell, and hidden. The activation functions must be one of the activation functions specified above. Optional: See the equations for default if not specified.</dd>
-<dt>clip [float]</dt>
+<dt><tt>clip</tt> : float</dt>
 <dd>Cell clip threshold. Clipping bounds the elements of a tensor in the range of [-threshold, +threshold] and is applied to the input of activations. No clip if not specified.</dd>
-<dt>direction [string]</dt>
+<dt><tt>direction</tt> : string</dt>
 <dd>Specify if the RNN is forward, reverse, or bidirectional. Must be one of forward (default), reverse, or bidirectional.</dd>
-<dt>hidden_size [int]</dt>
+<dt><tt>hidden_size</tt> : int</dt>
 <dd>Number of neurons in the hidden layer.</dd>
-<dt>input_forget [int]</dt>
+<dt><tt>input_forget</tt> : int</dt>
 <dd>Couple the input and forget gates if 1, default 0.</dd>
-</dl></table>
+</dl>
 
 #### Inputs (3 - 14)
 
 <table><dl>
-<dt>X [T]</dt>
+<dt><tt>X</tt> : T</dt>
 <dd>The input sequences packed (and potentially padded) into one 3-D tensor with the shape of `[seq_length, batch_size, input_size]`</dd>
-<dt>W [T]</dt>
+<dt><tt>W</tt> : T</dt>
 <dd>The weight tensor for the gates. Concatenation of `W[iofc]` and `WB[iofc]` (if bidirectional) along dimension 0. The tensor has shape `[num_directions, 4*hidden_size, input_size]`.</dd>
-<dt>R [T]</dt>
+<dt><tt>R</tt> : T</dt>
 <dd>The recurrence weight tensor. Concatenation of `R[iofc]` and `RB[iofc]` (if bidirectional) along dimension 0. This tensor has shape `[num_directions, 4*hidden_size, hidden_size]`.</dd>
-<dt>B (optional) [T]</dt>
+<dt><tt>B</tt> (optional) : T</dt>
 <dd>The bias tensor for input gate. Concatenation of `[Wb[iofc], Rb[iofc]]`, and `[WBb[iofc], RBb[iofc]]` (if bidirectional) along dimension 0. This tensor has shape `[num_directions, 8*hidden_size]`. Optional: If not specified - assumed to be 0.</dd>
-<dt>sequence_lens (optional) [T1]</dt>
+<dt><tt>sequence_lens</tt> (optional) : T1</dt>
 <dd>Optional tensor specifying lengths of the sequences in a batch. If not specified - assumed all sequences in the batch to have length `seq_length`. It has shape `[batch_size]` </dd>
-<dt>initial_h (optional) [T]</dt>
+<dt><tt>initial_h</tt> (optional) : T</dt>
 <dd>Optional initial value of the hidden. If not specified - assumed to be 0. It has shape `[num_directions, batch_size, hidden_size]`.</dd>
-<dt>initial_c (optional) [T]</dt>
+<dt><tt>initial_c</tt> (optional) : T</dt>
 <dd>Optional initial value of the cell. If not specified - assumed to be 0. It has shape `[num_directions, batch_size, hidden_size]`.</dd>
-<dt>P (optional) [T]</dt>
+<dt><tt>P</tt> (optional) : T</dt>
 <dd>The weight tensor for peepholes. Concatenation of `P[iof]` and `PB[iof]` (if bidirectional) along dimension 0. It has shape `[num_directions, 3*hidde_size]`. Optional: If not specified - assumed to be 0.</dd>
-<dt>QW (optional) [T]</dt>
+<dt><tt>QW</tt> (optional) : T</dt>
 <dd>The weight tensor of the query layer in the attention mechanism. Should be of shape `[num_directions, am_query_depth(hidden_size of lstm), am_attn_size]` </dd>
-<dt>MW (optional) [T]</dt>
+<dt><tt>MW</tt> (optional) : T</dt>
 <dd>The weight tensor of the memory layer in the attention mechanism. Should be of shape `[num_directions, memory_depth, am_attn_size]` </dd>
-<dt>V (optional) [T]</dt>
+<dt><tt>V</tt> (optional) : T</dt>
 <dd>The attention_v tensor in the attention mechanism. Should be of shape `[num_directions, am_attn_size]` </dd>
-<dt>M (optional) [T]</dt>
+<dt><tt>M</tt> (optional) : T</dt>
 <dd>The sequence of the memory (input) for attention mechanism. Should be of `[batch_size, max_memory_step, memory_depth]` </dd>
-<dt>memory_seq_lens (optional) [T1]</dt>
+<dt><tt>memory_seq_lens</tt> (optional) : T1</dt>
 <dd>The sequence length of the input memory for the attention mechanism. Should be of `[batch_size]` </dd>
-<dt>AW (optional) [T]</dt>
+<dt><tt>AW</tt> (optional) : T</dt>
 <dd>The weights of attention layer in the attention wrapper. If exists, should be of shape `[num_directions, memory_depth+hidden_size, aw_attn_size]. Please note that attention mechanism context depth is also memory_depth in the attention mechanism.` </dd>
-</dl></table>
+</dl>
 
 #### Outputs (0 - 3)
 
-<table><dl>
-<dt>Y (optional) [T]</dt>
+<dl>
+<dt><tt>Y</tt> (optional) : T</dt>
 <dd>A tensor that concats all the intermediate output values of the hidden. It has shape `[seq_length, num_directions, batch_size, hidden_size]`</dd>
-<dt>Y_h (optional) [T]</dt>
+<dt><tt>Y_h</tt> (optional) : T</dt>
 <dd>The last output value of the hidden. It has shape `[num_directions, batch_size, hidden_size]`. </dd>
-<dt>Y_c (optional) [T]</dt>
+<dt><tt>Y_c</tt> (optional) : T</dt>
 <dd>The last output value of the cell. It has shape `[num_directions, batch_size, hidden_size]`.</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T : tensor(float), tensor(double)</dt>
+<dl>
+<dt><tt>T</tt> : tensor(float), tensor(double)</dt>
 <dd>Constrain input and output types to float tensors.</dd>
-<dt>T1 : tensor(int32)</dt>
+<dt><tt>T1</tt> : tensor(int32)</dt>
 <dd>Constrain seq_lens to integral tensors.</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.BiasDropout"></a><a name="com.microsoft.biasdropout">**com.microsoft.BiasDropout**</a>
@@ -336,45 +336,45 @@ This version of the operator has been available since version 1 of the 'com.micr
 
 #### Attributes
 
-<table><dl>
-<dt>seed [int]</dt>
+<dl>
+<dt><tt>seed</tt> : int</dt>
 <dd>(Optional) Seed to the random generator, if not specified we will auto generate one.</dd>
-</dl></table>
+</dl>
 
 #### Inputs (2 - 5)
 
 <table><dl>
-<dt>data [T]</dt>
+<dt><tt>data</tt> : T</dt>
 <dd>The input data as Tensor.</dd>
-<dt>bias [T]</dt>
+<dt><tt>bias</tt> : T</dt>
 <dd>The bias input, a vector with the same shape as last dim of data</dd>
-<dt>residual (optional) [T]</dt>
+<dt><tt>residual</tt> (optional) : T</dt>
 <dd>The residual input, must have the same shape as data</dd>
-<dt>ratio (optional) [T1]</dt>
+<dt><tt>ratio</tt> (optional) : T1</dt>
 <dd>The ratio of random dropout, with value in [0, 1). If this input was not set, or if it was set to 0, the output would be a simple copy of the input. If it's non-zero, output will be a random dropout of input, which is typically the case during training.</dd>
-<dt>training_mode (optional) [T2]</dt>
+<dt><tt>training_mode</tt> (optional) : T2</dt>
 <dd>If set to true then it indicates dropout is being used for training. It is an optional value hence unless specified explicitly, it is false. If it is false, ratio is ignored and the operation mimics inference mode where nothing will be dropped from the input data and if mask is requested as output it will contain all ones.</dd>
-</dl></table>
+</dl>
 
 #### Outputs (1 - 2)
 
-<table><dl>
-<dt>output [T]</dt>
+<dl>
+<dt><tt>output</tt> : T</dt>
 <dd>The output.</dd>
-<dt>mask (optional) [T2]</dt>
+<dt><tt>mask</tt> (optional) : T2</dt>
 <dd>The output mask of dropout.</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T : tensor(float16), tensor(float), tensor(double), tensor(bfloat16)</dt>
+<dl>
+<dt><tt>T</tt> : tensor(float16), tensor(float), tensor(double), tensor(bfloat16)</dt>
 <dd>Constrain input and output types to float tensors.</dd>
-<dt>T1 : tensor(float16), tensor(float), tensor(double), tensor(bfloat16)</dt>
+<dt><tt>T1</tt> : tensor(float16), tensor(float), tensor(double), tensor(bfloat16)</dt>
 <dd>Constrain input 'ratio' types to float tensors.</dd>
-<dt>T2 : tensor(bool)</dt>
+<dt><tt>T2</tt> : tensor(bool)</dt>
 <dd>Constrain output 'mask' types to boolean tensors.</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.BiasGelu"></a><a name="com.microsoft.biasgelu">**com.microsoft.BiasGelu**</a>
@@ -389,25 +389,25 @@ This version of the operator has been available since version 1 of the 'com.micr
 #### Inputs
 
 <table><dl>
-<dt>A [T]</dt>
+<dt><tt>A</tt> : T</dt>
 <dd>The normal input data.</dd>
-<dt>B [T]</dt>
+<dt><tt>B</tt> : T</dt>
 <dd>The bias input data that is a 1D tensor.</dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>C [T]</dt>
+<dl>
+<dt><tt>C</tt> : T</dt>
 <dd>The output.</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T : tensor(float16), tensor(float), tensor(double)</dt>
+<dl>
+<dt><tt>T</tt> : tensor(float16), tensor(float), tensor(double)</dt>
 <dd>Constrain input and output types to float tensors.</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.BiasSoftmax"></a><a name="com.microsoft.biassoftmax">**com.microsoft.BiasSoftmax**</a>
@@ -420,35 +420,35 @@ This version of the operator has been available since version 1 of the 'com.micr
 
 #### Attributes
 
-<table><dl>
-<dt>broadcast_axis [int]</dt>
+<dl>
+<dt><tt>broadcast_axis</tt> : int</dt>
 <dd>broadcast bias across input for dimensions broadcast_axis to softmax_axis-1</dd>
-<dt>softmax_axis [int]</dt>
+<dt><tt>softmax_axis</tt> : int</dt>
 <dd>apply softmax to elements for dimensions softmax_axis or higher</dd>
-</dl></table>
+</dl>
 
 #### Inputs
 
 <table><dl>
-<dt>data [T]</dt>
+<dt><tt>data</tt> : T</dt>
 <dd>The input data as Tensor.</dd>
-<dt>bias [T]</dt>
+<dt><tt>bias</tt> : T</dt>
 <dd>The bias (or mask) as Tensor.</dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>output [T]</dt>
+<dl>
+<dt><tt>output</tt> : T</dt>
 <dd>The output.</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T : tensor(float16), tensor(float), tensor(double)</dt>
+<dl>
+<dt><tt>T</tt> : tensor(float16), tensor(float), tensor(double)</dt>
 <dd>Constrain input and output types to float tensors.</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.CDist"></a><a name="com.microsoft.cdist">**com.microsoft.CDist**</a>
@@ -459,33 +459,33 @@ This version of the operator has been available since version 1 of the 'com.micr
 
 #### Attributes
 
-<table><dl>
-<dt>metric [string]</dt>
+<dl>
+<dt><tt>metric</tt> : string</dt>
 <dd>The distance metric to use. If a string, the distance function can be "braycurtis", "canberra", "chebyshev", "cityblock", "correlation", "cosine", "dice", "euclidean", "hamming", "jaccard", "jensenshannon", "kulsinski", "mahalanobis", "matching", "minkowski", "rogerstanimoto", "russellrao", "seuclidean", "sokalmichener", "sokalsneath", "sqeuclidean", "wminkowski", "yule".</dd>
-</dl></table>
+</dl>
 
 #### Inputs
 
 <table><dl>
-<dt>A [T]</dt>
+<dt><tt>A</tt> : T</dt>
 <dd>2D matrix with shape (M,N)</dd>
-<dt>B [T]</dt>
+<dt><tt>B</tt> : T</dt>
 <dd>2D matrix with shape (K,N)</dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>C [T]</dt>
+<dl>
+<dt><tt>C</tt> : T</dt>
 <dd>A 2D Matrix that represents the distance between each pair of the two collections of inputs.</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T : tensor(float), tensor(double)</dt>
+<dl>
+<dt><tt>T</tt> : tensor(float), tensor(double)</dt>
 <dd>Constrains input to only numeric types.</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.ComplexMul"></a><a name="com.microsoft.complexmul">**com.microsoft.ComplexMul**</a>
@@ -497,25 +497,25 @@ This version of the operator has been available since version 1 of the 'com.micr
 #### Inputs
 
 <table><dl>
-<dt>A [T]</dt>
+<dt><tt>A</tt> : T</dt>
 <dd>input_0</dd>
-<dt>B [T]</dt>
+<dt><tt>B</tt> : T</dt>
 <dd>input_1</dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>C [T]</dt>
+<dl>
+<dt><tt>C</tt> : T</dt>
 <dd>output tensor</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T : tensor(float), tensor(double), tensor(float16)</dt>
+<dl>
+<dt><tt>T</tt> : tensor(float), tensor(double), tensor(float16)</dt>
 <dd>Constrain input and output types to float or half tensors.</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.ComplexMulConj"></a><a name="com.microsoft.complexmulconj">**com.microsoft.ComplexMulConj**</a>
@@ -527,25 +527,25 @@ This version of the operator has been available since version 1 of the 'com.micr
 #### Inputs
 
 <table><dl>
-<dt>A [T]</dt>
+<dt><tt>A</tt> : T</dt>
 <dd>input_0</dd>
-<dt>B [T]</dt>
+<dt><tt>B</tt> : T</dt>
 <dd>input_1</dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>C [T]</dt>
+<dl>
+<dt><tt>C</tt> : T</dt>
 <dd>output tensor</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T : tensor(float), tensor(double), tensor(float16)</dt>
+<dl>
+<dt><tt>T</tt> : tensor(float), tensor(double), tensor(float16)</dt>
 <dd>Constrain input and output types to float or half tensors.</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.ConvTransposeWithDynamicPads"></a><a name="com.microsoft.convtransposewithdynamicpads">**com.microsoft.ConvTransposeWithDynamicPads**</a>
@@ -556,47 +556,47 @@ This version of the operator has been available since version 1 of the 'com.micr
 
 #### Attributes
 
-<table><dl>
-<dt>auto_pad [string]</dt>
+<dl>
+<dt><tt>auto_pad</tt> : string</dt>
 <dd></dd>
-<dt>dilations [list of ints]</dt>
+<dt><tt>dilations</tt> : list of ints</dt>
 <dd></dd>
-<dt>group [int]</dt>
+<dt><tt>group</tt> : int</dt>
 <dd></dd>
-<dt>kernel_shape [list of ints]</dt>
+<dt><tt>kernel_shape</tt> : list of ints</dt>
 <dd></dd>
-<dt>output_padding [list of ints]</dt>
+<dt><tt>output_padding</tt> : list of ints</dt>
 <dd></dd>
-<dt>strides [list of ints]</dt>
+<dt><tt>strides</tt> : list of ints</dt>
 <dd></dd>
-</dl></table>
+</dl>
 
 #### Inputs (2 - 4)
 
 <table><dl>
-<dt>X [T]</dt>
+<dt><tt>X</tt> : T</dt>
 <dd></dd>
-<dt>W [T]</dt>
+<dt><tt>W</tt> : T</dt>
 <dd></dd>
-<dt>Pads (optional) [tensor(int64)]</dt>
+<dt><tt>Pads</tt> (optional) : tensor(int64)</dt>
 <dd></dd>
-<dt>B (optional) [T]</dt>
+<dt><tt>B</tt> (optional) : T</dt>
 <dd></dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>Y [T]</dt>
+<dl>
+<dt><tt>Y</tt> : T</dt>
 <dd></dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T : tensor(float16), tensor(float), tensor(double)</dt>
+<dl>
+<dt><tt>T</tt> : tensor(float16), tensor(float), tensor(double)</dt>
 <dd>Constrain input and output types to float tensors</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.CropAndResize"></a><a name="com.microsoft.cropandresize">**com.microsoft.CropAndResize**</a>
@@ -614,41 +614,41 @@ This version of the operator has been available since version 1 of the 'com.micr
 
 #### Attributes
 
-<table><dl>
-<dt>extrapolation_value [float]</dt>
+<dl>
+<dt><tt>extrapolation_value</tt> : float</dt>
 <dd>Value used for extrapolation, when applicable. Default is 0.0f. </dd>
-<dt>mode [string]</dt>
+<dt><tt>mode</tt> : string</dt>
 <dd>The pooling method. Two modes are supported: 'bilinear' and 'nearest'. Default is 'bilinear'.</dd>
-</dl></table>
+</dl>
 
 #### Inputs
 
 <table><dl>
-<dt>X [T1]</dt>
+<dt><tt>X</tt> : T1</dt>
 <dd>Input data tensor from the previous operator; 4-D feature map of shape (N, C, H, W), where N is the batch size, C is the number of channels, and H and W are the height and the width of the data.</dd>
-<dt>rois [T1]</dt>
+<dt><tt>rois</tt> : T1</dt>
 <dd>RoIs (Regions of Interest) to pool over; rois is 2-D input of shape (num_rois, 4) given as [[y1, x1, y2, x2], ...]. The RoIs' coordinates are normalized in the coordinate system of the input image. Each coordinate set has a 1:1 correspondence with the 'batch_indices' input.</dd>
-<dt>batch_indices [T2]</dt>
+<dt><tt>batch_indices</tt> : T2</dt>
 <dd>1-D tensor of shape (num_rois,) with each element denoting the index of the corresponding image in the batch.</dd>
-<dt>crop_size [T2]</dt>
+<dt><tt>crop_size</tt> : T2</dt>
 <dd>1-D tensor of 2 elements: [crop_height, crop_width]. All cropped image patches are resized to this size. Both crop_height and crop_width need to be positive.</dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>Y [T1]</dt>
+<dl>
+<dt><tt>Y</tt> : T1</dt>
 <dd>RoI pooled output, 4-D tensor of shape (num_rois, C, crop_height, crop_width). The r-th batch element Y[r-1] is a pooled feature map corresponding to the r-th RoI X[r-1].</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T1 : tensor(float16), tensor(float), tensor(double)</dt>
+<dl>
+<dt><tt>T1</tt> : tensor(float16), tensor(float), tensor(double)</dt>
 <dd>Constrain types to float tensors.</dd>
-<dt>T2 : tensor(int32)</dt>
+<dt><tt>T2</tt> : tensor(int32)</dt>
 <dd>Constrain types to int tensors.</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.DequantizeLinear"></a><a name="com.microsoft.dequantizelinear">**com.microsoft.DequantizeLinear**</a>
@@ -663,37 +663,37 @@ This version of the operator has been available since version 1 of the 'com.micr
 
 #### Attributes
 
-<table><dl>
-<dt>axis [int]</dt>
+<dl>
+<dt><tt>axis</tt> : int</dt>
 <dd>The axis along which same quantization parameters are applied. It's optional.If it's not specified, it means per-tensor quantization and input 'x_scale' and 'x_zero_point' must be scalars.If it's specified, it means per 'axis' quantization and input 'x_scale' and 'x_zero_point' must be 1-D tensors.</dd>
-</dl></table>
+</dl>
 
 #### Inputs
 
 <table><dl>
-<dt>x [T1]</dt>
+<dt><tt>x</tt> : T1</dt>
 <dd>N-D quantized Input tensor to be de-quantized.</dd>
-<dt>x_scale [T2]</dt>
+<dt><tt>x_scale</tt> : T2</dt>
 <dd>Scale for input 'x'. It could be a scalar or a 1-D tensor, which means a per-tensor or per-axis quantization.If it's a 1-D tensor, its number of elements should be equal to the dimension value of 'axis' dimension of input 'x'.</dd>
-<dt>x_zero_point [T1]</dt>
+<dt><tt>x_zero_point</tt> : T1</dt>
 <dd>Zero point for input 'x'. It could be a scalar or a 1-D tensor, which means a per-tensor or per-axis quantization.If it's a 1-D tensor, its number of elements should be equal to the dimension value of 'axis' dimension of input 'x'.</dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>y [T2]</dt>
+<dl>
+<dt><tt>y</tt> : T2</dt>
 <dd>N-D full precision output tensor. It has same shape as input 'x'.</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T1 : tensor(int8), tensor(uint8)</dt>
+<dl>
+<dt><tt>T1</tt> : tensor(int8), tensor(uint8)</dt>
 <dd>Constrain 'x' and 'x_zero_point' to 8-bit integer tensors.</dd>
-<dt>T2 : tensor(float16), tensor(float)</dt>
+<dt><tt>T2</tt> : tensor(float16), tensor(float)</dt>
 <dd>Constrain 'y', 'x_scale' to float tensors.</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.DynamicQuantizeLSTM"></a><a name="com.microsoft.dynamicquantizelstm">**com.microsoft.DynamicQuantizeLSTM**</a>
@@ -704,73 +704,73 @@ This version of the operator has been available since version 1 of the 'com.micr
 
 #### Attributes
 
-<table><dl>
-<dt>activation_alpha [list of floats]</dt>
+<dl>
+<dt><tt>activation_alpha</tt> : list of floats</dt>
 <dd>Optional scaling values used by some activation functions. The values are consumed in the order of activation functions, for example (f, g, h) in LSTM. Default values are the same as of corresponding ONNX operators.For example with LeakyRelu, the default alpha is 0.01.</dd>
-<dt>activation_beta [list of floats]</dt>
+<dt><tt>activation_beta</tt> : list of floats</dt>
 <dd>Optional scaling values used by some activation functions. The values are consumed in the order of activation functions, for example (f, g, h) in LSTM. Default values are the same as of corresponding ONNX operators.</dd>
-<dt>activations [list of strings]</dt>
+<dt><tt>activations</tt> : list of strings</dt>
 <dd>A list of 3 (or 6 if bidirectional) activation functions for input, output, forget, cell, and hidden. The activation functions must be one of the activation functions specified above. Optional: See the equations for default if not specified.</dd>
-<dt>clip [float]</dt>
+<dt><tt>clip</tt> : float</dt>
 <dd>Cell clip threshold. Clipping bounds the elements of a tensor in the range of [-threshold, +threshold] and is applied to the input of activations. No clip if not specified.</dd>
-<dt>direction [string]</dt>
+<dt><tt>direction</tt> : string</dt>
 <dd>Specify if the RNN is forward, reverse, or bidirectional. Must be one of forward (default), reverse, or bidirectional.</dd>
-<dt>hidden_size [int]</dt>
+<dt><tt>hidden_size</tt> : int</dt>
 <dd>Number of neurons in the hidden layer</dd>
-<dt>input_forget [int]</dt>
+<dt><tt>input_forget</tt> : int</dt>
 <dd>Couple the input and forget gates if 1.</dd>
-</dl></table>
+</dl>
 
 #### Inputs
 
 <table><dl>
-<dt>X [T]</dt>
+<dt><tt>X</tt> : T</dt>
 <dd>The input sequences packed (and potentially padded) into one 3-D tensor with the shape of `[seq_length, batch_size, input_size]`.</dd>
-<dt>W [T2]</dt>
+<dt><tt>W</tt> : T2</dt>
 <dd>The weight tensor for the gates. Concatenation of `W[iofc]` and `WB[iofc]` (if bidirectional) along dimension 0. The tensor has shape `[num_directions, input_size, 4*hidden_size]`.</dd>
-<dt>R [T2]</dt>
+<dt><tt>R</tt> : T2</dt>
 <dd>The recurrence weight tensor. Concatenation of `R[iofc]` and `RB[iofc]` (if bidirectional) along dimension 0. This tensor has shape `[num_directions, hidden_size, 4*hidden_size]`.</dd>
-<dt>B (optional) [T]</dt>
+<dt><tt>B</tt> (optional) : T</dt>
 <dd>The bias tensor for input gate. Concatenation of `[Wb[iofc], Rb[iofc]]`, and `[WBb[iofc], RBb[iofc]]` (if bidirectional) along dimension 0. This tensor has shape `[num_directions, 8*hidden_size]`. Optional: If not specified - assumed to be 0.</dd>
-<dt>sequence_lens (optional) [T1]</dt>
+<dt><tt>sequence_lens</tt> (optional) : T1</dt>
 <dd>Optional tensor specifying lengths of the sequences in a batch. If not specified - assumed all sequences in the batch to have length `seq_length`. It has shape `[batch_size]`.</dd>
-<dt>initial_h (optional) [T]</dt>
+<dt><tt>initial_h</tt> (optional) : T</dt>
 <dd>Optional initial value of the hidden. If not specified - assumed to be 0. It has shape `[num_directions, batch_size, hidden_size]`.</dd>
-<dt>initial_c (optional) [T]</dt>
+<dt><tt>initial_c</tt> (optional) : T</dt>
 <dd>Optional initial value of the cell. If not specified - assumed to be 0. It has shape `[num_directions, batch_size, hidden_size]`.</dd>
-<dt>P (optional) [T]</dt>
+<dt><tt>P</tt> (optional) : T</dt>
 <dd>The weight tensor for peepholes. Concatenation of `P[iof]` and `PB[iof]` (if bidirectional) along dimension 0. It has shape `[num_directions, 3*hidde_size]`. Optional: If not specified - assumed to be 0.</dd>
-<dt>W_scale [T]</dt>
+<dt><tt>W_scale</tt> : T</dt>
 <dd>W's scale. Its size is [num_directions] for per-tensor/layer quantization, or [num_directions, 4*hidden_size] for per-channel quantization on the axis input_size.</dd>
-<dt>W_zero_point [T2]</dt>
+<dt><tt>W_zero_point</tt> : T2</dt>
 <dd>W's zero point. Its size is [num_directions] for per-tensor/layer quantization, or [num_directions, 4*hidden_size] for per-channel quantization on the axis input_size.</dd>
-<dt>R_scale [T]</dt>
+<dt><tt>R_scale</tt> : T</dt>
 <dd>R's scale. Its size is [num_directions] for per-tensor/layer quantization, or [num_directions, 4*hidden_size] for per-channel quantization on the axis input_size.</dd>
-<dt>R_zero_point [T2]</dt>
+<dt><tt>R_zero_point</tt> : T2</dt>
 <dd>R's zero point. Its size is [num_directions] for per-tensor/layer quantization, or [num_directions, 4*hidden_size] for per-channel quantization on the axis input_size.</dd>
-</dl></table>
+</dl>
 
 #### Outputs (0 - 3)
 
-<table><dl>
-<dt>Y (optional) [T]</dt>
+<dl>
+<dt><tt>Y</tt> (optional) : T</dt>
 <dd>A tensor that concats all the intermediate output values of the hidden. It has shape `[seq_length, num_directions, batch_size, hidden_size]`. </dd>
-<dt>Y_h (optional) [T]</dt>
+<dt><tt>Y_h</tt> (optional) : T</dt>
 <dd>The last output value of the hidden. It has shape `[num_directions, batch_size, hidden_size]`.</dd>
-<dt>Y_c (optional) [T]</dt>
+<dt><tt>Y_c</tt> (optional) : T</dt>
 <dd>The last output value of the cell. It has shape `[num_directions, batch_size, hidden_size]`.</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T : tensor(float)</dt>
+<dl>
+<dt><tt>T</tt> : tensor(float)</dt>
 <dd>Constrain input and output types to float tensors.</dd>
-<dt>T1 : tensor(int32)</dt>
+<dt><tt>T1</tt> : tensor(int32)</dt>
 <dd>Constrain seq_lens to integer tensor.</dd>
-<dt>T2 : tensor(uint8), tensor(int8)</dt>
+<dt><tt>T2</tt> : tensor(uint8), tensor(int8)</dt>
 <dd>Constrain weights types to 8 bit tensors.</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.DynamicQuantizeMatMul"></a><a name="com.microsoft.dynamicquantizematmul">**com.microsoft.DynamicQuantizeMatMul**</a>
@@ -782,33 +782,33 @@ This version of the operator has been available since version 1 of the 'com.micr
 #### Inputs (3 - 5)
 
 <table><dl>
-<dt>A [T1]</dt>
+<dt><tt>A</tt> : T1</dt>
 <dd>N-dimensional matrix A</dd>
-<dt>B [T2]</dt>
+<dt><tt>B</tt> : T2</dt>
 <dd>N-dimensional matrix B</dd>
-<dt>b_scale [T1]</dt>
+<dt><tt>b_scale</tt> : T1</dt>
 <dd>Scale of quantized input 'B'. It could be a scalar or a 1-D tensor, which means a per-tensor or per-column quantization. If it's a 1-D tensor, its number of elements should be equal to the number of columns of input 'B'.</dd>
-<dt>b_zero_point (optional) [T2]</dt>
+<dt><tt>b_zero_point</tt> (optional) : T2</dt>
 <dd>Zero point tensor for input 'B'. It's optional and default value is 0.  It could be a scalar or a 1-D tensor, which means a per-tensor or per-column quantization. If it's a 1-D tensor, its number of elements should be equal to the number of columns of input 'B'.</dd>
-<dt>bias (optional) [T1]</dt>
+<dt><tt>bias</tt> (optional) : T1</dt>
 <dd>1D input tensor, whose dimension is same as B's last dimension</dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>Y [T1]</dt>
+<dl>
+<dt><tt>Y</tt> : T1</dt>
 <dd>Matrix multiply results from A * B</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T1 : tensor(float)</dt>
+<dl>
+<dt><tt>T1</tt> : tensor(float)</dt>
 <dd>Constrain input A, b_scale and output Y data type as float tensor.</dd>
-<dt>T2 : tensor(int8), tensor(uint8)</dt>
+<dt><tt>T2</tt> : tensor(int8), tensor(uint8)</dt>
 <dd>Constrain input B data type to 8-bit integer tensor.</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.EmbedLayerNormalization"></a><a name="com.microsoft.embedlayernormalization">**com.microsoft.EmbedLayerNormalization**</a>
@@ -825,49 +825,49 @@ This version of the operator has been available since version 1 of the 'com.micr
 
 #### Attributes
 
-<table><dl>
-<dt>epsilon [float]</dt>
+<dl>
+<dt><tt>epsilon</tt> : float</dt>
 <dd>The epsilon value to use to avoid division by zero.</dd>
-</dl></table>
+</dl>
 
 #### Inputs (7 - 8)
 
 <table><dl>
-<dt>input_ids [T1]</dt>
+<dt><tt>input_ids</tt> : T1</dt>
 <dd>2D words IDs with shape (batch_size, sequence_length)</dd>
-<dt>segment_ids (optional) [T1]</dt>
+<dt><tt>segment_ids</tt> (optional) : T1</dt>
 <dd>2D segment IDs with shape (batch_size, sequence_length)</dd>
-<dt>word_embedding [T]</dt>
+<dt><tt>word_embedding</tt> : T</dt>
 <dd>2D with shape (,hidden_size)</dd>
-<dt>position_embedding [T]</dt>
+<dt><tt>position_embedding</tt> : T</dt>
 <dd>2D with shape (, hidden_size)</dd>
-<dt>segment_embedding (optional) [T]</dt>
+<dt><tt>segment_embedding</tt> (optional) : T</dt>
 <dd>2D with shape (, hidden_size)</dd>
-<dt>gamma [T]</dt>
+<dt><tt>gamma</tt> : T</dt>
 <dd>1D gamma tensor for layer normalization with shape (hidden_size)</dd>
-<dt>beta [T]</dt>
+<dt><tt>beta</tt> : T</dt>
 <dd>1D beta tensor for layer normalization  with shape (hidden_size)</dd>
-<dt>mask (optional) [T1]</dt>
+<dt><tt>mask</tt> (optional) : T1</dt>
 <dd>2D attention mask with shape (batch_size, sequence_length)</dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>output [T]</dt>
+<dl>
+<dt><tt>output</tt> : T</dt>
 <dd>3D output tensor with shape (batch_size, sequence_length, hidden_size)</dd>
-<dt>mask_index [T1]</dt>
+<dt><tt>mask_index</tt> : T1</dt>
 <dd>1D mask_index tensor with shape (batch_size)</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T1 : tensor(int32)</dt>
+<dl>
+<dt><tt>T1</tt> : tensor(int32)</dt>
 <dd>Constrain input and output integer tensors types</dd>
-<dt>T : tensor(float), tensor(float16)</dt>
+<dt><tt>T</tt> : tensor(float), tensor(float16)</dt>
 <dd>Constrain input and output float tensors types.</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.ExpandDims"></a><a name="com.microsoft.expanddims">**com.microsoft.ExpandDims**</a>
@@ -881,25 +881,25 @@ This version of the operator has been available since version 1 of the 'com.micr
 #### Inputs
 
 <table><dl>
-<dt>X [T]</dt>
+<dt><tt>X</tt> : T</dt>
 <dd>input</dd>
-<dt>axis [tensor(int32)]</dt>
+<dt><tt>axis</tt> : tensor(int32)</dt>
 <dd>Specified axis to insert a dimension</dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>Y [T]</dt>
+<dl>
+<dt><tt>Y</tt> : T</dt>
 <dd>output</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T : tensor(uint8), tensor(uint16), tensor(uint32), tensor(uint64), tensor(int8), tensor(int16), tensor(int32), tensor(int64), tensor(float16), tensor(float), tensor(double), tensor(string), tensor(bool), tensor(complex64), tensor(complex128)</dt>
+<dl>
+<dt><tt>T</tt> : tensor(uint8), tensor(uint16), tensor(uint32), tensor(uint64), tensor(int8), tensor(int16), tensor(int32), tensor(int64), tensor(float16), tensor(float), tensor(double), tensor(string), tensor(bool), tensor(complex64), tensor(complex128)</dt>
 <dd>Constrain to any tensor type. If the dtype attribute is not provided this must be a valid output type.</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.FastGelu"></a><a name="com.microsoft.fastgelu">**com.microsoft.FastGelu**</a>
@@ -913,25 +913,25 @@ This version of the operator has been available since version 1 of the 'com.micr
 #### Inputs (1 - 2)
 
 <table><dl>
-<dt>X [T]</dt>
+<dt><tt>X</tt> : T</dt>
 <dd>input tensor</dd>
-<dt>bias (optional) [T]</dt>
+<dt><tt>bias</tt> (optional) : T</dt>
 <dd>bias tensor</dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>Y [T]</dt>
+<dl>
+<dt><tt>Y</tt> : T</dt>
 <dd>output tensor</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T : tensor(float), tensor(float16), tensor(bfloat16)</dt>
+<dl>
+<dt><tt>T</tt> : tensor(float), tensor(float16), tensor(bfloat16)</dt>
 <dd>Constrain input and output types to float or half tensors.</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.FusedConv"></a><a name="com.microsoft.fusedconv">**com.microsoft.FusedConv**</a>
@@ -945,51 +945,51 @@ This version of the operator has been available since version 1 of the 'com.micr
 
 #### Attributes
 
-<table><dl>
-<dt>activation [string]</dt>
+<dl>
+<dt><tt>activation</tt> : string</dt>
 <dd></dd>
-<dt>activation_params [list of floats]</dt>
+<dt><tt>activation_params</tt> : list of floats</dt>
 <dd></dd>
-<dt>auto_pad [string]</dt>
+<dt><tt>auto_pad</tt> : string</dt>
 <dd></dd>
-<dt>dilations [list of ints]</dt>
+<dt><tt>dilations</tt> : list of ints</dt>
 <dd></dd>
-<dt>group [int]</dt>
+<dt><tt>group</tt> : int</dt>
 <dd></dd>
-<dt>kernel_shape [list of ints]</dt>
+<dt><tt>kernel_shape</tt> : list of ints</dt>
 <dd></dd>
-<dt>pads [list of ints]</dt>
+<dt><tt>pads</tt> : list of ints</dt>
 <dd></dd>
-<dt>strides [list of ints]</dt>
+<dt><tt>strides</tt> : list of ints</dt>
 <dd></dd>
-</dl></table>
+</dl>
 
 #### Inputs (2 - 4)
 
 <table><dl>
-<dt>X [T]</dt>
+<dt><tt>X</tt> : T</dt>
 <dd></dd>
-<dt>W [T]</dt>
+<dt><tt>W</tt> : T</dt>
 <dd></dd>
-<dt>B (optional) [T]</dt>
+<dt><tt>B</tt> (optional) : T</dt>
 <dd></dd>
-<dt>Z (optional) [T]</dt>
+<dt><tt>Z</tt> (optional) : T</dt>
 <dd></dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>Y [T]</dt>
+<dl>
+<dt><tt>Y</tt> : T</dt>
 <dd></dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T : tensor(float16), tensor(float), tensor(double)</dt>
+<dl>
+<dt><tt>T</tt> : tensor(float16), tensor(float), tensor(double)</dt>
 <dd>Constrain input and output types to float tensors</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.FusedGemm"></a><a name="com.microsoft.fusedgemm">**com.microsoft.FusedGemm**</a>
@@ -1003,49 +1003,49 @@ This version of the operator has been available since version 1 of the 'com.micr
 
 #### Attributes
 
-<table><dl>
-<dt>activation [string]</dt>
+<dl>
+<dt><tt>activation</tt> : string</dt>
 <dd></dd>
-<dt>activation_alpha [float]</dt>
+<dt><tt>activation_alpha</tt> : float</dt>
 <dd></dd>
-<dt>activation_beta [float]</dt>
+<dt><tt>activation_beta</tt> : float</dt>
 <dd></dd>
-<dt>activation_gamma [float]</dt>
+<dt><tt>activation_gamma</tt> : float</dt>
 <dd></dd>
-<dt>alpha [float]</dt>
+<dt><tt>alpha</tt> : float</dt>
 <dd>Scalar multiplier for the product of input tensors A * B.</dd>
-<dt>beta [float]</dt>
+<dt><tt>beta</tt> : float</dt>
 <dd>Scalar multiplier for input tensor C.</dd>
-<dt>transA [int]</dt>
+<dt><tt>transA</tt> : int</dt>
 <dd>Whether A should be transposed</dd>
-<dt>transB [int]</dt>
+<dt><tt>transB</tt> : int</dt>
 <dd>Whether B should be transposed</dd>
-</dl></table>
+</dl>
 
 #### Inputs
 
 <table><dl>
-<dt>A [T]</dt>
+<dt><tt>A</tt> : T</dt>
 <dd>Input tensor A. The shape of A should be (M, K) if transA is 0, or (K, M) if transA is non-zero.</dd>
-<dt>B [T]</dt>
+<dt><tt>B</tt> : T</dt>
 <dd>Input tensor B. The shape of B should be (K, N) if transB is 0, or (N, K) if transB is non-zero.</dd>
-<dt>C [T]</dt>
+<dt><tt>C</tt> : T</dt>
 <dd>Input tensor C. The shape of C should be unidirectional broadcastable to (M, N).</dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>Y [T]</dt>
+<dl>
+<dt><tt>Y</tt> : T</dt>
 <dd>Output tensor of shape (M, N).</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T : tensor(float16), tensor(float), tensor(double), tensor(uint32), tensor(uint64), tensor(int32), tensor(int64)</dt>
+<dl>
+<dt><tt>T</tt> : tensor(float16), tensor(float), tensor(double), tensor(uint32), tensor(uint64), tensor(int32), tensor(int64)</dt>
 <dd>Constrain input and output types to float/int tensors.</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.FusedMatMul"></a><a name="com.microsoft.fusedmatmul">**com.microsoft.FusedMatMul**</a>
@@ -1058,37 +1058,37 @@ This version of the operator has been available since version 1 of the 'com.micr
 
 #### Attributes
 
-<table><dl>
-<dt>alpha [float]</dt>
+<dl>
+<dt><tt>alpha</tt> : float</dt>
 <dd>Scalar multiplier for the product of the input tensors.</dd>
-<dt>transA [int]</dt>
+<dt><tt>transA</tt> : int</dt>
 <dd>Whether A should be transposed on the last two dimensions before doing multiplication</dd>
-<dt>transB [int]</dt>
+<dt><tt>transB</tt> : int</dt>
 <dd>Whether B should be transposed on the last two dimensions before doing multiplication</dd>
-</dl></table>
+</dl>
 
 #### Inputs
 
 <table><dl>
-<dt>A [T]</dt>
+<dt><tt>A</tt> : T</dt>
 <dd>N-dimensional matrix A</dd>
-<dt>B [T]</dt>
+<dt><tt>B</tt> : T</dt>
 <dd>N-dimensional matrix B</dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>Y [T]</dt>
+<dl>
+<dt><tt>Y</tt> : T</dt>
 <dd>Matrix multiply results</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T : tensor(float16), tensor(float), tensor(double), tensor(bfloat16)</dt>
+<dl>
+<dt><tt>T</tt> : tensor(float16), tensor(float), tensor(double), tensor(bfloat16)</dt>
 <dd>Constrain input and output types to float tensors.</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.GatherND"></a><a name="com.microsoft.gathernd">**com.microsoft.GatherND**</a>
@@ -1119,27 +1119,27 @@ This version of the operator has been available since version 1 of the 'com.micr
 #### Inputs
 
 <table><dl>
-<dt>data [T]</dt>
+<dt><tt>data</tt> : T</dt>
 <dd>Tensor of rank r >= 1.</dd>
-<dt>indices [Tind]</dt>
+<dt><tt>indices</tt> : Tind</dt>
 <dd>Tensor of rank q >= 1.</dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>output [T]</dt>
+<dl>
+<dt><tt>output</tt> : T</dt>
 <dd>Tensor of rank q-1+r-indices[-1].</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T : tensor(uint8), tensor(uint16), tensor(uint32), tensor(uint64), tensor(int8), tensor(int16), tensor(int32), tensor(int64), tensor(float16), tensor(float), tensor(double), tensor(string), tensor(bool), tensor(complex64), tensor(complex128)</dt>
+<dl>
+<dt><tt>T</tt> : tensor(uint8), tensor(uint16), tensor(uint32), tensor(uint64), tensor(int8), tensor(int16), tensor(int32), tensor(int64), tensor(float16), tensor(float), tensor(double), tensor(string), tensor(bool), tensor(complex64), tensor(complex128)</dt>
 <dd>Constrain input and output types to any tensor type.</dd>
-<dt>Tind : tensor(int32), tensor(int64)</dt>
+<dt><tt>Tind</tt> : tensor(int32), tensor(int64)</dt>
 <dd>Constrain indice type to int32 or int64</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.Gelu"></a><a name="com.microsoft.gelu">**com.microsoft.Gelu**</a>
@@ -1157,23 +1157,23 @@ This version of the operator has been available since version 1 of the 'com.micr
 #### Inputs
 
 <table><dl>
-<dt>X [T]</dt>
+<dt><tt>X</tt> : T</dt>
 <dd>The input data as Tensor.</dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>Y [T]</dt>
+<dl>
+<dt><tt>Y</tt> : T</dt>
 <dd>The output.</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T : tensor(float16), tensor(float), tensor(double), tensor(bfloat16)</dt>
+<dl>
+<dt><tt>T</tt> : tensor(float16), tensor(float), tensor(double), tensor(bfloat16)</dt>
 <dd>Constrain input and output types to float tensors.</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.Inverse"></a><a name="com.microsoft.inverse">**com.microsoft.Inverse**</a>
@@ -1185,23 +1185,23 @@ This version of the operator has been available since version 1 of the 'com.micr
 #### Inputs
 
 <table><dl>
-<dt>X [T]</dt>
+<dt><tt>X</tt> : T</dt>
 <dd>Input tensor. Every matrix in the batch must be invertible.</dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>Y [T]</dt>
+<dl>
+<dt><tt>Y</tt> : T</dt>
 <dd>Output tensor of the same type and shape as the input tensor.</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T : tensor(float16), tensor(float), tensor(double)</dt>
+<dl>
+<dt><tt>T</tt> : tensor(float16), tensor(float), tensor(double)</dt>
 <dd>Constrain input and output types to float tensors.</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.Irfft"></a><a name="com.microsoft.irfft">**com.microsoft.Irfft**</a>
@@ -1212,35 +1212,35 @@ This version of the operator has been available since version 1 of the 'com.micr
 
 #### Attributes
 
-<table><dl>
-<dt>normalized [int]</dt>
+<dl>
+<dt><tt>normalized</tt> : int</dt>
 <dd></dd>
-<dt>onesided [int]</dt>
+<dt><tt>onesided</tt> : int</dt>
 <dd></dd>
-<dt>signal_ndim [int] (required)</dt>
+<dt><tt>signal_ndim</tt> : int (required)</dt>
 <dd></dd>
-</dl></table>
+</dl>
 
 #### Inputs
 
 <table><dl>
-<dt>X [T]</dt>
+<dt><tt>X</tt> : T</dt>
 <dd>input tensor</dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>Y [T]</dt>
+<dl>
+<dt><tt>Y</tt> : T</dt>
 <dd>output tensor</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T : tensor(float), tensor(double), tensor(float16)</dt>
+<dl>
+<dt><tt>T</tt> : tensor(float), tensor(double), tensor(float16)</dt>
 <dd>Constrain input and output types to float or half tensors.</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.LongformerAttention"></a><a name="com.microsoft.longformerattention">**com.microsoft.LongformerAttention**</a>
@@ -1260,47 +1260,47 @@ This version of the operator has been available since version 1 of the 'com.micr
 
 #### Attributes
 
-<table><dl>
-<dt>num_heads [int] (required)</dt>
+<dl>
+<dt><tt>num_heads</tt> : int (required)</dt>
 <dd>Number of attention heads</dd>
-<dt>window [int] (required)</dt>
+<dt><tt>window</tt> : int (required)</dt>
 <dd>One sided attention windows length W, or half of total window length</dd>
-</dl></table>
+</dl>
 
 #### Inputs
 
 <table><dl>
-<dt>input [T]</dt>
+<dt><tt>input</tt> : T</dt>
 <dd>3D input tensor with shape (batch_size, sequence_length, hidden_size), hidden_size = num_heads * head_size</dd>
-<dt>weight [T]</dt>
+<dt><tt>weight</tt> : T</dt>
 <dd>2D input tensor with shape (hidden_size, 3 * hidden_size)</dd>
-<dt>bias [T]</dt>
+<dt><tt>bias</tt> : T</dt>
 <dd>1D input tensor with shape (3 * hidden_size)</dd>
-<dt>mask [T]</dt>
+<dt><tt>mask</tt> : T</dt>
 <dd>Attention mask with shape (batch_size, sequence_length)</dd>
-<dt>global_weight [T]</dt>
+<dt><tt>global_weight</tt> : T</dt>
 <dd>2D input tensor with shape (hidden_size, 3 * hidden_size)</dd>
-<dt>global_bias [T]</dt>
+<dt><tt>global_bias</tt> : T</dt>
 <dd>1D input tensor with shape (3 * hidden_size)</dd>
-<dt>global [G]</dt>
+<dt><tt>global</tt> : G</dt>
 <dd>Global attention flags with shape (batch_size, sequence_length)</dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>output [T]</dt>
+<dl>
+<dt><tt>output</tt> : T</dt>
 <dd>3D output tensor with shape (batch_size, sequence_length, hidden_size)</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T : tensor(float), tensor(float16)</dt>
+<dl>
+<dt><tt>T</tt> : tensor(float), tensor(float16)</dt>
 <dd>Constrain input and output types to float tensors.</dd>
-<dt>G : tensor(int32)</dt>
+<dt><tt>G</tt> : tensor(int32)</dt>
 <dd>Constrain to integer types</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.MatMulInteger16"></a><a name="com.microsoft.matmulinteger16">**com.microsoft.MatMulInteger16**</a>
@@ -1315,29 +1315,29 @@ This version of the operator has been available since version 1 of the 'com.micr
 #### Inputs
 
 <table><dl>
-<dt>A [T1]</dt>
+<dt><tt>A</tt> : T1</dt>
 <dd>N-dimensional matrix A</dd>
-<dt>B [T2]</dt>
+<dt><tt>B</tt> : T2</dt>
 <dd>N-dimensional matrix B</dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>Y [T3]</dt>
+<dl>
+<dt><tt>Y</tt> : T3</dt>
 <dd>Matrix multiply results from A * B</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T1 : tensor(int16), tensor(uint16)</dt>
+<dl>
+<dt><tt>T1</tt> : tensor(int16), tensor(uint16)</dt>
 <dd>Constrain input A data types as 16-bit integer tensor</dd>
-<dt>T2 : tensor(int16), tensor(uint16)</dt>
+<dt><tt>T2</tt> : tensor(int16), tensor(uint16)</dt>
 <dd>Constrain input B data types as 16-bit integer tensor</dd>
-<dt>T3 : tensor(int32), tensor(uint32)</dt>
+<dt><tt>T3</tt> : tensor(int32), tensor(uint32)</dt>
 <dd>Constrain output Y data types as 32-bit integer tensor.T3 must be tensor(uint32) when both T1 and T2 are tensor(uint16),or must be tensor(int32) when either T1 or T2 is tensor(int16).</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.MatMulIntegerToFloat"></a><a name="com.microsoft.matmulintegertofloat">**com.microsoft.MatMulIntegerToFloat**</a>
@@ -1349,39 +1349,39 @@ This version of the operator has been available since version 1 of the 'com.micr
 #### Inputs (4 - 7)
 
 <table><dl>
-<dt>A [T1]</dt>
+<dt><tt>A</tt> : T1</dt>
 <dd>N-dimensional matrix A</dd>
-<dt>B [T2]</dt>
+<dt><tt>B</tt> : T2</dt>
 <dd>N-dimensional matrix B</dd>
-<dt>a_scale [T3]</dt>
+<dt><tt>a_scale</tt> : T3</dt>
 <dd>Scale of quantized input 'A'. It could be a scalar or a 1-D tensor, which means a per-tensor or per-column quantization. If it's a 1-D tensor, its number of elements should be equal to the number of columns of input 'A'.</dd>
-<dt>b_scale [T3]</dt>
+<dt><tt>b_scale</tt> : T3</dt>
 <dd>Scale of quantized input 'B'. It could be a scalar or a 1-D tensor, which means a per-tensor or per-column quantization. If it's a 1-D tensor, its number of elements should be equal to the number of columns of input 'B'.</dd>
-<dt>a_zero_point (optional) [T1]</dt>
+<dt><tt>a_zero_point</tt> (optional) : T1</dt>
 <dd>Zero point tensor for input 'A'. It's optional and default value is 0.  It could be a scalar or a 1-D tensor, which means a per-tensor or per-column quantization. If it's a 1-D tensor, its number of elements should be equal to the number of columns of input 'A'.</dd>
-<dt>b_zero_point (optional) [T2]</dt>
+<dt><tt>b_zero_point</tt> (optional) : T2</dt>
 <dd>Zero point tensor for input 'B'. It's optional and default value is 0.  It could be a scalar or a 1-D tensor, which means a per-tensor or per-column quantization. If it's a 1-D tensor, its number of elements should be equal to the number of columns of input 'B'.</dd>
-<dt>bias (optional) [T3]</dt>
+<dt><tt>bias</tt> (optional) : T3</dt>
 <dd>1D input tensor, whose dimension is same as B's last dimension</dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>Y [T3]</dt>
+<dl>
+<dt><tt>Y</tt> : T3</dt>
 <dd>Matrix multiply results from A * B</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T1 : tensor(int8), tensor(uint8)</dt>
+<dl>
+<dt><tt>T1</tt> : tensor(int8), tensor(uint8)</dt>
 <dd>Constrain input A data type to 8-bit integer tensor.</dd>
-<dt>T2 : tensor(int8), tensor(uint8)</dt>
+<dt><tt>T2</tt> : tensor(int8), tensor(uint8)</dt>
 <dd>Constrain input B data type to 8-bit integer tensor.</dd>
-<dt>T3 : tensor(float)</dt>
+<dt><tt>T3</tt> : tensor(float)</dt>
 <dd>Constrain input a_scale, b_scale and output Y data type as float tensor.</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.MaxpoolWithMask"></a><a name="com.microsoft.maxpoolwithmask">**com.microsoft.MaxpoolWithMask**</a>
@@ -1394,41 +1394,41 @@ This version of the operator has been available since version 1 of the 'com.micr
 
 #### Attributes
 
-<table><dl>
-<dt>auto_pad [string]</dt>
+<dl>
+<dt><tt>auto_pad</tt> : string</dt>
 <dd></dd>
-<dt>kernel_shape [list of ints]</dt>
+<dt><tt>kernel_shape</tt> : list of ints</dt>
 <dd></dd>
-<dt>pads [list of ints]</dt>
+<dt><tt>pads</tt> : list of ints</dt>
 <dd></dd>
-<dt>storage_order [int]</dt>
+<dt><tt>storage_order</tt> : int</dt>
 <dd></dd>
-<dt>strides [list of ints]</dt>
+<dt><tt>strides</tt> : list of ints</dt>
 <dd></dd>
-</dl></table>
+</dl>
 
 #### Inputs
 
 <table><dl>
-<dt>X [T]</dt>
+<dt><tt>X</tt> : T</dt>
 <dd></dd>
-<dt>M [tensor(int32)]</dt>
+<dt><tt>M</tt> : tensor(int32)</dt>
 <dd>mask</dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>Y [T]</dt>
+<dl>
+<dt><tt>Y</tt> : T</dt>
 <dd></dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T : tensor(float)</dt>
+<dl>
+<dt><tt>T</tt> : tensor(float)</dt>
 <dd>Constrain input0 and output types to float tensors</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.MulInteger"></a><a name="com.microsoft.mulinteger">**com.microsoft.MulInteger**</a>
@@ -1449,31 +1449,31 @@ This version of the operator has been available since version 1 of the 'com.micr
 #### Inputs (3 - 4)
 
 <table><dl>
-<dt>A [T]</dt>
+<dt><tt>A</tt> : T</dt>
 <dd>First operand.</dd>
-<dt>A_zero_point (optional) [T]</dt>
+<dt><tt>A_zero_point</tt> (optional) : T</dt>
 <dd>Input A zero point. Default value is 0 if it's not specified. It's a scalar, which means a per-tensor/layer quantization.</dd>
-<dt>B [T]</dt>
+<dt><tt>B</tt> : T</dt>
 <dd>Second operand.</dd>
-<dt>B_zero_point (optional) [T]</dt>
+<dt><tt>B_zero_point</tt> (optional) : T</dt>
 <dd>Input B zero point. Default value is 0 if it's not specified. It's a scalar, which means a per-tensor/layer quantization.</dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>C [T1]</dt>
+<dl>
+<dt><tt>C</tt> : T1</dt>
 <dd>Constrain output to 32 bit tensor</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T : tensor(uint8), tensor(int8)</dt>
+<dl>
+<dt><tt>T</tt> : tensor(uint8), tensor(int8)</dt>
 <dd>Constrain input types to 8 bit signed and unsigned tensors.</dd>
-<dt>T1 : tensor(int32)</dt>
+<dt><tt>T1</tt> : tensor(int32)</dt>
 <dd>Constrain output types to 32 bit tensors.</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.MurmurHash3"></a><a name="com.microsoft.murmurhash3">**com.microsoft.MurmurHash3**</a>
@@ -1486,35 +1486,35 @@ This version of the operator has been available since version 1 of the 'com.micr
 
 #### Attributes
 
-<table><dl>
-<dt>positive [int]</dt>
+<dl>
+<dt><tt>positive</tt> : int</dt>
 <dd>If value is 1, output type is uint32_t, else int32_t. Default value is 1.</dd>
-<dt>seed [int]</dt>
+<dt><tt>seed</tt> : int</dt>
 <dd>Seed for the hashing algorithm, unsigned 32-bit integer, default to 0.</dd>
-</dl></table>
+</dl>
 
 #### Inputs
 
 <table><dl>
-<dt>X [T1]</dt>
+<dt><tt>X</tt> : T1</dt>
 <dd>An input tensor to hash.</dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>Y [T2]</dt>
+<dl>
+<dt><tt>Y</tt> : T2</dt>
 <dd>32-bit hash value.</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T1 : tensor(uint32), tensor(int32), tensor(uint64), tensor(int64), tensor(float), tensor(double), tensor(string)</dt>
+<dl>
+<dt><tt>T1</tt> : tensor(uint32), tensor(int32), tensor(uint64), tensor(int64), tensor(float), tensor(double), tensor(string)</dt>
 <dd>Constrain input type to unsigned or signed 32-bit integer tensor, or string tensor. It should be utf-8 encoded if using unicode.</dd>
-<dt>T2 : tensor(uint32), tensor(int32)</dt>
+<dt><tt>T2</tt> : tensor(uint32), tensor(int32)</dt>
 <dd>Constrain output type to unsigned and signed 32-bit integer tensor.</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.NhwcMaxPool"></a><a name="com.microsoft.nhwcmaxpool">**com.microsoft.NhwcMaxPool**</a>
@@ -1525,41 +1525,41 @@ This version of the operator has been available since version 1 of the 'com.micr
 
 #### Attributes
 
-<table><dl>
-<dt>auto_pad [string]</dt>
+<dl>
+<dt><tt>auto_pad</tt> : string</dt>
 <dd></dd>
-<dt>ceil_mode [int]</dt>
+<dt><tt>ceil_mode</tt> : int</dt>
 <dd></dd>
-<dt>dilations [list of ints]</dt>
+<dt><tt>dilations</tt> : list of ints</dt>
 <dd></dd>
-<dt>kernel_shape [list of ints] (required)</dt>
+<dt><tt>kernel_shape</tt> : list of ints (required)</dt>
 <dd></dd>
-<dt>pads [list of ints]</dt>
+<dt><tt>pads</tt> : list of ints</dt>
 <dd></dd>
-<dt>strides [list of ints]</dt>
+<dt><tt>strides</tt> : list of ints</dt>
 <dd></dd>
-</dl></table>
+</dl>
 
 #### Inputs
 
 <table><dl>
-<dt>x [T]</dt>
+<dt><tt>x</tt> : T</dt>
 <dd></dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>y [T]</dt>
+<dl>
+<dt><tt>y</tt> : T</dt>
 <dd></dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T : tensor(int8), tensor(uint8)</dt>
+<dl>
+<dt><tt>T</tt> : tensor(int8), tensor(uint8)</dt>
 <dd></dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.Pad"></a><a name="com.microsoft.pad">**com.microsoft.Pad**</a>
@@ -1588,35 +1588,35 @@ This version of the operator has been available since version 1 of the 'com.micr
 
 #### Attributes
 
-<table><dl>
-<dt>mode [string]</dt>
+<dl>
+<dt><tt>mode</tt> : string</dt>
 <dd>Three modes: `constant`(default) - pads with a given constant value, `reflect` - pads with the reflection of the vector mirrored on the first and last values of the vector along each axis, `edge` - pads with the edge values of array</dd>
-</dl></table>
+</dl>
 
 #### Inputs (2 - 3)
 
 <table><dl>
-<dt>data [T]</dt>
+<dt><tt>data</tt> : T</dt>
 <dd>Input tensor.</dd>
-<dt>pads [tensor(int64)]</dt>
+<dt><tt>pads</tt> : tensor(int64)</dt>
 <dd>Tensor of integers indicating the number of padding elements to add or remove (if negative) at the beginning and end of each axis. For 2D input tensor, it is the number of pixels. `pads` should be a 1D tensor of shape [2 * input_rank] or a 2D tensor of shape [1, 2 * input_rank]. `pads` format (1D example) should be as follow [x1_begin, x2_begin,...,x1_end, x2_end,...], where xi_begin is the number of pixels added at the beginning of axis `i` and xi_end, the number of pixels added at the end of axis `i`.</dd>
-<dt>value (optional) [T]</dt>
+<dt><tt>value</tt> (optional) : T</dt>
 <dd>(Optional) A scalar or rank 1 tensor containing a single value to be filled if the mode chosen is `constant` (by default it is 0.0).</dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>output [T]</dt>
+<dl>
+<dt><tt>output</tt> : T</dt>
 <dd>Tensor after padding.</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T : tensor(float16), tensor(float), tensor(double)</dt>
+<dl>
+<dt><tt>T</tt> : tensor(float16), tensor(float), tensor(double)</dt>
 <dd>Constrain input and output types to float tensors.</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.QAttention"></a><a name="com.microsoft.qattention">**com.microsoft.QAttention**</a>
@@ -1629,57 +1629,57 @@ This version of the operator has been available since version 1 of the 'com.micr
 
 #### Attributes
 
-<table><dl>
-<dt>num_heads [int] (required)</dt>
+<dl>
+<dt><tt>num_heads</tt> : int (required)</dt>
 <dd>Number of attention heads</dd>
-<dt>unidirectional [int]</dt>
+<dt><tt>unidirectional</tt> : int</dt>
 <dd>Whether every token can only attend to previous tokens. Default value is 0.</dd>
-</dl></table>
+</dl>
 
 #### Inputs (5 - 9)
 
 <table><dl>
-<dt>input [T1]</dt>
+<dt><tt>input</tt> : T1</dt>
 <dd>3D input tensor with shape (batch_size, sequence_length, input_hidden_size)</dd>
-<dt>weight [T2]</dt>
+<dt><tt>weight</tt> : T2</dt>
 <dd>2D input tensor with shape (input_hidden_size, 3 * hidden_size), hidden_size = num_heads * head_size</dd>
-<dt>bias [T3]</dt>
+<dt><tt>bias</tt> : T3</dt>
 <dd>1D input tensor with shape (3 * hidden_size)</dd>
-<dt>input_scale [T3]</dt>
+<dt><tt>input_scale</tt> : T3</dt>
 <dd>scale of quantized input tensor. It's a scalar, which means a per-tensor/layer quantization.</dd>
-<dt>weight_scale [T3]</dt>
+<dt><tt>weight_scale</tt> : T3</dt>
 <dd>scale of weight scale. It's a scalar or a 1D tensor, which means a per-tensor/per-column quantization.Its size should be 3 * hidden_size if it is per-column quantization</dd>
-<dt>mask_index (optional) [T4]</dt>
+<dt><tt>mask_index</tt> (optional) : T4</dt>
 <dd>Attention mask index with shape (batch_size)</dd>
-<dt>input_zero_point (optional) [T1]</dt>
+<dt><tt>input_zero_point</tt> (optional) : T1</dt>
 <dd>zero point of quantized input tensor.It's a scalar, which means a per-tensor/layer quantization.</dd>
-<dt>weight_zero_point (optional) [T2]</dt>
+<dt><tt>weight_zero_point</tt> (optional) : T2</dt>
 <dd>zero point of quantized weight tensor. It's a scalar or a 1D tensor, which means a per-tensor/per-column quantization.Its size should be 3 * hidden_size if it is per-column quantization</dd>
-<dt>past (optional) [T3]</dt>
+<dt><tt>past</tt> (optional) : T3</dt>
 <dd>past state for key and value with shape (2, batch_size, num_heads, past_sequence_length, head_size).</dd>
-</dl></table>
+</dl>
 
 #### Outputs (1 - 2)
 
-<table><dl>
-<dt>output [T3]</dt>
+<dl>
+<dt><tt>output</tt> : T3</dt>
 <dd>3D output tensor with shape (batch_size, sequence_length, hidden_size)</dd>
-<dt>present (optional) [T3]</dt>
+<dt><tt>present</tt> (optional) : T3</dt>
 <dd>present state for key and value with shape (2, batch_size, num_heads, past_sequence_length + sequence_length, head_size)</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T1 : tensor(int8), tensor(uint8)</dt>
+<dl>
+<dt><tt>T1</tt> : tensor(int8), tensor(uint8)</dt>
 <dd>Constrain input and output types to int8 tensors.</dd>
-<dt>T2 : tensor(int8), tensor(uint8)</dt>
+<dt><tt>T2</tt> : tensor(int8), tensor(uint8)</dt>
 <dd>Constrain input and output types to int8 tensors.</dd>
-<dt>T3 : tensor(float), tensor(float16)</dt>
+<dt><tt>T3</tt> : tensor(float), tensor(float16)</dt>
 <dd>Constrain input and output types to float tensors.</dd>
-<dt>T4 : tensor(int32)</dt>
+<dt><tt>T4</tt> : tensor(int32)</dt>
 <dd>Constrain mask index to integer types</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.QLinearAdd"></a><a name="com.microsoft.qlinearadd">**com.microsoft.QLinearAdd**</a>
@@ -1695,37 +1695,37 @@ This version of the operator has been available since version 1 of the 'com.micr
 #### Inputs (7 - 8)
 
 <table><dl>
-<dt>A [T]</dt>
+<dt><tt>A</tt> : T</dt>
 <dd>First operand.</dd>
-<dt>A_scale [tensor(float)]</dt>
+<dt><tt>A_scale</tt> : tensor(float)</dt>
 <dd>Input A's scale. It's a scalar, which means a per-tensor/layer quantization.</dd>
-<dt>A_zero_point (optional) [T]</dt>
+<dt><tt>A_zero_point</tt> (optional) : T</dt>
 <dd>Input A zero point. Default value is 0 if it's not specified. It's a scalar, which means a per-tensor/layer quantization.</dd>
-<dt>B [T]</dt>
+<dt><tt>B</tt> : T</dt>
 <dd>Second operand.</dd>
-<dt>B_scale [tensor(float)]</dt>
+<dt><tt>B_scale</tt> : tensor(float)</dt>
 <dd>Input B's scale. It's a scalar, which means a per-tensor/layer quantization.</dd>
-<dt>B_zero_point (optional) [T]</dt>
+<dt><tt>B_zero_point</tt> (optional) : T</dt>
 <dd>Input B zero point. Default value is 0 if it's not specified. It's a scalar, which means a per-tensor/layer quantization.</dd>
-<dt>C_scale [tensor(float)]</dt>
+<dt><tt>C_scale</tt> : tensor(float)</dt>
 <dd>Output scale. It's a scalar, which means a per-tensor/layer quantization.</dd>
-<dt>C_zero_point (optional) [T]</dt>
+<dt><tt>C_zero_point</tt> (optional) : T</dt>
 <dd>Output zero point. Default value is 0 if it's not specified. It's a scalar, which means a per-tensor/layer quantization.</dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>C [T]</dt>
+<dl>
+<dt><tt>C</tt> : T</dt>
 <dd>Result, has same element type as two inputs</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T : tensor(uint8), tensor(int8)</dt>
+<dl>
+<dt><tt>T</tt> : tensor(uint8), tensor(int8)</dt>
 <dd>Constrain input and output types to 8 bit signed and unsigned tensors.</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.QLinearAveragePool"></a><a name="com.microsoft.qlinearaveragepool">**com.microsoft.QLinearAveragePool**</a>
@@ -1769,51 +1769,51 @@ This version of the operator has been available since version 1 of the 'com.micr
 
 #### Attributes
 
-<table><dl>
-<dt>auto_pad [string]</dt>
+<dl>
+<dt><tt>auto_pad</tt> : string</dt>
 <dd>auto_pad must be either NOTSET, SAME_UPPER, SAME_LOWER or VALID. Where default value is NOTSET, which means explicit padding is used. SAME_UPPER or SAME_LOWER mean pad the input so that the output spatial size match the input.In case of odd number add the extra padding at the end for SAME_UPPER and at the beginning for SAME_LOWER. VALID mean no padding.</dd>
-<dt>ceil_mode [int]</dt>
+<dt><tt>ceil_mode</tt> : int</dt>
 <dd>Whether to use ceil or floor (default) to compute the output shape.</dd>
-<dt>channels_last [int]</dt>
+<dt><tt>channels_last</tt> : int</dt>
 <dd>Works on NHWC layout or not? Default not.</dd>
-<dt>count_include_pad [int]</dt>
+<dt><tt>count_include_pad</tt> : int</dt>
 <dd>Whether include pad pixels when calculating values for the edges. Default is 0, doesn't count include pad.</dd>
-<dt>kernel_shape [list of ints] (required)</dt>
+<dt><tt>kernel_shape</tt> : list of ints (required)</dt>
 <dd>The size of the kernel along each axis.</dd>
-<dt>pads [list of ints]</dt>
+<dt><tt>pads</tt> : list of ints</dt>
 <dd>Padding for the beginning and ending along each spatial axis, it can take any value greater than or equal to 0. The value represent the number of pixels added to the beginning and end part of the corresponding axis. `pads` format should be as follow [x1_begin, x2_begin...x1_end, x2_end,...], where xi_begin the number of pixels added at the beginning of axis `i` and xi_end, the number of pixels added at the end of axis `i`. This attribute cannot be used simultaneously with auto_pad attribute. If not present, the padding defaults to 0 along start and end of each spatial axis.</dd>
-<dt>strides [list of ints]</dt>
+<dt><tt>strides</tt> : list of ints</dt>
 <dd>Stride along each spatial axis. If not present, the stride defaults to 1 along each spatial axis.</dd>
-</dl></table>
+</dl>
 
 #### Inputs (4 - 5)
 
 <table><dl>
-<dt>X [T]</dt>
+<dt><tt>X</tt> : T</dt>
 <dd>Input data tensor from the previous operator; dimensions for image case are (N x C x H x W), where N is the batch size, C is the number of channels, and H and W are the height and the width of the data. For non image case, the dimensions are in the form of (N x C x D1 x D2 ... Dn), where N is the batch size. Optionally, if dimension denotation is in effect, the operation expects the input data tensor to arrive with the dimension denotation of [DATA_BATCH, DATA_CHANNEL, DATA_FEATURE, DATA_FEATURE ...].</dd>
-<dt>x_scale [tensor(float)]</dt>
+<dt><tt>x_scale</tt> : tensor(float)</dt>
 <dd>Input scale. It's a scalar, which means a per-tensor/layer quantization.</dd>
-<dt>x_zero_point (optional) [T]</dt>
+<dt><tt>x_zero_point</tt> (optional) : T</dt>
 <dd>Input zero point. Default value is 0 if it's not specified. It's a scalar, which means a per-tensor/layer quantization.</dd>
-<dt>y_scale [tensor(float)]</dt>
+<dt><tt>y_scale</tt> : tensor(float)</dt>
 <dd>Output scale. It's a scalar, which means a per-tensor/layer quantization.</dd>
-<dt>y_zero_point (optional) [T]</dt>
+<dt><tt>y_zero_point</tt> (optional) : T</dt>
 <dd>Output zero point. Default value is 0 if it's not specified. It's a scalar, which means a per-tensor/layer quantization.</dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>Y [T]</dt>
+<dl>
+<dt><tt>Y</tt> : T</dt>
 <dd>Output data tensor from average or max pooling across the input tensor. Dimensions will vary based on various kernel, stride, and pad sizes. Floor value of the dimension is used</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T : tensor(uint8), tensor(int8)</dt>
+<dl>
+<dt><tt>T</tt> : tensor(uint8), tensor(int8)</dt>
 <dd>Constrain input and output types to 8 bit tensors.</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.QLinearConcat"></a><a name="com.microsoft.qlinearconcat">**com.microsoft.QLinearConcat**</a>
@@ -1826,39 +1826,39 @@ This version of the operator has been available since version 1 of the 'com.micr
 
 #### Attributes
 
-<table><dl>
-<dt>axis [int] (required)</dt>
+<dl>
+<dt><tt>axis</tt> : int (required)</dt>
 <dd>Which axis to concat on</dd>
-</dl></table>
+</dl>
 
 #### Inputs (3 - &#8734;)
 
 <table><dl>
-<dt>Y_scale [TF]</dt>
+<dt><tt>Y_scale</tt> : TF</dt>
 <dd>Y's scale.</dd>
-<dt>Y_zero_point [T8]</dt>
+<dt><tt>Y_zero_point</tt> : T8</dt>
 <dd>Y's zero point.</dd>
-<dt>inputs (variadic, heterogeneous) [TV]</dt>
+<dt><tt>inputs</tt> (variadic, heterogeneous) : TV</dt>
 <dd>List of tensors/scale/zero_point for concatenation</dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>Y [T8]</dt>
+<dl>
+<dt><tt>Y</tt> : T8</dt>
 <dd>Concatenated tensor</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T8 : tensor(uint8), tensor(int8)</dt>
+<dl>
+<dt><tt>T8</tt> : tensor(uint8), tensor(int8)</dt>
 <dd>Constrain input and output types to 8 bit signed and unsigned tensors.</dd>
-<dt>TF : tensor(float)</dt>
+<dt><tt>TF</tt> : tensor(float)</dt>
 <dd>Constrain scale types to any float tensor type.</dd>
-<dt>TV : tensor(uint8), tensor(int8), tensor(float)</dt>
+<dt><tt>TV</tt> : tensor(uint8), tensor(int8), tensor(float)</dt>
 <dd>Sequence of (Tensor, Scale, ZeroPoint) tuples. The type is sequence of (T8, TF, T8).</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.QLinearConv"></a><a name="com.microsoft.qlinearconv">**com.microsoft.QLinearConv**</a>
@@ -1869,65 +1869,65 @@ This version of the operator has been available since version 1 of the 'com.micr
 
 #### Attributes
 
-<table><dl>
-<dt>auto_pad [string]</dt>
+<dl>
+<dt><tt>auto_pad</tt> : string</dt>
 <dd></dd>
-<dt>channels_last [int]</dt>
+<dt><tt>channels_last</tt> : int</dt>
 <dd></dd>
-<dt>dilations [list of ints]</dt>
+<dt><tt>dilations</tt> : list of ints</dt>
 <dd></dd>
-<dt>group [int]</dt>
+<dt><tt>group</tt> : int</dt>
 <dd></dd>
-<dt>kernel_shape [list of ints]</dt>
+<dt><tt>kernel_shape</tt> : list of ints</dt>
 <dd></dd>
-<dt>pads [list of ints]</dt>
+<dt><tt>pads</tt> : list of ints</dt>
 <dd></dd>
-<dt>strides [list of ints]</dt>
+<dt><tt>strides</tt> : list of ints</dt>
 <dd></dd>
-</dl></table>
+</dl>
 
 #### Inputs (8 - 9)
 
 <table><dl>
-<dt>x [T1]</dt>
+<dt><tt>x</tt> : T1</dt>
 <dd></dd>
-<dt>x_scale [tensor(float)]</dt>
+<dt><tt>x_scale</tt> : tensor(float)</dt>
 <dd></dd>
-<dt>x_zero_point [T1]</dt>
+<dt><tt>x_zero_point</tt> : T1</dt>
 <dd></dd>
-<dt>w [T2]</dt>
+<dt><tt>w</tt> : T2</dt>
 <dd></dd>
-<dt>w_scale [tensor(float)]</dt>
+<dt><tt>w_scale</tt> : tensor(float)</dt>
 <dd></dd>
-<dt>w_zero_point [T2]</dt>
+<dt><tt>w_zero_point</tt> : T2</dt>
 <dd></dd>
-<dt>y_scale [tensor(float)]</dt>
+<dt><tt>y_scale</tt> : tensor(float)</dt>
 <dd></dd>
-<dt>y_zero_point [T3]</dt>
+<dt><tt>y_zero_point</tt> : T3</dt>
 <dd></dd>
-<dt>B (optional) [T4]</dt>
+<dt><tt>B</tt> (optional) : T4</dt>
 <dd></dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>y [T3]</dt>
+<dl>
+<dt><tt>y</tt> : T3</dt>
 <dd></dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T1 : tensor(int8), tensor(uint8)</dt>
+<dl>
+<dt><tt>T1</tt> : tensor(int8), tensor(uint8)</dt>
 <dd></dd>
-<dt>T2 : tensor(int8), tensor(uint8)</dt>
+<dt><tt>T2</tt> : tensor(int8), tensor(uint8)</dt>
 <dd></dd>
-<dt>T3 : tensor(int8), tensor(uint8)</dt>
+<dt><tt>T3</tt> : tensor(int8), tensor(uint8)</dt>
 <dd></dd>
-<dt>T4 : tensor(int32)</dt>
+<dt><tt>T4</tt> : tensor(int32)</dt>
 <dd></dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.QLinearGlobalAveragePool"></a><a name="com.microsoft.qlinearglobalaveragepool">**com.microsoft.QLinearGlobalAveragePool**</a>
@@ -1942,39 +1942,39 @@ This version of the operator has been available since version 1 of the 'com.micr
 
 #### Attributes
 
-<table><dl>
-<dt>channels_last [int]</dt>
+<dl>
+<dt><tt>channels_last</tt> : int</dt>
 <dd></dd>
-</dl></table>
+</dl>
 
 #### Inputs
 
 <table><dl>
-<dt>X [T]</dt>
+<dt><tt>X</tt> : T</dt>
 <dd>Input data tensor from the previous operator; According to channels_last, dimensions for image case are (N x C x H x W), or (N x H x W x C) where N is the batch size, C is the number of channels, and H and W are the height and the width of the data. For non image case, the dimensions are in the form of (N x C x D1 x D2 ... Dn), or (N x D1 X D2 ... Dn x C) where N is the batch size.</dd>
-<dt>x_scale [tensor(float)]</dt>
+<dt><tt>x_scale</tt> : tensor(float)</dt>
 <dd>Scale of quantized input 'X'. It must be a scalar.</dd>
-<dt>x_zero_point [T]</dt>
+<dt><tt>x_zero_point</tt> : T</dt>
 <dd>Zero point tensor for input 'X'. It must be a scalar.</dd>
-<dt>y_scale [tensor(float)]</dt>
+<dt><tt>y_scale</tt> : tensor(float)</dt>
 <dd>Scale of quantized output 'Y'. It must be a scalar.</dd>
-<dt>y_zero_point [T]</dt>
+<dt><tt>y_zero_point</tt> : T</dt>
 <dd>Zero point tensor for output 'Y'. It must be a scalar.</dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>Y [T]</dt>
+<dl>
+<dt><tt>Y</tt> : T</dt>
 <dd>Output data tensor from pooling across the input tensor. The output tensor has the same rank as the input. with the N and C value keep it value, while the otherdimensions are all 1.</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T : tensor(uint8), tensor(int8)</dt>
+<dl>
+<dt><tt>T</tt> : tensor(uint8), tensor(int8)</dt>
 <dd>Constrain input and output types to singed/unsigned int8 tensors.</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.QLinearLeakyRelu"></a><a name="com.microsoft.qlinearleakyrelu">**com.microsoft.QLinearLeakyRelu**</a>
@@ -1989,39 +1989,39 @@ This version of the operator has been available since version 1 of the 'com.micr
 
 #### Attributes
 
-<table><dl>
-<dt>alpha [float]</dt>
+<dl>
+<dt><tt>alpha</tt> : float</dt>
 <dd>Coefficient of leakage.</dd>
-</dl></table>
+</dl>
 
 #### Inputs (4 - 5)
 
 <table><dl>
-<dt>X [T]</dt>
+<dt><tt>X</tt> : T</dt>
 <dd>Input tensor</dd>
-<dt>X_scale [tensor(float)]</dt>
+<dt><tt>X_scale</tt> : tensor(float)</dt>
 <dd>Input X's scale. It's a scalar, which means a per-tensor/layer quantization.</dd>
-<dt>X_zero_point (optional) [T]</dt>
+<dt><tt>X_zero_point</tt> (optional) : T</dt>
 <dd>Input X's zero point. Default value is 0 if it's not specified. It's a scalar, which means a per-tensor/layer quantization.</dd>
-<dt>Y_scale [tensor(float)]</dt>
+<dt><tt>Y_scale</tt> : tensor(float)</dt>
 <dd>Output Y's scale. It's a scalar, which means a per-tensor/layer quantization.</dd>
-<dt>Y_zero_point (optional) [T]</dt>
+<dt><tt>Y_zero_point</tt> (optional) : T</dt>
 <dd>Output Y's zero point. Default value is 0 if it's not specified. It's a scalar, which means a per-tensor/layer quantization.</dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>Y [T]</dt>
+<dl>
+<dt><tt>Y</tt> : T</dt>
 <dd>Output tensor</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T : tensor(uint8), tensor(int8)</dt>
+<dl>
+<dt><tt>T</tt> : tensor(uint8), tensor(int8)</dt>
 <dd>Constrain input and output types to 8 bit tensors.</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.QLinearMul"></a><a name="com.microsoft.qlinearmul">**com.microsoft.QLinearMul**</a>
@@ -2037,37 +2037,37 @@ This version of the operator has been available since version 1 of the 'com.micr
 #### Inputs (7 - 8)
 
 <table><dl>
-<dt>A [T]</dt>
+<dt><tt>A</tt> : T</dt>
 <dd>First operand.</dd>
-<dt>A_scale [tensor(float)]</dt>
+<dt><tt>A_scale</tt> : tensor(float)</dt>
 <dd>Input A's scale. It's a scalar, which means a per-tensor/layer quantization.</dd>
-<dt>A_zero_point (optional) [T]</dt>
+<dt><tt>A_zero_point</tt> (optional) : T</dt>
 <dd>Input A zero point. Default value is 0 if it's not specified. It's a scalar, which means a per-tensor/layer quantization.</dd>
-<dt>B [T]</dt>
+<dt><tt>B</tt> : T</dt>
 <dd>Second operand.</dd>
-<dt>B_scale [tensor(float)]</dt>
+<dt><tt>B_scale</tt> : tensor(float)</dt>
 <dd>Input B's scale. It's a scalar, which means a per-tensor/layer quantization.</dd>
-<dt>B_zero_point (optional) [T]</dt>
+<dt><tt>B_zero_point</tt> (optional) : T</dt>
 <dd>Input B zero point. Default value is 0 if it's not specified. It's a scalar, which means a per-tensor/layer quantization.</dd>
-<dt>C_scale [tensor(float)]</dt>
+<dt><tt>C_scale</tt> : tensor(float)</dt>
 <dd>Output scale. It's a scalar, which means a per-tensor/layer quantization.</dd>
-<dt>C_zero_point (optional) [T]</dt>
+<dt><tt>C_zero_point</tt> (optional) : T</dt>
 <dd>Output zero point. Default value is 0 if it's not specified. It's a scalar, which means a per-tensor/layer quantization.</dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>C [T]</dt>
+<dl>
+<dt><tt>C</tt> : T</dt>
 <dd>Result, has same element type as two inputs</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T : tensor(uint8), tensor(int8)</dt>
+<dl>
+<dt><tt>T</tt> : tensor(uint8), tensor(int8)</dt>
 <dd>Constrain input and output types to 8 bit signed and unsigned tensors.</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.QLinearReduceMean"></a><a name="com.microsoft.qlinearreducemean">**com.microsoft.QLinearReduceMean**</a>
@@ -2090,41 +2090,41 @@ This version of the operator has been available since version 1 of the 'com.micr
 
 #### Attributes
 
-<table><dl>
-<dt>axes [list of ints] (required)</dt>
+<dl>
+<dt><tt>axes</tt> : list of ints (required)</dt>
 <dd>A list of integers, along which to reduce. The default is to reduce over all the dimensions of the input tensor.</dd>
-<dt>keepdims [int] (required)</dt>
+<dt><tt>keepdims</tt> : int (required)</dt>
 <dd>Keep the reduced dimension or not, default 1 mean keep reduced dimension.</dd>
-</dl></table>
+</dl>
 
 #### Inputs (4 - 5)
 
 <table><dl>
-<dt>data [T]</dt>
+<dt><tt>data</tt> : T</dt>
 <dd>An input tensor.</dd>
-<dt>data_scale [tensor(float)]</dt>
+<dt><tt>data_scale</tt> : tensor(float)</dt>
 <dd>Input scale. It's a scalar, which means a per-tensor/layer quantization.</dd>
-<dt>data_zero_point (optional) [T]</dt>
+<dt><tt>data_zero_point</tt> (optional) : T</dt>
 <dd>Input zero point. Default value is 0 if it's not specified. It's a scalar, which means a per-tensor/layer quantization.</dd>
-<dt>reduced_scale [tensor(float)]</dt>
+<dt><tt>reduced_scale</tt> : tensor(float)</dt>
 <dd>Output scale. It's a scalar, which means a per-tensor/layer quantization.</dd>
-<dt>reduced_zero_point (optional) [T]</dt>
+<dt><tt>reduced_zero_point</tt> (optional) : T</dt>
 <dd>Output zero point. Default value is 0 if it's not specified. It's a scalar, which means a per-tensor/layer quantization.</dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>reduced [T]</dt>
+<dl>
+<dt><tt>reduced</tt> : T</dt>
 <dd>Reduced output tensor.</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T : tensor(uint8), tensor(int8)</dt>
+<dl>
+<dt><tt>T</tt> : tensor(uint8), tensor(int8)</dt>
 <dd>Constrain input types to 8 bit signed and unsigned tensors.</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.QLinearSigmoid"></a><a name="com.microsoft.qlinearsigmoid">**com.microsoft.QLinearSigmoid**</a>
@@ -2140,31 +2140,31 @@ This version of the operator has been available since version 1 of the 'com.micr
 #### Inputs (4 - 5)
 
 <table><dl>
-<dt>X [T]</dt>
+<dt><tt>X</tt> : T</dt>
 <dd>Input tensor</dd>
-<dt>X_scale [tensor(float)]</dt>
+<dt><tt>X_scale</tt> : tensor(float)</dt>
 <dd>Input X's scale. It's a scalar, which means a per-tensor/layer quantization.</dd>
-<dt>X_zero_point (optional) [T]</dt>
+<dt><tt>X_zero_point</tt> (optional) : T</dt>
 <dd>Input X's zero point. Default value is 0 if it's not specified. It's a scalar, which means a per-tensor/layer quantization.</dd>
-<dt>Y_scale [tensor(float)]</dt>
+<dt><tt>Y_scale</tt> : tensor(float)</dt>
 <dd>Output Y's scale. It's a scalar, which means a per-tensor/layer quantization.</dd>
-<dt>Y_zero_point (optional) [T]</dt>
+<dt><tt>Y_zero_point</tt> (optional) : T</dt>
 <dd>Output Y's zero point. Default value is 0 if it's not specified. It's a scalar, which means a per-tensor/layer quantization.</dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>Y [T]</dt>
+<dl>
+<dt><tt>Y</tt> : T</dt>
 <dd>Output tensor</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T : tensor(uint8), tensor(int8)</dt>
+<dl>
+<dt><tt>T</tt> : tensor(uint8), tensor(int8)</dt>
 <dd>Constrain input and output types to 8 bit tensors.</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.QuantizeLinear"></a><a name="com.microsoft.quantizelinear">**com.microsoft.QuantizeLinear**</a>
@@ -2180,37 +2180,37 @@ This version of the operator has been available since version 1 of the 'com.micr
 
 #### Attributes
 
-<table><dl>
-<dt>axis [int]</dt>
+<dl>
+<dt><tt>axis</tt> : int</dt>
 <dd>The axis along which same quantization parameters are applied. It's optional.If it's not specified, it means per-tensor quantization and input 'x_scale' and 'x_zero_point' must be scalars.If it's specified, it means per 'axis' quantization and input 'x_scale' and 'x_zero_point' must be 1-D tensors.</dd>
-</dl></table>
+</dl>
 
 #### Inputs
 
 <table><dl>
-<dt>x [T1]</dt>
+<dt><tt>x</tt> : T1</dt>
 <dd>N-D full precision Input tensor to be quantized.</dd>
-<dt>y_scale [T1]</dt>
+<dt><tt>y_scale</tt> : T1</dt>
 <dd>Scale for doing quantization to get 'y'. It could be a scalar or a 1-D tensor,which means a per-tensor or per-axis quantization. If it's a 1-D tensor, its number of elements should be equal to the dimension value of 'axis' dimension of input 'x'.</dd>
-<dt>y_zero_point [T2]</dt>
+<dt><tt>y_zero_point</tt> : T2</dt>
 <dd>Zero point for doing quantization to get 'y'. It could be a scalar or a 1-D tensor, which means a per-tensoror per-axis quantization. If it's a 1-D tensor, its number of elements should be equal to the dimension value of 'axis' dimension of input 'x'.</dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>y [T2]</dt>
+<dl>
+<dt><tt>y</tt> : T2</dt>
 <dd>N-D quantized output tensor. It has same shape as input 'x'.</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T1 : tensor(float16), tensor(float)</dt>
+<dl>
+<dt><tt>T1</tt> : tensor(float16), tensor(float)</dt>
 <dd>Constrain 'x', 'y_scale' to float tensors.</dd>
-<dt>T2 : tensor(int8), tensor(uint8)</dt>
+<dt><tt>T2</tt> : tensor(int8), tensor(uint8)</dt>
 <dd>Constrain 'y_zero_point' and 'y' to 8-bit integer tensors.</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.Range"></a><a name="com.microsoft.range">**com.microsoft.Range**</a>
@@ -2225,27 +2225,27 @@ This version of the operator has been available since version 1 of the 'com.micr
 #### Inputs (2 - 3)
 
 <table><dl>
-<dt>start [T]</dt>
+<dt><tt>start</tt> : T</dt>
 <dd>Tensor(scalar, or dims=[1]). First entry in the range.</dd>
-<dt>limit [T]</dt>
+<dt><tt>limit</tt> : T</dt>
 <dd>Tensor(scalar, or dims=[1]). Upper limit of sequence, exclusive.</dd>
-<dt>delta (optional) [T]</dt>
+<dt><tt>delta</tt> (optional) : T</dt>
 <dd>Tensor(scalar, or dims=[1]). Number that increments start. Defaults to 1.</dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>Y [T]</dt>
+<dl>
+<dt><tt>Y</tt> : T</dt>
 <dd>1-D Tensor of the range.</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T : tensor(float), tensor(double), tensor(int16), tensor(int32), tensor(int64)</dt>
+<dl>
+<dt><tt>T</tt> : tensor(float), tensor(double), tensor(int16), tensor(int32), tensor(int64)</dt>
 <dd>Constrain input and output types.</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.ReduceSumInteger"></a><a name="com.microsoft.reducesuminteger">**com.microsoft.ReduceSumInteger**</a>
@@ -2261,35 +2261,35 @@ This version of the operator has been available since version 1 of the 'com.micr
 
 #### Attributes
 
-<table><dl>
-<dt>axes [list of ints] (required)</dt>
+<dl>
+<dt><tt>axes</tt> : list of ints (required)</dt>
 <dd>A list of integers, along which to reduce. The default is to reduce over all the dimensions of the input tensor.</dd>
-<dt>keepdims [int] (required)</dt>
+<dt><tt>keepdims</tt> : int (required)</dt>
 <dd>Keep the reduced dimension or not, default 1 mean keep reduced dimension.</dd>
-</dl></table>
+</dl>
 
 #### Inputs
 
 <table><dl>
-<dt>data [T1]</dt>
+<dt><tt>data</tt> : T1</dt>
 <dd>An input tensor.</dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>reduced [T2]</dt>
+<dl>
+<dt><tt>reduced</tt> : T2</dt>
 <dd>Reduced output tensor.</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T1 : tensor(int8), tensor(uint8)</dt>
+<dl>
+<dt><tt>T1</tt> : tensor(int8), tensor(uint8)</dt>
 <dd>Constrain input type to 8-bit integer tensor.</dd>
-<dt>T2 : tensor(int32), tensor(uint32)</dt>
+<dt><tt>T2</tt> : tensor(int32), tensor(uint32)</dt>
 <dd>Constrain output data type to 32-bit integer tensor.T2 must be tensor(uint32) when T1 is tensor(uint8),or must be tensor(int32) when T1 is tensor(int8).</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.Rfft"></a><a name="com.microsoft.rfft">**com.microsoft.Rfft**</a>
@@ -2300,35 +2300,35 @@ This version of the operator has been available since version 1 of the 'com.micr
 
 #### Attributes
 
-<table><dl>
-<dt>normalized [int]</dt>
+<dl>
+<dt><tt>normalized</tt> : int</dt>
 <dd></dd>
-<dt>onesided [int]</dt>
+<dt><tt>onesided</tt> : int</dt>
 <dd></dd>
-<dt>signal_ndim [int]</dt>
+<dt><tt>signal_ndim</tt> : int</dt>
 <dd></dd>
-</dl></table>
+</dl>
 
 #### Inputs
 
 <table><dl>
-<dt>X [T]</dt>
+<dt><tt>X</tt> : T</dt>
 <dd>input tensor</dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>Y [T]</dt>
+<dl>
+<dt><tt>Y</tt> : T</dt>
 <dd>output tensor</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T : tensor(float), tensor(double), tensor(float16)</dt>
+<dl>
+<dt><tt>T</tt> : tensor(float), tensor(double), tensor(float16)</dt>
 <dd>Constrain input and output types to float or half tensors.</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.SampleOp"></a><a name="com.microsoft.sampleop">**com.microsoft.SampleOp**</a>
@@ -2342,23 +2342,23 @@ This version of the operator has been available since version 1 of the 'com.micr
 #### Inputs
 
 <table><dl>
-<dt>X [T]</dt>
+<dt><tt>X</tt> : T</dt>
 <dd>input</dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>Y [T]</dt>
+<dl>
+<dt><tt>Y</tt> : T</dt>
 <dd>output</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T : tensor(uint32), tensor(uint64), tensor(int32), tensor(int64), tensor(float16), tensor(float), tensor(double)</dt>
+<dl>
+<dt><tt>T</tt> : tensor(uint32), tensor(uint64), tensor(int32), tensor(int64), tensor(float16), tensor(float), tensor(double)</dt>
 <dd>Constrain to any tensor type. If the dtype attribute is not provided this must be a valid output type.</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.SkipLayerNormalization"></a><a name="com.microsoft.skiplayernormalization">**com.microsoft.SkipLayerNormalization**</a>
@@ -2371,45 +2371,45 @@ This version of the operator has been available since version 1 of the 'com.micr
 
 #### Attributes
 
-<table><dl>
-<dt>epsilon [float]</dt>
+<dl>
+<dt><tt>epsilon</tt> : float</dt>
 <dd>The epsilon value to use to avoid division by zero.</dd>
-</dl></table>
+</dl>
 
 #### Inputs (3 - 5)
 
 <table><dl>
-<dt>input [T]</dt>
+<dt><tt>input</tt> : T</dt>
 <dd>3D input tensor with shape (batch_size, sequence_length, hidden_size)</dd>
-<dt>skip [T]</dt>
+<dt><tt>skip</tt> : T</dt>
 <dd>3D skip tensor with shape (batch_size, sequence_length, hidden_size)</dd>
-<dt>gamma [T]</dt>
+<dt><tt>gamma</tt> : T</dt>
 <dd>1D input tensor with shape (hidden_size)</dd>
-<dt>beta (optional) [T]</dt>
+<dt><tt>beta</tt> (optional) : T</dt>
 <dd>1D skip tensor with shape (hidden_size</dd>
-<dt>bias (optional) [T]</dt>
+<dt><tt>bias</tt> (optional) : T</dt>
 <dd>1D bias tensor with shape (hidden_size</dd>
-</dl></table>
+</dl>
 
 #### Outputs (1 - 3)
 
-<table><dl>
-<dt>output [T]</dt>
+<dl>
+<dt><tt>output</tt> : T</dt>
 <dd>3D output tensor with shape (batch_size, sequence_length, hidden_size)</dd>
-<dt>mean (optional) [U]</dt>
+<dt><tt>mean</tt> (optional) : U</dt>
 <dd>Saved mean used during training to speed up gradient computation</dd>
-<dt>inv_std_var (optional) [U]</dt>
+<dt><tt>inv_std_var</tt> (optional) : U</dt>
 <dd>Saved inverse standard variance used during training to speed up gradient computation.</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T : tensor(float), tensor(float16)</dt>
+<dl>
+<dt><tt>T</tt> : tensor(float), tensor(float16)</dt>
 <dd>Constrain input and output types to float or half tensors.</dd>
-<dt>U : tensor(float)</dt>
+<dt><tt>U</tt> : tensor(float)</dt>
 <dd>Constrain mean and inv_std_var to float tensors.</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.Tokenizer"></a><a name="com.microsoft.tokenizer">**com.microsoft.Tokenizer**</a>
@@ -2451,39 +2451,39 @@ This version of the operator has been available since version 1 of the 'com.micr
 
 #### Attributes
 
-<table><dl>
-<dt>mark [int] (required)</dt>
+<dl>
+<dt><tt>mark</tt> : int (required)</dt>
 <dd>Boolean whether to mark the beginning/end character with start of text character (0x02)/end of text character (0x03).</dd>
-<dt>mincharnum [int] (required)</dt>
+<dt><tt>mincharnum</tt> : int (required)</dt>
 <dd>Minimum number of characters allowed in the output. For example, if mincharnum is 2, tokens such as "A" and "B" would be ignored</dd>
-<dt>pad_value [string] (required)</dt>
+<dt><tt>pad_value</tt> : string (required)</dt>
 <dd>The string used to pad output tensors when the tokens extracted doesn't match the maximum number of tokens found. If start/end markers are needed, padding will appear outside the markers.</dd>
-<dt>separators [list of strings]</dt>
+<dt><tt>separators</tt> : list of strings</dt>
 <dd>an optional list of strings attribute that contains a list of separators - regular expressions to match separators Two consecutive segments in X connected by a separator would be divided into two tokens. For example, if the input is "Hello World!" and this attribute contains only one space character, the corresponding output would be ["Hello", "World!"]. To achieve character-level tokenization, one should set the 'separators' to [""], which contains an empty string.</dd>
-<dt>tokenexp [string]</dt>
+<dt><tt>tokenexp</tt> : string</dt>
 <dd>An optional string. Token's regular expression in basic POSIX format (pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap09.html#tag_09_03). If set, tokenizer may produce tokens matching the specified pattern. Note that one and only of 'tokenexp' and 'separators' should be set.</dd>
-</dl></table>
+</dl>
 
 #### Inputs
 
 <table><dl>
-<dt>X [T]</dt>
+<dt><tt>X</tt> : T</dt>
 <dd>Strings to tokenize</dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>Y [T]</dt>
+<dl>
+<dt><tt>Y</tt> : T</dt>
 <dd>Tokenized strings</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T : tensor(string)</dt>
+<dl>
+<dt><tt>T</tt> : tensor(string)</dt>
 <dd>Input/Output is a string tensor</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.TorchEmbedding"></a><a name="com.microsoft.torchembedding">**com.microsoft.TorchEmbedding**</a>
@@ -2499,29 +2499,29 @@ This version of the operator has been available since version 1 of the 'com.micr
 #### Inputs (2 - 4)
 
 <table><dl>
-<dt>weight [T]</dt>
+<dt><tt>weight</tt> : T</dt>
 <dd>The embedding matrix of size N x M. 'N' is equal to the maximum possible index + 1, and 'M' is equal to the embedding size</dd>
-<dt>indices [tensor(int64)]</dt>
+<dt><tt>indices</tt> : tensor(int64)</dt>
 <dd>Long tensor containing the indices to extract from embedding matrix.</dd>
-<dt>padding_idx (optional) [tensor(int64)]</dt>
+<dt><tt>padding_idx</tt> (optional) : tensor(int64)</dt>
 <dd>A 0-D scalar tensor. If specified, the entries at `padding_idx` do not contribute to the gradient; therefore, the embedding vector at `padding_idx` is not updated during training, i.e. it remains as a fixed pad.</dd>
-<dt>scale_grad_by_freq (optional) [tensor(bool)]</dt>
+<dt><tt>scale_grad_by_freq</tt> (optional) : tensor(bool)</dt>
 <dd>A 0-D bool tensor. If given, this will scale gradients by the inverse of frequency of the indices (words) in the mini-batch. Default  is ``False``</dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>Y [T]</dt>
+<dl>
+<dt><tt>Y</tt> : T</dt>
 <dd>Output tensor of the same type as the input tensor. Shape of the output is * x M, where '*' is the shape of input indices, and 'M' is the embedding size.</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T : tensor(float16), tensor(float), tensor(double), tensor(bfloat16), tensor(uint8), tensor(uint16), tensor(uint32), tensor(uint64), tensor(int8), tensor(int16), tensor(int32), tensor(int64)</dt>
+<dl>
+<dt><tt>T</tt> : tensor(float16), tensor(float), tensor(double), tensor(bfloat16), tensor(uint8), tensor(uint16), tensor(uint32), tensor(uint64), tensor(int8), tensor(int16), tensor(int32), tensor(int64)</dt>
 <dd>Constrain input and output types to all numeric tensors.</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.TransposeMatMul"></a><a name="com.microsoft.transposematmul">**com.microsoft.TransposeMatMul**</a>
@@ -2535,37 +2535,37 @@ This version of the operator has been available since version 1 of the 'com.micr
 
 #### Attributes
 
-<table><dl>
-<dt>alpha [float]</dt>
+<dl>
+<dt><tt>alpha</tt> : float</dt>
 <dd>Scalar multiplier for the product of the input tensors.</dd>
-<dt>transA [int]</dt>
+<dt><tt>transA</tt> : int</dt>
 <dd>Whether A should be transposed on the last two dimensions before doing multiplication</dd>
-<dt>transB [int]</dt>
+<dt><tt>transB</tt> : int</dt>
 <dd>Whether B should be transposed on the last two dimensions before doing multiplication</dd>
-</dl></table>
+</dl>
 
 #### Inputs
 
 <table><dl>
-<dt>A [T]</dt>
+<dt><tt>A</tt> : T</dt>
 <dd>N-dimensional matrix A</dd>
-<dt>B [T]</dt>
+<dt><tt>B</tt> : T</dt>
 <dd>N-dimensional matrix B</dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>Y [T]</dt>
+<dl>
+<dt><tt>Y</tt> : T</dt>
 <dd>Matrix multiply results</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T : tensor(float16), tensor(float), tensor(double), tensor(bfloat16)</dt>
+<dl>
+<dt><tt>T</tt> : tensor(float16), tensor(float), tensor(double), tensor(bfloat16)</dt>
 <dd>Constrain input and output types to float tensors.</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.Trilu"></a><a name="com.microsoft.trilu">**com.microsoft.Trilu**</a>
@@ -2588,33 +2588,33 @@ This version of the operator has been available since version 1 of the 'com.micr
 
 #### Attributes
 
-<table><dl>
-<dt>upper [int]</dt>
+<dl>
+<dt><tt>upper</tt> : int</dt>
 <dd>Boolean. Indicates whether upper or lower part of matrix is retained. Default is true.</dd>
-</dl></table>
+</dl>
 
 #### Inputs (1 - 2)
 
 <table><dl>
-<dt>X [T]</dt>
+<dt><tt>X</tt> : T</dt>
 <dd>Input tensor of rank 2 or higher.</dd>
-<dt>k (optional) [tensor(int64)]</dt>
+<dt><tt>k</tt> (optional) : tensor(int64)</dt>
 <dd>A 0-D tensor containing a single value corresponding to the number diagonals above or the main diagonal to exclude or include.Default value is 0 if it's not specified.</dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>Y [T]</dt>
+<dl>
+<dt><tt>Y</tt> : T</dt>
 <dd>Output tensor of the same type and shape as the input tensor.</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T : tensor(float16), tensor(float), tensor(double), tensor(bfloat16), tensor(uint8), tensor(uint16), tensor(uint32), tensor(uint64), tensor(int8), tensor(int16), tensor(int32), tensor(int64), tensor(bool)</dt>
+<dl>
+<dt><tt>T</tt> : tensor(float16), tensor(float), tensor(double), tensor(bfloat16), tensor(uint8), tensor(uint16), tensor(uint32), tensor(uint64), tensor(int8), tensor(int16), tensor(int32), tensor(int64), tensor(bool)</dt>
 <dd>Constrain input and output types to all numeric tensors and bool tensors.</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.Unique"></a><a name="com.microsoft.unique">**com.microsoft.Unique**</a>
@@ -2640,27 +2640,27 @@ This version of the operator has been available since version 1 of the 'com.micr
 #### Inputs
 
 <table><dl>
-<dt>x [T]</dt>
+<dt><tt>x</tt> : T</dt>
 <dd>A 1-D input tensor that is to be processed.</dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>y [T]</dt>
+<dl>
+<dt><tt>y</tt> : T</dt>
 <dd>A 1-D tensor of the same type as 'x' containing all the unique values in 'x' sorted in the same order that they occur in the input 'x'</dd>
-<dt>idx [tensor(int64)]</dt>
+<dt><tt>idx</tt> : tensor(int64)</dt>
 <dd>A 1-D INT64 tensor of the same size as 'x' containing the indices for each value in 'x' in the output 'uniques'</dd>
-<dt>counts [tensor(int64)]</dt>
+<dt><tt>counts</tt> : tensor(int64)</dt>
 <dd>A 1-D INT64 tensor containing the the count of each element of 'uniques' in the input 'x'</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T : tensor(uint8), tensor(uint16), tensor(uint32), tensor(uint64), tensor(int8), tensor(int16), tensor(int32), tensor(int64), tensor(float16), tensor(float), tensor(double), tensor(string), tensor(bool), tensor(complex64), tensor(complex128)</dt>
+<dl>
+<dt><tt>T</tt> : tensor(uint8), tensor(uint16), tensor(uint32), tensor(uint64), tensor(int8), tensor(int16), tensor(int32), tensor(int64), tensor(float16), tensor(float), tensor(double), tensor(string), tensor(bool), tensor(complex64), tensor(complex128)</dt>
 <dd>Input can be of any tensor type.</dd>
-</dl></table>
+</dl>
 
 
 ### <a name="com.microsoft.WordConvEmbedding"></a><a name="com.microsoft.wordconvembedding">**com.microsoft.WordConvEmbedding**</a>
@@ -2673,43 +2673,43 @@ This version of the operator has been available since version 1 of the 'com.micr
 
 #### Attributes
 
-<table><dl>
-<dt>char_embedding_size [int]</dt>
+<dl>
+<dt><tt>char_embedding_size</tt> : int</dt>
 <dd>Integer representing the embedding vector size for each char.If not provide, use the char embedding size of embedding vector.</dd>
-<dt>conv_window_size [int]</dt>
+<dt><tt>conv_window_size</tt> : int</dt>
 <dd>This operator applies convolution to word from left to right with window equal to conv_window_size and stride to 1.Take word 'example' for example, with conv_window_size equal to 2, conv is applied to [ex],[xa], [am], [mp]...If not provide, use the first dimension of conv kernal shape.</dd>
-<dt>embedding_size [int]</dt>
+<dt><tt>embedding_size</tt> : int</dt>
 <dd>Integer representing the embedding vector size for each word.If not provide, use the fileter size of conv weight</dd>
-</dl></table>
+</dl>
 
 #### Inputs
 
 <table><dl>
-<dt>Sequence [T]</dt>
+<dt><tt>Sequence</tt> : T</dt>
 <dd>Specify batchs of sequence words to embedding</dd>
-<dt>W [T1]</dt>
+<dt><tt>W</tt> : T1</dt>
 <dd>Specify weights of conv</dd>
-<dt>B [T1]</dt>
+<dt><tt>B</tt> : T1</dt>
 <dd>Specify bias of conv</dd>
-<dt>C [T1]</dt>
+<dt><tt>C</tt> : T1</dt>
 <dd>Specify embedding vector of char</dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>Y [T1]</dt>
+<dl>
+<dt><tt>Y</tt> : T1</dt>
 <dd>output</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>T : tensor(int32)</dt>
+<dl>
+<dt><tt>T</tt> : tensor(int32)</dt>
 <dd>Constrain to tensor(int32).</dd>
-<dt>T1 : tensor(float)</dt>
+<dt><tt>T1</tt> : tensor(float)</dt>
 <dd>Constrain to tensor(float).</dd>
-</dl></table>
+</dl>
 
 
 ### <sub>experimental</sub> <a name="com.microsoft.IsAllFinite"></a><a name="com.microsoft.isallfinite">**com.microsoft.IsAllFinite**</a>
@@ -2721,34 +2721,34 @@ This version of the operator has been available since version 1 of the 'com.micr
 No versioning maintained for experimental ops.
 #### Attributes
 
-<table><dl>
-<dt>isinf_only [int]</dt>
+<dl>
+<dt><tt>isinf_only</tt> : int</dt>
 <dd>If true, check only for Inf, -Inf.</dd>
-<dt>isnan_only [int]</dt>
+<dt><tt>isnan_only</tt> : int</dt>
 <dd>If true, check only for NaN.</dd>
-</dl></table>
+</dl>
 
 #### Inputs (1 - &#8734;)
 
 <table><dl>
-<dt>input (variadic) [V]</dt>
+<dt><tt>input</tt> (variadic) : V</dt>
 <dd>Input tensors to check.</dd>
-</dl></table>
+</dl>
 
 #### Outputs
 
-<table><dl>
-<dt>output [T]</dt>
+<dl>
+<dt><tt>output</tt> : T</dt>
 <dd>The output scalar. Its value is true if all input tensors are finite. Otherwise, the output value would be false.</dd>
-</dl></table>
+</dl>
 
 #### Type Constraints
 
-<table><dl>
-<dt>V : tensor(float16), tensor(float), tensor(double), tensor(bfloat16)</dt>
+<dl>
+<dt><tt>V</tt> : tensor(float16), tensor(float), tensor(double), tensor(bfloat16)</dt>
 <dd>Constrain input and output types to float tensors.</dd>
-<dt>T : tensor(bool)</dt>
+<dt><tt>T</tt> : tensor(bool)</dt>
 <dd>Constrain the output to a boolean tensor.</dd>
-</dl></table>
+</dl>
 
 

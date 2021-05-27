@@ -153,7 +153,7 @@ def display_schema(schema, versions):  # type: (OpSchema, Sequence[OpSchema]) ->
     attribs = schema.attributes
     if attribs:
         s += '\n#### Attributes\n\n'
-        s += '<table><dl>\n'
+        s += '<dl>\n'
         for _, attr in sorted(attribs.items()):
             # option holds either required or default value
             opt = ''
@@ -175,12 +175,12 @@ def display_schema(schema, versions):  # type: (OpSchema, Sequence[OpSchema]) ->
                     default_value = format_value(default_value)
                 opt = 'default is {}'.format(default_value)
 
-            s += '<dt>{} [{}]{}</dt>\n'.format(
+            s += '<dt><tt>{}</tt> : {}{}</dt>\n'.format(
                 attr.name,
                 display_attr_type(attr.type),
                 ' ({})'.format(opt) if opt else '')
             s += '<dd>{}</dd>\n'.format(attr.description)
-        s += '</dl></table>\n'
+        s += '</dl>\n'
 
     # inputs
     s += '\n#### Inputs'
@@ -201,10 +201,10 @@ def display_schema(schema, versions):  # type: (OpSchema, Sequence[OpSchema]) ->
                     option_str = " (variadic)"
                 else:
                     option_str = " (variadic, heterogeneous)"
-            s += '<dt>{}{} [{}]</dt>\n'.format(inp.name, option_str, inp.typeStr)
+            s += '<dt><tt>{}</tt>{} : {}</dt>\n'.format(inp.name, option_str, inp.typeStr)
             s += '<dd>{}</dd>\n'.format(inp.description)
 
-    s += '</dl></table>\n'
+    s += '</dl>\n'
 
     # outputs
     s += '\n#### Outputs'
@@ -214,7 +214,7 @@ def display_schema(schema, versions):  # type: (OpSchema, Sequence[OpSchema]) ->
     s += '\n\n'
     outputs = schema.outputs
     if outputs:
-        s += '<table><dl>\n'
+        s += '<dl>\n'
         for output in outputs:
             option_str = ""
             if OpSchema.FormalParameterOption.Optional == output.option:
@@ -224,17 +224,17 @@ def display_schema(schema, versions):  # type: (OpSchema, Sequence[OpSchema]) ->
                     option_str = " (variadic)"
                 else:
                     option_str = " (variadic, heterogeneous)"
-            s += '<dt>{}{} [{}]</dt>\n'.format(output.name, option_str, output.typeStr)
+            s += '<dt><tt>{}</tt>{} : {}</dt>\n'.format(output.name, option_str, output.typeStr)
             s += '<dd>{}</dd>\n'.format(output.description)
 
-    s += '</dl></table>\n'
+    s += '</dl>\n'
 
     # type constraints
     s += '\n#### Type Constraints'
     s += '\n\n'
     typecons = schema.type_constraints
     if typecons:
-        s += '<table><dl>\n'
+        s += '<dl>\n'
         for type_constraint in typecons:
             allowed_types = type_constraint.allowed_type_strs
             allowed_type_str = ''
@@ -242,10 +242,10 @@ def display_schema(schema, versions):  # type: (OpSchema, Sequence[OpSchema]) ->
                 allowed_type_str = allowed_types[0]
             for allowedType in allowed_types[1:]:
                 allowed_type_str += ', ' + allowedType
-            s += '<dt>{} : {}</dt>\n'.format(
+            s += '<dt><tt>{}</tt> : {}</dt>\n'.format(
                 type_constraint.type_param_str, allowed_type_str)
             s += '<dd>{}</dd>\n'.format(type_constraint.description)
-        s += '</dl></table>\n'
+        s += '</dl>\n'
 
     return s
 
