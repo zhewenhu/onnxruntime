@@ -35,7 +35,7 @@ If you are using a pre-built ONNX Runtime Mobile package the build configuration
 ### Script usage
 
 ONNX Runtime version 1.8 or later:
-  - `python -m onnxruntime.tools.convert_onnx_models_to_ort <path .onnx file or directory containing one or more .onnx models>`
+  - `python -m onnxruntime.tools.convert_onnx_models_to_ort <path to .onnx file or directory containing one or more .onnx models>`
 
 ONNX Runtime version 1.5 to 1.7:
   - `python <ONNX Runtime repository root>/tools/python/convert_onnx_models_to_ort.py <path to .onnx file or directory containing one or more .onnx models>`
