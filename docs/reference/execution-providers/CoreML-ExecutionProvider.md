@@ -27,7 +27,7 @@ If using CoreML on iOS, please see the [ONNX Runtime Mobile](../../how-to/mobile
 
 ## Usage
 
-The ONNX Runtime API details are [here](../api). The CoreML EP can we used via the C, C++ or Objective-C APIs
+The ONNX Runtime API details are [here](../api). The CoreML EP can be used via the C or C++ APIs currently. Additional support via the Objective-C API is in progress.
 
 The CoreML EP must be explicitly registered when creating the inference session. For example:
 
