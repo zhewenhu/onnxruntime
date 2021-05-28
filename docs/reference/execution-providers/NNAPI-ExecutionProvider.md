@@ -25,7 +25,9 @@ Please see the [ONNX Runtime Mobile](../../how-to/mobile) deployment information
 
 ## Usage
 
-The ONNX Runtime API details are [here](../api). The NNAPI EP can be used via the C, C++ or Java APIs
+The ONNX Runtime API details are [here](../api). 
+
+The NNAPI EP can be used via the C, C++ or Java APIs
 
 The NNAPI EP must be explicitly registered when creating the inference session. For example:
 
@@ -34,7 +36,7 @@ Ort::Env env = Ort::Env{ORT_LOGGING_LEVEL_ERROR, "Default"};
 Ort::SessionOptions so;
 uint32_t nnapi_flags = 0;
 Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_Nnapi(so, nnapi_flags));
-Ort::Session session(env, model_path, sf);
+Ort::Session session(env, model_path, so);
 ```
 
 ## Configuration Options
@@ -71,9 +73,9 @@ For some models, if NNAPI would use CPU to execute an operation, and this flag i
 
 This option is only available after Android API level 29, and will be ignored for Android API level 28 and lower.
 
-For NNAPI device assignments, see https://developer.android.com/ndk/guides/neuralnetworks#device-assignment
+For NNAPI device assignments, see [https://developer.android.com/ndk/guides/neuralnetworks#device-assignment](https://developer.android.com/ndk/guides/neuralnetworks#device-assignment)
 
-For NNAPI CPU fallback, see https://developer.android.com/ndk/guides/neuralnetworks#cpu-fallback
+For NNAPI CPU fallback, see [https://developer.android.com/ndk/guides/neuralnetworks#cpu-fallback](https://developer.android.com/ndk/guides/neuralnetworks#cpu-fallback)
 
 
 

@@ -17,6 +17,7 @@ An ONNX model must be converted to an ORT format model to be used with ONNX Runt
 
 
 There are two options for deploying ONNX Runtime mobile.
+
 * TOC
 {:toc}
 
@@ -29,9 +30,8 @@ The pre-built package includes support for selected operators and ONNX opset ver
 
 | Platform | Package location | Included Execution Providers |
 |----------|------------------|----------|
-| Android | *TODO add details*  | CPU Execution Provider <br/>NNAPI Execution Provider |
-| iOS (preview) | *TODO add details* | CPU Execution Provider <br/>CoreML Execution Provider |
-
+| Android | onnxruntime-mobile package in Maven  | CPU Execution Provider <br/>NNAPI Execution Provider |
+| iOS (preview) | onnxruntime-mobile CocoaPod (C/C++ APIs) <br>onnxruntime-mobile-objc CocoaPod (Objective-C API) | CPU Execution Provider <br/>CoreML Execution Provider |
 
 ### Operators and Types supported
 

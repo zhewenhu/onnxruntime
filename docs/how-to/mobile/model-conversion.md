@@ -24,11 +24,11 @@ The conversion script performs two functions:
 
 The conversion script can run on a single ONNX model, or a directory. If run against a directory, the directory will be recursively searched for '.onnx' files to convert. 
 
-Each '.onnx' file will be loaded, optimized, and saved in ORT format as file with the '.ort' extension in the same location as the original '.onnx' file.
+Each '.onnx' file will be loaded, optimized, and saved in ORT format as a file with the '.ort' extension in the same location as the original '.onnx' file.
 
 A build configuration file ('required_operators.config') will be produced with the operators required by the optimized ONNX models.
 
-If [type reduction](#enable-type-reduction) is enabled (ONNX Runtime version 1.7 or later) this configuration file will also include the required types for each operator, and be called 'required_operators_and_types.config'.
+If [type reduction](#enable-type-reduction) is enabled (ONNX Runtime version 1.7 or later) the configuration file will also include the required types for each operator, and be called 'required_operators_and_types.config'.
 
 If you are using a pre-built ONNX Runtime Mobile package the build configuration file is not used and can be ignored. 
 
@@ -77,35 +77,37 @@ optional arguments:
 
 ### Optional conversion script arguments
 
-#### Optimization level
+##### Optimization level
 
 Set the optimization level that ONNX Runtime will use to optimize the model prior to saving in ORT format.
 
-For ONNX Runtime version 1.8 and later, 'all' is recommended if the model will be run with the CPU Execution Provider (EP).
-For earlier versions, 'extended' is recommended, as the 'all' level previously included device specific optimizations that would limit the portability of the model.
+For ONNX Runtime version 1.8 and later, *all* is recommended if the model will be run with the CPU Execution Provider (EP).
+For earlier versions, *extended* is recommended, as the *all* level previously included device specific optimizations that would limit the portability of the model.
 
-If the model will potentially be run with the NNAPI EP or CoreML EP, it is recommended to create on ORT format model using the 'basic' optimization level. Performance testing should be done to compare running this model with the NNAPI or CoreML EP enabled vs. running the model optimized to a higher level using the CPU EP to determine the optimal setup. 
+If the model will potentially be run with the NNAPI EP or CoreML EP, it is recommended to create an ORT format model using the *basic* optimization level. Performance testing should be done to compare running this model with the NNAPI or CoreML EP enabled vs. running the model optimized to a higher level using the CPU EP to determine the optimal setup. 
 
 See the documentation on [performance tuning mobile scenarios](../../resources/mobile-performance-tuning) for in-depth information.
 
-#### Enable type reduction
+##### Enable type reduction
 
 With ONNX Runtime version 1.7 and later it is possible to limit the data types the required operators support to further reduce the build size. This pruning is referred to as "operator type reduction" in this documentation. As the ONNX model/s are converted, the input and output data types required by each operator are accumulated and included in the configuration file. 
 
 If you wish to enable operator type reduction, the [Flatbuffers](https://google.github.io/flatbuffers/) python package must be installed.
   - `pip install flatbuffers`
 
-#### Custom Operator support
+For example, the ONNX Runtime kernel for Softmax supports both float and double. If your model/s use Softmax but only with float data, we can exclude the implementation that supports double to reduce the kernel's binary size. 
+
+##### Custom Operator support
 
 If your ONNX model uses [custom operators](../add-custom-op), the path to the library containing the custom operator kernels must be provided so that the ONNX model can be successfully loaded. The custom operators will be preserved in the ORT format model.
 
-#### Save optimized ONNX model
+##### Save optimized ONNX model
 
 Add this flag if you wish for the optimized ONNX model to also be saved. This model will contain the same nodes and initializers as the ORT format model, and can be easily viewed in [Netron](https://netron.app/).
 
 -------
 
 Next: 
-* If building a custom package: [Performing a custom build](performing-custom-build)
+* If building a custom package: [Performing a custom build](custom-build)
 * If using a pre-built package: [Model execution](model-execution)
 
