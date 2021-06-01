@@ -1226,6 +1226,13 @@ Status Graph::VerifyNoDuplicateName() {
                         "This is an invalid model. Error: Duplicate definition of name (" + output_arg_name + ").");
           return status;
         }
+        // TEMP
+        auto existing = output_args.find(output_arg_name);
+        if (existing != output_args.cend()) {
+          std::cout << "Existing output " << existing->first << " is from node "
+                    << existing->second.first->Name() << " idx "
+                    << existing->second.first->Index() << "\n";
+        }
         auto result = output_args.insert({output_arg_name, {&node, output_index}});
         if (!result.second) {
           // Two outputs with same name, so that insertion fails.

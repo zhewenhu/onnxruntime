@@ -6,6 +6,8 @@
 #include "core/framework/execution_provider.h"
 
 namespace onnxruntime {
+class NodeArg;
+
 class InternalTestingExecutionProvider : public IExecutionProvider {
  public:
   InternalTestingExecutionProvider(const std::unordered_set<std::string>& ops);
@@ -15,6 +17,10 @@ class InternalTestingExecutionProvider : public IExecutionProvider {
   GetCapability(const onnxruntime::GraphViewer& graph_view,
                 const std::vector<const KernelRegistry*>& /*kernel_registries*/) const override;
 
+  std::vector<std::unique_ptr<ComputeCapability>>
+  GetCapability2(const onnxruntime::GraphViewer& graph_view,
+                 const std::vector<const KernelRegistry*>& /*kernel_registries*/) const;
+
   common::Status Compile(const std::vector<FusedNodeAndGraph>& fused_nodes,
                          std::vector<NodeComputeInfo>& node_compute_funcs) override;
 
@@ -23,6 +29,9 @@ class InternalTestingExecutionProvider : public IExecutionProvider {
   }
 
  private:
+  std::unique_ptr<ComputeCapability> MakeComputeCapability(const GraphViewer& graph_viewer,
+                                                           const std::unordered_set<const NodeArg*>& graph_outputs,
+                                                           const std::vector<const Node*>& group) const;
   const std::unordered_set<std::string> ops_;
 };
 }  // namespace onnxruntime
