@@ -182,7 +182,7 @@ jobs:
     parameters :
       condition : 'succeeded'
 
-- job: 'Security Analysis Build'
+- job: 'SecurityAnalysisBuild'
   pool: 'Win-GPU-2019'
   variables:
     MsbuildArguments: '-maxcpucount'
