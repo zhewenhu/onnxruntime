@@ -52,6 +52,8 @@ TEST(InternalTestingEP, TestMergePartitions) {
 
   // make sure we can't save a model with compiled ops. input/output model format doesn't matter
   SessionOptions so;
+  so.graph_optimization_level = TransformerLevel::Level3;
+
   auto session = std::make_unique<InferenceSessionWrapper>(so, GetEnvironment());
 
   const std::unordered_set<std::string> supported_ops{"Add"};
