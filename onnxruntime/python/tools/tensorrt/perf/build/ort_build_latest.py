@@ -12,6 +12,7 @@ def parse_arguments():
     parser.add_argument("-b", "--branch", required=False, default="master", help="Github branch to test perf off of")
     parser.add_argument("-s", "--save", required=False, help="Directory to archive wheel file")
     parser.add_argument("-a", "--use_archived", required=False, help="Archived wheel file")
+    parser.add_argument("-v", "--tensorrt_branch", required=False, help="Specify target trt branch if older version than master")
     args = parser.parse_args()
     return args
 
@@ -27,6 +28,10 @@ def install_new_ort_wheel(ort_master_path):
     ort_wheel = stdout.split("\n")[0]
     subprocess.run(["pip3", "install", "--force-reinstall", ort_wheel], check=True)
     return ort_wheel
+
+def checkout_older_trt(branch):
+    p = subprocess.run(["git", "config", "--file=.gitmodules", "submodule.cmake/external/onnx-tensorrt.branch", branch], check=True)
+    p = subprocess.run(["git", "submodule", "update", "--remote", "cmake/external/onnx-tensorrt"], check=True)
 
 def main():
     args = parse_arguments()
@@ -53,6 +58,8 @@ def main():
         subprocess.run(["git", "fetch"], check=True)
         subprocess.run(["git", "checkout", args.branch], check=True)
         subprocess.run(["git", "pull", "origin", args.branch], check=True)
+        if args.tensorrt_branch:
+            checkout_older_trt(args.tensorrt_branch)
         subprocess.run(["./build.sh", "--config", "Release", "--use_tensorrt", "--tensorrt_home", args.tensorrt_home, "--cuda_home", args.cuda_home, "--cudnn", "/usr/lib/x86_64-linux-gnu", "--build_wheel", "--skip_tests", "--parallel"], check=True)
 
         ort_wheel_file = install_new_ort_wheel(ort_master_path)
