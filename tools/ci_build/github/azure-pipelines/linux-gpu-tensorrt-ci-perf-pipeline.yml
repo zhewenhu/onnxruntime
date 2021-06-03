@@ -1,4 +1,3 @@
-
 parameters:
 
 - name: BuildORT
@@ -94,9 +93,15 @@ jobs:
           LD_LIBRARY_PATH : "/home/hcsuser/TensorRT-7.2.2.3/lib"
     
     - script: 'mkdir $(Build.SourcesDirectory)/Artifact && cp -r $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/result/ $(Build.SourcesDirectory)/Artifact'
-    #- script: 'mkdir $(Build.SourcesDirectory)/Artifact && cp -r /home/hcsuser/perf/result/ $(Build.SourcesDirectory)/Artifact'
       displayName: 'Prepare Artifacts'
       workingDirectory: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/'
+
+    - task: AzureFileCopy@4
+      inputs:
+        SourcePath: '/home/hcsuser/perf/wheel/'
+        Destination: 'AzureBlob'
+        ContainerName: 'upload'
+        BlobPrefix: 'ort-trt-ep'
 
     - task: PublishBuildArtifacts@1
       inputs:
