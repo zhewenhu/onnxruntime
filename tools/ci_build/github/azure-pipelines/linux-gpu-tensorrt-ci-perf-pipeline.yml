@@ -39,11 +39,6 @@ parameters:
   displayName: Configure EPs (set ep_list variable - separate by spaces)
   type: boolean
   default: false
-
-- name: ConfigureEPs
-  displayName: Configure EPs (set ep_list variable - separate by spaces)
-  type: boolean
-  default: false
   
 - name: PublishWheel
   displayName: Publish Wheel 
