@@ -82,13 +82,12 @@ jobs:
         workingDirectory: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/build'
       
       # TO DO: REPLACE 
-      - script: 'cp -r $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/dist/ $(Build.SourcesDirectory)/Artifact'
+      - script: 'cp -r $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/dist/*.whl $(Build.SourcesDirectory)/Artifact'
         displayName: 'Test Wheel Copy'
         workingDirectory: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/'
       - task: PublishBuildArtifacts@1
         inputs:
           pathtoPublish: '$(Build.SourcesDirectory)/Artifact'
-          artifactName: 'dist'
 
       # WTIH THIS:
 
