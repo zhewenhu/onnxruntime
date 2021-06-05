@@ -58,6 +58,7 @@ jobs:
       path: $(Pipeline.Workspace)/artifacts
       source: 'specific'
       runVersion: 'specific'
+      project: 'onnxruntime'
       pipeline: 161
       runId: 411264
     displayName: 'Download WebAssembly artifacts'
