@@ -1,6 +1,6 @@
 jobs:
 - job: Extract_commit
-  pool: 'Win-CPU-2019'
+  pool: 'Linux-CPU-2019'
   timeoutInMinutes: 30
   workspace:
     clean: all
@@ -9,8 +9,8 @@ jobs:
     fetchDepth: 1
     submodules: false
   - script: |
-     echo.$(Build.SourceVersion)
-     echo.$(Build.SourceVersion)>$(Build.ArtifactStagingDirectory)\__commit.txt
+     echo $(Build.SourceVersion)
+     echo $(Build.SourceVersion)>$(Build.ArtifactStagingDirectory)/__commit.txt
   - task: PublishPipelineArtifact@0
     displayName: 'Publish Pipeline Artifact'
     inputs:
