@@ -18,7 +18,8 @@ jobs:
       targetPath: '$(Build.ArtifactStagingDirectory)'
 
 - job: build_onnxruntime_web_macOS
-  dependsOn: build_WASM
+  # dependsOn: build_WASM
+  dependsOn: Extract_commit
   pool:
     vmImage: 'macOS-10.15'
   strategy:
