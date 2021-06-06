@@ -10,7 +10,10 @@ class NodeArg;
 
 class InternalTestingExecutionProvider : public IExecutionProvider {
  public:
-  InternalTestingExecutionProvider(const std::unordered_set<std::string>& ops);
+  InternalTestingExecutionProvider(const std::unordered_set<std::string>& ops,
+                                   int get_capability_version = 0,
+                                   bool print_node_orders = false,
+                                   bool stop_at_nms = false);
   virtual ~InternalTestingExecutionProvider();
 
   std::vector<std::unique_ptr<ComputeCapability>>
@@ -19,6 +22,10 @@ class InternalTestingExecutionProvider : public IExecutionProvider {
 
   std::vector<std::unique_ptr<ComputeCapability>>
   GetCapability2(const onnxruntime::GraphViewer& graph_view,
+                 const std::vector<const KernelRegistry*>& /*kernel_registries*/) const;
+
+  std::vector<std::unique_ptr<ComputeCapability>>
+  GetCapability3(const onnxruntime::GraphViewer& graph_view,
                  const std::vector<const KernelRegistry*>& /*kernel_registries*/) const;
 
   common::Status Compile(const std::vector<FusedNodeAndGraph>& fused_nodes,
@@ -33,5 +40,8 @@ class InternalTestingExecutionProvider : public IExecutionProvider {
                                                            const std::unordered_set<const NodeArg*>& graph_outputs,
                                                            const std::vector<const Node*>& group) const;
   const std::unordered_set<std::string> ops_;
+  const int get_capability_version_;
+  const bool print_node_orders_;
+  const bool stop_at_nms_;
 };
 }  // namespace onnxruntime

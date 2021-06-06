@@ -19,9 +19,15 @@ namespace onnxruntime {
 
 constexpr const char* INTERNAL_TESTING_EP = "InternalTestingEP";
 
-InternalTestingExecutionProvider::InternalTestingExecutionProvider(const std::unordered_set<std::string>& ops)
+InternalTestingExecutionProvider::InternalTestingExecutionProvider(const std::unordered_set<std::string>& ops,
+                                                                   int get_capability_version,
+                                                                   bool print_node_orders,
+                                                                   bool stop_at_nms)
     : IExecutionProvider{utils::kInternalTestingExecutionProvider, true},
-      ops_{ops} {
+      ops_{ops},
+      get_capability_version_{get_capability_version},
+      print_node_orders_{print_node_orders},
+      stop_at_nms_{stop_at_nms} {
   // TODO: Allocation planner calls GetAllocator for the individual EP. It would be better if it goes through
   // the session state to get the allocator so it's per-device (or for the allocation planner to try the EP first
   // and fall back to using session state next by passing in a functor it can use to call SessionState::GetAllocator).
@@ -37,31 +43,9 @@ InternalTestingExecutionProvider::InternalTestingExecutionProvider(const std::un
 
 InternalTestingExecutionProvider::~InternalTestingExecutionProvider() {}
 
-//struct NodeCompare {
-//  const std::unordered_set<const Node*>& _supported_nodes;
-//
-//  NodeCompare(const std::unordered_set<const Node*>& supported_nodes) : _supported_nodes{supported_nodes} {
-//  }
-//
-//  inline bool IsSupported(const Node* n) const {
-//    return _supported_nodes.find(n) != _supported_nodes.cend();
-//  }
-//
-//  bool operator()(const Node* n1, const Node* n2) const {
-//    //bool n1_supported = IsSupported(n1);
-//    //bool n2_supported = IsSupported(n2);
-//
-//    //if (n1_supported != n2_supported) {
-//    //  return n2_supported;
-//    //}
-//
-//    return n1->Index() < n2->Index();
-//  }
-//};
-
 static std::vector<NodeIndex> PartitionAwareTopoSort(const GraphViewer& graph_viewer,
                                                      const std::unordered_set<const Node*>& supported_nodes) {
-  std::set<const Node*, NodeCompare> to_visit;
+  std::queue<const Node*> supported_to_visit, unsupported_to_visit;
   std::unordered_map<NodeIndex, size_t> in_degree;
   std::vector<NodeIndex> topo_order;
 
@@ -69,32 +53,68 @@ static std::vector<NodeIndex> PartitionAwareTopoSort(const GraphViewer& graph_vi
   topo_order.reserve(num_nodes);
   in_degree.reserve(num_nodes);
 
+  auto add_to_visit = [&](const Node& node) {
+    if (supported_nodes.count(&node)) {
+      supported_to_visit.push(&node);
+    } else {
+      unsupported_to_visit.push(&node);
+    }
+  };
+
   // root nodes
   for (auto& node : graph_viewer.Nodes()) {
     size_t input_edge_count = node.GetInputEdgesCount();
     in_degree.insert({node.Index(), input_edge_count});
     if (input_edge_count == 0) {
-      to_visit.insert(&node);
+      add_to_visit(node);
     }
   }
 
-  auto is_supported = [&supported_nodes](const Node* n) {
-    return supported_nodes.find(n) != supported_nodes.cend();
-  };
+  //auto is_supported = [&supported_nodes](const Node* n) {
+  //  return supported_nodes.find(n) != supported_nodes.cend();
+  //};
 
-  const Node* last = nullptr;
-  // prefer unsupported nodes first. this will increase the number of inputs potentially available to partitions
-  // handled by this EP.
-  bool last_is_supported = false;
+  // prefer unsupported nodes first. this will increase the number of inputs potentially available to the first
+  // partition handled by this EP.
+  bool processing_supported_nodes = false;
 
-  while (!to_visit.empty()) {
+  while (!supported_to_visit.empty() || !unsupported_to_visit.empty()) {
     const Node* current = nullptr;
+
+    // see if we need to flip
+    if ((processing_supported_nodes && supported_to_visit.empty()) ||
+        (!processing_supported_nodes && unsupported_to_visit.empty())) {
+      processing_supported_nodes = !processing_supported_nodes;
+      continue;
+    }
+
+    // get next node from same partition
+    if (processing_supported_nodes) {
+      current = supported_to_visit.front();
+      supported_to_visit.pop();
+    } else {
+      current = unsupported_to_visit.front();
+      unsupported_to_visit.pop();
+    }
+
+    for (auto node_it = current->OutputNodesBegin(), end = current->OutputNodesEnd(); node_it != end; ++node_it) {
+      in_degree[node_it->Index()]--;
+
+      if (in_degree[node_it->Index()] == 0) {
+        add_to_visit(*node_it);
+      }
+    }
+
+    topo_order.push_back(current->Index());
+
+    /* OLD 
+    last = current;
 
     // get next node. prefer a node on the same partition as the current node
     auto to_visit_end = to_visit.end();
     auto next_same = std::find_if(to_visit.begin(), to_visit_end,
-                                  [last_is_supported, &is_supported](const Node* node) {
-                                    return is_supported(node) == last_is_supported;
+                                  [processing_supported_nodes, &is_supported](const Node* node) {
+                                    return is_supported(node) == processing_supported_nodes;
                                   });
 
     if (next_same != to_visit_end) {
@@ -102,9 +122,14 @@ static std::vector<NodeIndex> PartitionAwareTopoSort(const GraphViewer& graph_vi
       current = *next_same;
       to_visit.erase(next_same);
     } else {
+      // TODO: This needs to be smarter. When we start processing nodes that are not handled by this EP we
+      // want to do all of the available nodes and just accumulate the handled nodes. Once we exhaust non-EP nodes
+      // we want to re-hydrate the list with the pending ones.
+      // ??? Can we do this by using a double-linked list instead.
+      // Always take from front of list. If supported, add to front. If unsupported, add to back
       current = *to_visit.begin();
       to_visit.erase(to_visit.begin());
-      last_is_supported = !last_is_supported;
+      processing_supported_nodes = !processing_supported_nodes;
     }
 
     for (auto node_it = current->OutputNodesBegin(), end = current->OutputNodesEnd(); node_it != end; ++node_it) {
@@ -118,6 +143,7 @@ static std::vector<NodeIndex> PartitionAwareTopoSort(const GraphViewer& graph_vi
     topo_order.push_back(current->Index());
 
     last = current;
+  */
   }
 
   if (graph_viewer.NumberOfNodes() != static_cast<int>(topo_order.size())) {
@@ -202,12 +228,63 @@ InternalTestingExecutionProvider::MakeComputeCapability(const GraphViewer& graph
   return std::make_unique<ComputeCapability>(std::move(sub_graph));
 }
 
+static void DiffSortOrders(const GraphViewer& graph_viewer,
+                           const std::unordered_set<const Node*>& supported_nodes,
+                           const std::vector<NodeIndex>& orig_order,
+                           const std::vector<NodeIndex>& new_order) {
+  if (!orig_order.empty())
+    return;
+
+  auto indexes_str = [&graph_viewer, &supported_nodes](std::vector<NodeIndex>::const_iterator indexes_iter,
+                                                       std::vector<NodeIndex>::const_iterator indexes_end) {
+    std::ostringstream ss;
+    bool currently_using_ep = false;
+    while (indexes_iter != indexes_end) {
+      NodeIndex index = *indexes_iter;
+      const Node& node = *graph_viewer.GetNode(index);
+      bool using_ep = supported_nodes.find(&node) != supported_nodes.end();
+      if (using_ep != currently_using_ep) {
+        ss << "\n"
+           << (using_ep ? "YES: " : "NO: ");
+
+        currently_using_ep = using_ep;
+      }
+
+      ss << graph_viewer.GetNode(index)->Name() << " ";
+
+      ++indexes_iter;
+    }
+
+    std::cout << std::endl;
+
+    return ss.str();
+  };
+
+  auto orig_iter = orig_order.cbegin();
+  auto orig_end = orig_order.cend();
+  auto new_iter = new_order.cbegin();
+  auto new_end = new_order.cend();
+  while (orig_iter != orig_end) {
+    if (*orig_iter != *new_iter) {
+      break;
+    }
+
+    ++orig_iter;
+    ++new_iter;
+  }
+
+  if (orig_iter != orig_end) {
+    std::cout << "Order differs from entry " << orig_iter - orig_order.cbegin() << "\n";
+    std::cout << "Original order:" << indexes_str(orig_iter, orig_end) << "\n";
+    std::cout << "Updated order:" << indexes_str(new_iter, new_end) << "\n";
+  } else {
+    std::cout << "No change in order from partition aware topo sort.\n";
+  }
+}
+
 std::vector<std::unique_ptr<ComputeCapability>>
 InternalTestingExecutionProvider::GetCapability2(const onnxruntime::GraphViewer& graph_viewer,
                                                  const std::vector<const KernelRegistry*>& /*kernel_registries*/) const {
-  // Simple for experimentation - just use sets
-  // std::vector<std::set<const Node*>> partitions;
-
   std::unordered_set<const Node*> supported_nodes;  // all nodes in graph we are handling
 
   // index of first node and vector of nodes. need vector as the entries must remain in topo order to figure out the
@@ -220,41 +297,76 @@ InternalTestingExecutionProvider::GetCapability2(const onnxruntime::GraphViewer&
   auto end_topo_nodes = topo_nodes.cend();
 
   std::unordered_set<NodeIndex> processed_nodes;
-  std::queue<const Node*> potentials;
+  std::queue<const Node*> supported_nodes_to_process;
+
+  auto node_str = [](const Node* node) {
+    std::ostringstream oss;
+    oss << node->Index() << " '" << node->Name() << "'(" << node->OpType() << ")";
+    return oss.str();
+  };
+
+  auto group_str = [&node_str](const std::vector<const Node*>& group) {
+    const Node* start_node = group.front();
+    const Node* end_node = group.back();
+    std::ostringstream oss;
+    oss << node_str(start_node) << " to " << node_str(end_node) << "\n";
+    return oss.str();
+  };
+
+  auto cc_group_str = [&graph_viewer, &node_str](const ComputeCapability& group) {
+    const Node* start_node = graph_viewer.GetNode(group.sub_graph->nodes.front());
+    const Node* end_node = graph_viewer.GetNode(group.sub_graph->nodes.back());
+    std::ostringstream oss;
+    oss << node_str(start_node) << " to " << node_str(end_node) << "\n";
+    return oss.str();
+  };
 
   while (cur_topo_node != end_topo_nodes) {
     NodeIndex node_index = *cur_topo_node;
 
     if (processed_nodes.find(node_index) == processed_nodes.cend()) {
       const Node* node = graph_viewer.GetNode(node_index);
+      bool supported = ops_.count(node->OpType()) != 0;
+      bool in_partition = !cur_group.empty();
 
+      if (node->Name() == "Mul__534" || node->Name() == "Transpose__546") {
+        std::cout << "";
+      }
       // check if end of a partition.
-      if (!cur_group.empty() && ops_.count(node->OpType()) == 0) {
+      if (in_partition && !supported) {
+        std::cout << "New partition due to " << node_str(node)
+                  << ". Nodes in old partition: " << cur_group.size() << "\n";
+        std::cout << group_str(cur_group) << "\n";
+
         node_groups.insert({cur_group.front()->Index(), std::move(cur_group)});
       }
 
-      // add the node and any connected downstream nodes that we can handle
-      potentials.push(node);
-      while (!potentials.empty()) {
-        node = potentials.front();
-        potentials.pop();
+      // add the node and any connected downstream nodes that we can handle if we're not skipping post NMS nodes
+      if (ops_.count(node->OpType())) {
+        supported_nodes_to_process.push(node);
+      }
 
-        if (processed_nodes.find(node_index) == processed_nodes.cend()) {
-          // add to partition if supported
-          if (ops_.count(node->OpType())) {
-            cur_group.push_back(node);
-            supported_nodes.insert(node);
+      while (!supported_nodes_to_process.empty()) {
+        node = supported_nodes_to_process.front();
+        supported_nodes_to_process.pop();
 
-            // add downstream nodes to potentials
-            for (auto cur = node->OutputNodesBegin(), end = node->OutputNodesEnd(); cur != end; ++cur) {
-              // TODO: Could use std::set so we don't process duplicates. But not sure how often we'd get them
-              // so the cost of hashing on every insert may not outweigh a check of a duplicate entry that we have
-              // processed already.
-              potentials.push(&*cur);
+        supported_nodes.insert(node);
+
+        if (processed_nodes.find(node->Index()) == processed_nodes.cend()) {
+          // add to partition
+          cur_group.push_back(node);
+          processed_nodes.insert(node->Index());
+
+          for (auto cur = node->OutputNodesBegin(), end = node->OutputNodesEnd(); cur != end; ++cur) {
+            const Node& downstream_node = *cur;
+
+            // TODO: Could use std::set so we don't process duplicates. But not sure how often we'd get them
+            // so the cost of hashing on every insert may not outweigh a check of a duplicate entry that we have
+            // processed already (handled by processed_nodes check at start of topo node 'while' loop).
+            if (ops_.count(downstream_node.OpType())) {
+              supported_nodes_to_process.push(&downstream_node);
             }
           }
-
-          processed_nodes.insert(node->Index());
         }
       };
     }
@@ -271,11 +383,9 @@ InternalTestingExecutionProvider::GetCapability2(const onnxruntime::GraphViewer&
   }
 
   // re-order using partitions as input
-  const auto& orig_order = graph_viewer.GetNodesInTopologicalOrder();
   const auto new_order = PartitionAwareTopoSort(graph_viewer, supported_nodes);
 
 #ifndef NDEBUG
-
   // Validate nodes in groups are unique
   for (const auto& idx_group_pair : node_groups) {
     std::unordered_set<const Node*> group_set;
@@ -285,17 +395,8 @@ InternalTestingExecutionProvider::GetCapability2(const onnxruntime::GraphViewer&
     }
   }
 
-  auto indexes_str = [&graph_viewer](const std::vector<NodeIndex>& node_indexes) {
-    std::ostringstream ss;
-    for (const NodeIndex index : node_indexes) {
-      ss << graph_viewer.GetNode(index)->Name() << " ";
-    }
-    return ss.str();
-  };
-
-  std::cout << "Original order:" << indexes_str(orig_order) << "\n";
-  std::cout << "Updated order:" << indexes_str(new_order) << "\n";
-
+  const auto& orig_order = graph_viewer.GetNodesInTopologicalOrder();
+  DiffSortOrders(graph_viewer, supported_nodes, orig_order, new_order);
 #endif
 
   const auto& graph_output_list = graph_viewer.GetOutputs();
@@ -345,6 +446,9 @@ InternalTestingExecutionProvider::GetCapability2(const onnxruntime::GraphViewer&
     if (g1_iter != group_input_nodes_end && groups_seen.find(index) == groups_seen.cend()) {
       groups_seen.insert(index);
 
+      std::cout << "Checking if group starting at " << node_str(graph_viewer.GetNode(index))
+                << " can merge with others\n";
+
       auto g1_to_cc_iter = group_to_compute_capability.find(index);
       ORT_ENFORCE(g1_to_cc_iter != group_to_compute_capability.cend());
       std::unique_ptr<ComputeCapability>& g1_cc = g1_to_cc_iter->second;
@@ -353,13 +457,23 @@ InternalTestingExecutionProvider::GetCapability2(const onnxruntime::GraphViewer&
       // in the new topological order) to see if they can be merged
       for (const auto g2_iter : group_to_input_nodes) {
         if (groups_seen.find(g2_iter.first) == groups_seen.cend()) {
+          std::cout << "  Checking group at " << node_str(graph_viewer.GetNode(g2_iter.first)) << "\n";
+
           // if all the input nodes for the second group have been seen their values are available and the two
           // groups can be merged
           const auto& g2_input_nodes = g2_iter.second;
-          bool inputs_available = std::all_of(g2_input_nodes.cbegin(), g2_input_nodes.cend(),
-                                              [&nodes_seen](const Node* input_node) {
-                                                return nodes_seen.find(input_node->Index()) != nodes_seen.cend();
-                                              });
+          bool inputs_available = std::all_of(
+              g2_input_nodes.cbegin(), g2_input_nodes.cend(),
+              [&nodes_seen, &node_str](const Node* input_node) {
+                bool input_available = nodes_seen.find(input_node->Index()) != nodes_seen.cend();
+
+                if (!input_available) {
+                  std::cout << "    Fail due to unseen node: " << node_str(input_node) << "\n";
+                }
+
+                return input_available;
+              });
+
           if (inputs_available) {
             // create new ComputeCapability from combined set of nodes.
             // We could be more efficient and implement a merge of the two ComputeCapability instances,
@@ -396,12 +510,207 @@ InternalTestingExecutionProvider::GetCapability2(const onnxruntime::GraphViewer&
     }
   }
 
+  // throw away any groups after an NMS node
+  if (stop_at_nms_) {
+    // we added results based on new order, so we can iterate the current groups to find the next applicable one
+    auto cur_result = result.begin();
+    for (const NodeIndex index : new_order) {
+      const Node* node = graph_viewer.GetNode(index);
+      if (node->OpType() == "NonMaxSuppression") {
+        auto orig_groups = result.size();
+        result.erase(cur_result, result.end());
+        auto final_groups = result.size();
+        std::cout << "Threw away groups from " << index << ". " << orig_groups - final_groups << " removed.\n";
+        break;
+      }
+
+      // see if we hit the start of the next group
+      if (index == (*cur_result)->sub_graph->nodes.front()) {
+        ++cur_result;
+        if (cur_result == result.end()) {
+          break;
+        }
+      }
+    }
+  }
+
+  std::cout << "Final groups:\n";
+  for (const auto& group : result) {
+    const Node* start_node = graph_viewer.GetNode(group->sub_graph->nodes.front());
+    const Node* end_node = graph_viewer.GetNode(group->sub_graph->nodes.back());
+    std::cout << node_str(start_node) << " to " << node_str(end_node) << "\n";
+  }
+
   return result;
 }
 
 std::vector<std::unique_ptr<ComputeCapability>>
+InternalTestingExecutionProvider::GetCapability3(const onnxruntime::GraphViewer& graph_viewer,
+                                                 const std::vector<const KernelRegistry*>& /*kernel_registries*/) const {
+  // find supported nodes
+  std::unordered_set<const Node*> supported_nodes;  // all nodes in graph we are handling
+
+  const auto& topo_nodes = graph_viewer.GetNodesInTopologicalOrder();
+  std::for_each(topo_nodes.cbegin(), topo_nodes.cend(),
+                [this, &supported_nodes, &graph_viewer](NodeIndex node_index) {
+                  const Node* node = graph_viewer.GetNode(node_index);
+                  bool supported = ops_.count(node->OpType()) != 0;
+                  if (supported) {
+                    supported_nodes.insert(node);
+                  }
+                });
+
+  if (supported_nodes.empty()) {
+    return {};
+  }
+
+  auto node_str = [](const Node* node) {
+    std::ostringstream oss;
+    oss << node->Index() << " '" << node->Name() << "'(" << node->OpType() << ")";
+    return oss.str();
+  };
+
+  auto group_str = [&node_str](const std::vector<const Node*>& group) {
+    const Node* start_node = group.front();
+    const Node* end_node = group.back();
+    std::ostringstream oss;
+    oss << node_str(start_node) << " to " << node_str(end_node) << "\n";
+    return oss.str();
+  };
+
+  auto cc_group_str = [&graph_viewer, &node_str](const ComputeCapability& group) {
+    const Node* start_node = graph_viewer.GetNode(group.sub_graph->nodes.front());
+    const Node* end_node = graph_viewer.GetNode(group.sub_graph->nodes.back());
+    std::ostringstream oss;
+    oss << node_str(start_node) << " to " << node_str(end_node) << "\n";
+    return oss.str();
+  };
+
+  // partition aware sort. this groups all the nodes we can and can't handle
+  const auto new_order = PartitionAwareTopoSort(graph_viewer, supported_nodes);
+
+#ifndef NDEBUG
+  // const auto& orig_order = graph_viewer.GetNodesInTopologicalOrder();
+  // DiffSortOrders(graph_viewer, supported_nodes, orig_order, new_order);
+#endif
+
+  // create groups
+  auto cur_topo_node = new_order.cbegin();
+  auto end_topo_nodes = new_order.cend();
+  std::queue<const Node*> nodes_to_process;       // supported nodes to process
+  std::unordered_set<NodeIndex> processed_nodes;  // supported nodes we have processed
+
+  // index of first node and vector of nodes. need vector as the entries must remain in topo order to figure out the
+  // inputs and outputs for the IndexedSubGraph
+  // TODO: If we don't need the merge logic we can simplify
+  std::map<NodeIndex, std::vector<const Node*>> node_groups;
+  std::vector<const Node*> cur_group;
+
+  // ??? Do we need another loop here ???
+  // We can add downstream nodes to be processed but need to check that all inputs for those nodes are available
+  // before adding to the group. It may be the first time we see the downstream node that isn't the case.
+  // For an input to be available, it must come from a node that we have fully processed
+  // (not just be in the consideration set)
+  while (cur_topo_node != end_topo_nodes) {
+    NodeIndex node_index = *cur_topo_node;
+    const Node* node = graph_viewer.GetNode(node_index);
+
+    if (processed_nodes.find(node_index) == processed_nodes.cend()) {
+      bool supported = ops_.count(node->OpType()) != 0;
+      bool in_partition = !cur_group.empty();
+
+      // check if end of a partition.
+      if (in_partition && !supported) {
+        std::cout << "New partition due to " << node_str(node)
+                  << ". Nodes in old partition: " << cur_group.size() << "\n";
+        std::cout << group_str(cur_group) << "\n";
+
+        node_groups.insert({cur_group.front()->Index(), std::move(cur_group)});
+      }
+
+      // add the node and any connected downstream nodes that we can handle
+      if (ops_.count(node->OpType())) {
+        nodes_to_process.push(node);
+      } else {
+        processed_nodes.insert(node->Index());
+      }
+
+      while (!nodes_to_process.empty()) {
+        node = nodes_to_process.front();
+        nodes_to_process.pop();
+
+        if (processed_nodes.find(node->Index()) == processed_nodes.cend()) {
+          // add to partition if all inputs available
+          bool inputs_available = std::all_of(
+              node->InputNodesBegin(), node->InputNodesEnd(),
+              [&processed_nodes](const Node& upstream_node) {
+                return processed_nodes.find(upstream_node.Index()) != processed_nodes.cend();
+              });
+
+          if (inputs_available) {
+            cur_group.push_back(node);
+            processed_nodes.insert(node->Index());
+
+            for (auto cur = node->OutputNodesBegin(), end = node->OutputNodesEnd(); cur != end; ++cur) {
+              const Node& downstream_node = *cur;
+
+              // TODO: Could use std::set so we don't process duplicates. But not sure how often we'd get them
+              // so the cost of hashing on every insert may not outweigh a check of a duplicate entry that we have
+              // processed already (handled by processed_nodes check at start of topo node 'while' loop).
+              if (ops_.count(downstream_node.OpType())) {
+                nodes_to_process.push(&downstream_node);
+              }
+            }
+          } else {
+            // we can't add the node to the group yet. it should be added once the last upstream node it is
+            // dependent on has been added
+          }
+        }
+      };
+    }
+
+    // ??? should we rely on the partition aware topo sort to stop, or should we identify the post-NMS nodes via edges?
+    // Using the edges seems safer but more expensive to do.
+    if (stop_at_nms_ && node->OpType() == "NonMaxSuppression") {
+      break;
+    }
+
+    ++cur_topo_node;
+  }
+
+  if (!cur_group.empty()) {
+    node_groups.insert({cur_group.front()->Index(), std::move(cur_group)});
+  }
+
+  // create ComputeCapability instances
+  const auto& graph_output_list = graph_viewer.GetOutputs();
+  std::unordered_set<const NodeArg*> graph_outputs(graph_output_list.cbegin(), graph_output_list.cend());
+
+  // create initial ComputeCapability
+  std::unordered_map<NodeIndex, std::unique_ptr<ComputeCapability>> group_to_compute_capability;
+
+  // inputs for a partition. key is the first node in the partition
+  std::unordered_map<NodeIndex, std::unordered_set<const Node*>> group_to_input_nodes;
+
+  std::vector<std::unique_ptr<ComputeCapability>> results;
+  results.reserve(node_groups.size());
+
+  for (const auto& idx_to_group : node_groups) {
+    results.push_back(MakeComputeCapability(graph_viewer, graph_outputs, idx_to_group.second));
+  }
+
+  return results;
+}
+
+std::vector<std::unique_ptr<ComputeCapability>>
 InternalTestingExecutionProvider::GetCapability(const onnxruntime::GraphViewer& graph_viewer,
-                                                const std::vector<const KernelRegistry*>& /*kernel_registries*/) const {
+                                                const std::vector<const KernelRegistry*>& /*registries*/) const {
+  if (get_capability_version_ == 2) {
+    return GetCapability2(graph_viewer, {});
+  } else if (get_capability_version_ == 3) {
+    return GetCapability3(graph_viewer, {});
+  }
+
   std::vector<std::unique_ptr<ComputeCapability>> result;
 
   /* 

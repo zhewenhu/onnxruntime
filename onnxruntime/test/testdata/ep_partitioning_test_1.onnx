@@ -8,15 +8,15 @@
 
 1
 input13_outA2"Add
+ 
+input1
+input26_outA4"Add
 
 1
 input14S2"Sub
 
 2
-45_outA3"Add
- 
-input1
-input26_outA4"AddgraphZ
+45_outA3"AddgraphZ
 input0
 
 
