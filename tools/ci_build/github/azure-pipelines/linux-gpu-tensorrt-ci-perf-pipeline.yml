@@ -90,6 +90,12 @@ jobs:
           pathtoPublish: '$(Build.SourcesDirectory)/Artifact'
 
       # WTIH THIS:
+      - task: AzureCLI@2
+        inputs:
+          scriptType: 'ps'
+          scriptLocation: 'inlineScript'
+          inlineScript: 'az storage blob upload --account-name anubiscustomerstorage  --account-key $(anubis-account-key) --container-name upload --file $(Build.SourcesDirectory)/Artifact/*.whl --directory ort-trt-ep'
+          #arguments: 'secret'
 
       # - task: AzureFileCopy@4
       #   inputs:
