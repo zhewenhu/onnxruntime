@@ -11,18 +11,14 @@ class NodeArg;
 class InternalTestingExecutionProvider : public IExecutionProvider {
  public:
   InternalTestingExecutionProvider(const std::unordered_set<std::string>& ops,
+                                   const std::unordered_set<std::string>& stop_ops = {},
                                    int get_capability_version = 0,
-                                   bool print_node_orders = false,
-                                   bool stop_at_nms = false);
+                                   bool debug_output = false);
   virtual ~InternalTestingExecutionProvider();
 
   std::vector<std::unique_ptr<ComputeCapability>>
   GetCapability(const onnxruntime::GraphViewer& graph_view,
                 const std::vector<const KernelRegistry*>& /*kernel_registries*/) const override;
-
-  std::vector<std::unique_ptr<ComputeCapability>>
-  GetCapability2(const onnxruntime::GraphViewer& graph_view,
-                 const std::vector<const KernelRegistry*>& /*kernel_registries*/) const;
 
   std::vector<std::unique_ptr<ComputeCapability>>
   GetCapability3(const onnxruntime::GraphViewer& graph_view,
@@ -41,7 +37,10 @@ class InternalTestingExecutionProvider : public IExecutionProvider {
                                                            const std::vector<const Node*>& group) const;
   const std::unordered_set<std::string> ops_;
   const int get_capability_version_;
-  const bool print_node_orders_;
-  const bool stop_at_nms_;
+  const bool debug_output_;
+
+  // operators that we stop processing at. e.g. NonMaxSuppression is the beginning of post-processing and for NNAPI
+  // we don't want to go back to NNAPI for that phase.
+  const std::unordered_set<std::string> stop_ops_;
 };
 }  // namespace onnxruntime
