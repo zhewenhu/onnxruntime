@@ -19,7 +19,10 @@ bool NodeCompare::operator()(const Node* n1, const Node* n2) const {
 struct PriorityNodeCompare {
   inline bool IsHighPri(const Node* n) const {
     static const std::unordered_set<std::string> high_pri_ops = {"Shape", "Size"};
-    return high_pri_ops.find(n->OpType()) != high_pri_ops.end();
+    const auto& op_type = n->OpType();
+    const auto op_type_len = op_type.size();
+    // string hashing for the 'find' is expensive, so avoid if the op length isn't 4 or 5.
+    return (op_type_len < 6 && op_type_len > 3) ? high_pri_ops.find(n->OpType()) != high_pri_ops.end() : false;
   }
 
   // Used for std::priority_queue

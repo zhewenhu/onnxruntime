@@ -312,6 +312,7 @@ static void TestNnapiPartitioning(const std::string& test_name,
             << " UnsupportedOps=" << unsupported_op_str
             << "\n";
 }
+
 TEST(InternalTestingEP, TestNnapiPartitioningMlPerfModels) {
   const auto supported_ops = GetNnapiSupportedOps();
 

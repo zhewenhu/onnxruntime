@@ -32,9 +32,7 @@ class InternalTestingExecutionProvider : public IExecutionProvider {
   }
 
  private:
-  std::unique_ptr<ComputeCapability> MakeComputeCapability(const GraphViewer& graph_viewer,
-                                                           const std::unordered_set<const NodeArg*>& graph_outputs,
-                                                           const std::vector<const Node*>& group) const;
+  const std::string ep_name_;
   const std::unordered_set<std::string> ops_;
   const int get_capability_version_;
   const bool debug_output_;
