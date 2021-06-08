@@ -12,17 +12,12 @@ class InternalTestingExecutionProvider : public IExecutionProvider {
  public:
   InternalTestingExecutionProvider(const std::unordered_set<std::string>& ops,
                                    const std::unordered_set<std::string>& stop_ops = {},
-                                   int get_capability_version = 0,
                                    bool debug_output = false);
   virtual ~InternalTestingExecutionProvider();
 
   std::vector<std::unique_ptr<ComputeCapability>>
   GetCapability(const onnxruntime::GraphViewer& graph_view,
                 const std::vector<const KernelRegistry*>& /*kernel_registries*/) const override;
-
-  std::vector<std::unique_ptr<ComputeCapability>>
-  GetCapability3(const onnxruntime::GraphViewer& graph_view,
-                 const std::vector<const KernelRegistry*>& /*kernel_registries*/) const;
 
   common::Status Compile(const std::vector<FusedNodeAndGraph>& fused_nodes,
                          std::vector<NodeComputeInfo>& node_compute_funcs) override;
@@ -34,11 +29,13 @@ class InternalTestingExecutionProvider : public IExecutionProvider {
  private:
   const std::string ep_name_;
   const std::unordered_set<std::string> ops_;
-  const int get_capability_version_;
   const bool debug_output_;
 
-  // operators that we stop processing at. e.g. NonMaxSuppression is the beginning of post-processing and for NNAPI
-  // we don't want to go back to NNAPI for that phase.
+  // operators that we stop processing at.
+  // all nodes of an operator in this list and all their downstream nodes will be skipped
+  // e.g. NonMaxSuppression is the beginning of post-processing in an SSD model. It's unsupported for NNAPI,
+  //      so from the NMS node on we want to use the CPU EP as the remaining work to do is far cheaper than
+  //      the cost of going back to NNAPI.
   const std::unordered_set<std::string> stop_ops_;
 };
 }  // namespace onnxruntime

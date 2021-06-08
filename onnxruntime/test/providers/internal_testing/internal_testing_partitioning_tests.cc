@@ -25,112 +25,91 @@ namespace onnxruntime {
 
 namespace test {
 
-// model has partitions that the initial topo sort has separate, but with the partition aware topo sort
-// or merge should become one
-TEST(InternalTestingEP, TestMergePartitions) {
-  auto test_model = [](int get_capability_version, int& num_nodes_handled, int& num_nodes_not_handled) {
-    std::cout << "Test version " << get_capability_version << "\n";
+// model has an unsupported node between the supported nodes after the initial topo sort.
+// the partition aware topo sort should result in the unsupported node being earlier for the test model, and lead
+// to a single partition of supported nodes
+TEST(InternalTestingEP, TestSortResultsInSinglePartition) {
+  SessionOptions so;
+  auto session = std::make_unique<InferenceSessionWrapper>(so, GetEnvironment());
 
-    SessionOptions so;
-    // so.graph_optimization_level = TransformerLevel::Level3;
+  const std::unordered_set<std::string> supported_ops{"Add"};
 
-    auto session = std::make_unique<InferenceSessionWrapper>(so, GetEnvironment());
+  ASSERT_STATUS_OK(session->RegisterExecutionProvider(
+      std::make_unique<InternalTestingExecutionProvider>(supported_ops)));
 
-    const std::unordered_set<std::string> supported_ops{"Add"};
-    const std::unordered_set<std::string> stop_ops;
+  const ORTCHAR_T* model_path = ORT_TSTR("testdata/ep_partitioning_test_1.onnx");
+  ASSERT_STATUS_OK(session->Load(model_path));
+  const auto& graph = session->GetGraph();
+  GraphViewer viewer{graph};
 
-    ASSERT_STATUS_OK(session->RegisterExecutionProvider(
-        std::make_unique<InternalTestingExecutionProvider>(supported_ops, stop_ops, get_capability_version)));
+  ASSERT_STATUS_OK(session->Initialize());
 
-    const ORTCHAR_T* model_path = ORT_TSTR("testdata/ep_partitioning_test_1.onnx");
-    ASSERT_STATUS_OK(session->Load(model_path));
-    const auto& graph = session->GetGraph();
-    GraphViewer viewer{graph};
+  const auto& func_mgr = session->GetSessionState().GetFuncMgr();
+  NodeComputeInfo* compute_func = nullptr;
 
-    ASSERT_STATUS_OK(session->Initialize());
+  int num_partitions{0}, num_other_nodes{0};
 
-    const auto& func_mgr = session->GetSessionState().GetFuncMgr();
-    NodeComputeInfo* compute_func = nullptr;
-
-    num_nodes_handled = 0;
-    num_nodes_not_handled = 0;
-
-    for (const auto& node : graph.Nodes()) {
-      EXPECT_EQ(supported_ops.count(node.OpType()), size_t(0))
-          << "Nodes with supported op types should have been replaced. Node with type " << node.OpType() << " was not.";
-      if (node.GetExecutionProviderType() == utils::kInternalTestingExecutionProvider) {
-        EXPECT_STATUS_OK(func_mgr.GetFuncs(node.Name(), compute_func));
-        EXPECT_NE(compute_func, nullptr);
-        ++num_nodes_handled;
-      } else {
-        ++num_nodes_not_handled;
-      }
+  for (const auto& node : graph.Nodes()) {
+    EXPECT_EQ(supported_ops.count(node.OpType()), size_t(0))
+        << "Nodes with supported op types should have been replaced. Node with type " << node.OpType() << " was not.";
+    if (node.GetExecutionProviderType() == utils::kInternalTestingExecutionProvider) {
+      EXPECT_STATUS_OK(func_mgr.GetFuncs(node.Name(), compute_func));
+      EXPECT_NE(compute_func, nullptr);
+      ++num_partitions;
+    } else {
+      ++num_other_nodes;
     }
-  };
+  }
 
-  int num_partitions_1{0}, num_partitions_3{0};
-  int num_other_nodes_1{0}, num_other_nodes_3{0};
-
-  test_model(1, num_partitions_1, num_other_nodes_1);
-  test_model(3, num_partitions_3, num_other_nodes_3);
-
-  ASSERT_EQ(num_partitions_1, 2);
-  ASSERT_EQ(num_partitions_3, 1);
-  ASSERT_EQ(num_other_nodes_1, 2);
-  ASSERT_EQ(num_other_nodes_3, 2);
+  ASSERT_EQ(num_partitions, 1) << "Partition aware topological sort should have resulted in a single partition";
+  ASSERT_EQ(num_other_nodes, 2);
 }
 
-TEST(InternalTestingEP, TestPartitionHandling2) {
-  auto test_model = [](int get_capability_version, int& num_nodes_handled, int& num_nodes_not_handled) {
-    // make sure we can't save a model with compiled ops. input/output model format doesn't matter
-    SessionOptions so;
-    // so.graph_optimization_level = TransformerLevel::Level3;
+// Test that when doing the partition aware sort and selecting groups that input dependencies are correctly handled
+TEST(InternalTestingEP, TestDependenciesCorrectlyHandled) {
+  // make sure we can't save a model with compiled ops. input/output model format doesn't matter
+  SessionOptions so;
+  // so.graph_optimization_level = TransformerLevel::Level3;
 
-    auto session = std::make_unique<InferenceSessionWrapper>(so, GetEnvironment());
+  auto session = std::make_unique<InferenceSessionWrapper>(so, GetEnvironment());
 
-    const std::unordered_set<std::string> supported_ops{"Add"};
-    const std::unordered_set<std::string> stop_ops;
+  const std::unordered_set<std::string> supported_ops{"Add"};
 
-    ASSERT_STATUS_OK(session->RegisterExecutionProvider(
-        std::make_unique<InternalTestingExecutionProvider>(supported_ops, stop_ops, get_capability_version)));
+  ASSERT_STATUS_OK(session->RegisterExecutionProvider(
+      std::make_unique<InternalTestingExecutionProvider>(supported_ops)));
 
-    const ORTCHAR_T* model_path = ORT_TSTR("testdata/ep_partitioning_test_2.onnx");
-    ASSERT_STATUS_OK(session->Load(model_path));
-    const auto& graph = session->GetGraph();
-    GraphViewer viewer{graph};
+  const ORTCHAR_T* model_path = ORT_TSTR("testdata/ep_partitioning_test_2.onnx");
+  ASSERT_STATUS_OK(session->Load(model_path));
+  const auto& graph = session->GetGraph();
+  GraphViewer viewer{graph};
 
-    ASSERT_STATUS_OK(session->Initialize());
+  ASSERT_STATUS_OK(session->Initialize());  // this should fail if we don't process dependencies correctly
 
-    const auto& func_mgr = session->GetSessionState().GetFuncMgr();
-    NodeComputeInfo* compute_func = nullptr;
+  const auto& func_mgr = session->GetSessionState().GetFuncMgr();
+  NodeComputeInfo* compute_func = nullptr;
 
-    num_nodes_handled = 0;
-    num_nodes_not_handled = 0;
+  int num_partitions{0};
+  int num_other_nodes{0};
 
-    for (const auto& node : graph.Nodes()) {
-      EXPECT_EQ(supported_ops.count(node.OpType()), size_t(0))
-          << "Nodes with supported op types should have been replaced. Node with type " << node.OpType() << " was not.";
-      if (node.GetExecutionProviderType() == utils::kInternalTestingExecutionProvider) {
-        EXPECT_STATUS_OK(func_mgr.GetFuncs(node.Name(), compute_func));
-        EXPECT_NE(compute_func, nullptr);
-        ++num_nodes_handled;
-      } else {
-        ++num_nodes_not_handled;
-      }
+  for (const auto& node : graph.Nodes()) {
+    EXPECT_EQ(supported_ops.count(node.OpType()), size_t(0))
+        << "Nodes with supported op types should have been replaced. Node with type " << node.OpType() << " was not.";
+    if (node.GetExecutionProviderType() == utils::kInternalTestingExecutionProvider) {
+      EXPECT_STATUS_OK(func_mgr.GetFuncs(node.Name(), compute_func));
+      EXPECT_NE(compute_func, nullptr);
+      ++num_partitions;
+    } else {
+      ++num_other_nodes;
     }
-  };
+  }
 
-  int num_partitions_1{0}, num_partitions_3{0};
-  int num_other_nodes_1{0}, num_other_nodes_3{0};
-
-  test_model(3, num_partitions_3, num_other_nodes_3);
-  test_model(1, num_partitions_1, num_other_nodes_1);
-
-  ASSERT_EQ(num_partitions_1, 2);
-  ASSERT_EQ(num_partitions_3, 2);
-  ASSERT_EQ(num_other_nodes_1, 2);
-  ASSERT_EQ(num_other_nodes_3, 2);
+  ASSERT_EQ(num_partitions, 2);
+  ASSERT_EQ(num_other_nodes, 2);
 }
+
+/***************
+Infrastructure used to check NNAPI coverage. Ideally this could read the model paths, supported ops and stop ops from 
+input files and test the result of the partitioning using this. 
 
 static std::unordered_set<std::string> GetNnapiSupportedOps() {
   return std::unordered_set<std::string>{
@@ -185,9 +164,8 @@ struct PartitionStats {
   int num_compiled_nodes;
 };
 
-static void TestNnapiPartitioning(const std::string& test_name,
-                                  const std::string& model_uri,
-                                  int get_capability_ver, bool optimize, bool debug_output,
+static void TestNnapiPartitioning(const std::string& test_name, const std::string& model_uri,
+                                  bool optimize, bool debug_output,
                                   const std::unordered_set<std::string>& stop_ops,
                                   const std::vector<std::string>& additional_supported_ops,
                                   PartitionStats& stats) {
@@ -207,7 +185,7 @@ static void TestNnapiPartitioning(const std::string& test_name,
   }
 
   ASSERT_STATUS_OK(session->RegisterExecutionProvider(
-      std::make_unique<InternalTestingExecutionProvider>(ops, stop_ops, get_capability_ver, debug_output)));
+      std::make_unique<InternalTestingExecutionProvider>(ops, stop_ops, debug_output)));
 
   ASSERT_STATUS_OK(session->Load(model_uri));
   const auto& graph = session->GetGraph();
@@ -316,106 +294,35 @@ static void TestNnapiPartitioning(const std::string& test_name,
 TEST(InternalTestingEP, TestNnapiPartitioningMlPerfModels) {
   const auto supported_ops = GetNnapiSupportedOps();
 
+  // list the models you want to test here
   std::vector<std::string> model_paths = {
-      "D://tflite_models//mlperf_models//deeplabv3_mnv2_ade20k_float.onnx",
-      "D://tflite_models//mlperf_models//deeplabv3_mnv2_ade20k_float-int8.onnx",
-      "D://tflite_models//mlperf_models//mobilebert.onnx",
-      "D://tflite_models//mlperf_models//mobilebert-int8.onnx",
-      "D://tflite_models//mlperf_models//mobiledet.onnx",
-      "D://tflite_models//mlperf_models//mobiledet-int8.onnx",
-      "D://tflite_models//mlperf_models//mobilenet_edgetpu_224_1.0_float.onnx",
-      "D://tflite_models//mlperf_models//mobilenet_edgetpu_224_1.0_float-int8.onnx",
-      "D://tflite_models//mlperf_models//mobilenet_v1.1.0_224_opset12.onnx",
-      "D://tflite_models//mlperf_models//pytorch.mobilenet_v2_float.onnx",
-      "D://tflite_models//mlperf_models//pytorch.mobilenet_v2_uint8.onnx",
-      "D://tflite_models//mlperf_models//resnet50_v1.onnx",
-      "D://tflite_models//mlperf_models//resnet50_v1-int8.onnx",
-      "D://tflite_models//mlperf_models//ssd_mobilenet_v2_300_float.onnx",
-      "D://tflite_models//mlperf_models//ssd_mobilenet_v2_300_float-int8.onnx",
-      "C:/Users/scmckay/Downloads/yolov4/yolov4.onnx",
+      deeplabv3_mnv2_ade20k_float.onnx",
+      "mobilebert.onnx",
+      "mobiledet.onnx",
   };
 
-  // for list of mlperf models
   for (const auto model_uri : model_paths) {
     auto run_tests = [&](bool optimize) {
-      std::cout << "\n\n================================\n";
+      std::cout << "\n================================\n";
       std::cout << "Model: " << model_uri;
       if (optimize) {
         std::cout << " (optimized)";
       }
       std::cout << std::endl;
 
-      PartitionStats old_stats{}, new_stats{}, new_stop_at_nms_stats{}, new_slice_stats{}, new_slice_nms_stats{},
-          extra_stats{};
+      PartitionStats stats{}, stop_at_nms_stats{}, slice_stats{}, slice_nms_stats{}, extra_stats{};
 
-      // Current
-      // model, version, optimize, debug_output, stop at, extra supported, stats
-      TestNnapiPartitioning("Current", model_uri, 1, optimize, false, {}, {}, old_stats);
-      TestNnapiPartitioning("New", model_uri, 3, optimize, false, {}, {}, new_stats);
-      TestNnapiPartitioning("New+NMS", model_uri, 3, optimize, false, {"NonMaxSuppression"}, {}, new_stop_at_nms_stats);
-      TestNnapiPartitioning("New+Slice", model_uri, 3, optimize, false, {}, {"Slice"}, new_slice_stats);
-      TestNnapiPartitioning("New+Slice+NMS", model_uri, 3, optimize, false, {"NonMaxSuppression"}, {"Slice"}, new_slice_nms_stats);
-
-      // shouldn't change the nodes that are handled
-      ASSERT_EQ(old_stats.num_nodes_not_handled, new_stats.num_nodes_not_handled);
+      // name, model, optimize, debug_output, stop at, extra supported, stats
+      TestNnapiPartitioning("Base", model_uri, optimize, false, {}, {}, stats);
+      TestNnapiPartitioning("New+NMS", model_uri, optimize, false, {"NonMaxSuppression"}, {}, stop_at_nms_stats);
+      TestNnapiPartitioning("New+Slice", model_uri, optimize, false, {}, {"Slice"}, slice_stats);
+      TestNnapiPartitioning("New+Slice+NMS", model_uri, optimize, false, {"NonMaxSuppression"}, {"Slice"}, slice_nms_stats);
     };
 
     run_tests(false);
     // run_tests(true);  // optimized - models have already be optimized so this isn't helpful
   }
 }
-
-TEST(MemoryAlignment, MemoryAlignmentTest) {
-  std::vector<void*> to_free;
-
-  size_t start_unaligned = 0;
-  bool last_unaligned = false;
-
-  size_t size = 0;
-  size_t multiplier = 4;
-  size_t per_iteration_increase = 256 * multiplier;
-
-  int iterations = 10000;
-  to_free.reserve(13);
-
-  for (int i = 1; i < iterations; ++i) {
-    size = i * per_iteration_increase;
-
-    to_free.push_back(malloc(size));
-    size_t address = reinterpret_cast<size_t>(to_free.back());
-
-    if ((address % 64) != 0) {
-      if (!last_unaligned) {
-        std::cout << size << ": addr % 64 == " << address % 64 << "\n";
-        start_unaligned = size;
-      } else {
-        // std::cout << size << "(" << address % 64 << ") ";
-      }
-
-      last_unaligned = true;
-    } else {
-      if (last_unaligned) {
-        std::cout << "\nUnaligned from " << start_unaligned << " to " << size - per_iteration_increase << "\n";
-      }
-      last_unaligned = false;
-    }
-
-    if (i % 13 == 0) {
-      for (auto* ptr : to_free) {
-        free(ptr);
-      }
-      to_free.clear();
-    }
-  }
-
-  if (last_unaligned) {
-    std::cout << "\nUnaligned from " << start_unaligned << " to " << size << "\n";
-  }
-
-  for (auto* ptr : to_free) {
-    free(ptr);
-  }
-}
-
+*/
 }  // namespace test
 }  // namespace onnxruntime

@@ -22,13 +22,11 @@ constexpr const char* INTERNAL_TESTING_EP = "InternalTestingEP";
 
 InternalTestingExecutionProvider::InternalTestingExecutionProvider(const std::unordered_set<std::string>& ops,
                                                                    const std::unordered_set<std::string>& stop_ops,
-                                                                   int get_capability_version,
                                                                    bool debug_output)
     : IExecutionProvider{utils::kInternalTestingExecutionProvider, true},
       ep_name_{INTERNAL_TESTING_EP},
       ops_{ops},
       stop_ops_{stop_ops},
-      get_capability_version_{get_capability_version},
       debug_output_{debug_output} {
   //
   // TODO: Allocation planner calls GetAllocator for the individual EP. It would be better if it goes through
@@ -47,9 +45,9 @@ InternalTestingExecutionProvider::InternalTestingExecutionProvider(const std::un
 InternalTestingExecutionProvider::~InternalTestingExecutionProvider() {}
 
 std::vector<std::unique_ptr<ComputeCapability>>
-InternalTestingExecutionProvider::GetCapability3(const onnxruntime::GraphViewer& graph_viewer,
-                                                 const std::vector<const KernelRegistry*>& /*kernel_registries*/) const {
-  // find all supported nodes first
+InternalTestingExecutionProvider::GetCapability(const onnxruntime::GraphViewer& graph_viewer,
+                                                const std::vector<const KernelRegistry*>& /*registries*/) const {
+  // find all supported nodes
   std::unordered_set<const Node*> supported_nodes;
 
   const auto& topo_nodes = graph_viewer.GetNodesInTopologicalOrder();
@@ -82,6 +80,7 @@ InternalTestingExecutionProvider::GetCapability3(const onnxruntime::GraphViewer&
   //     - create a ComputeCapability instance for just the control flow node by calling utils::MakeComputeCapability
   //       and adding the instance to the partitions returned by CreateSupportedPartitions
 
+  // create functor to generate a guaranteed unique metadef id
   auto generate_metadef_name = [this, &graph_viewer]() {
     uint64_t model_hash;
     int metadef_id = GenerateMetaDefId(graph_viewer, model_hash);
@@ -91,66 +90,6 @@ InternalTestingExecutionProvider::GetCapability3(const onnxruntime::GraphViewer&
 
   return utils::CreateSupportedPartitions(graph_viewer, supported_nodes, stop_ops_,
                                           generate_metadef_name, ep_name_, debug_output_);
-}
-
-std::vector<std::unique_ptr<ComputeCapability>>
-InternalTestingExecutionProvider::GetCapability(const onnxruntime::GraphViewer& graph_viewer,
-                                                const std::vector<const KernelRegistry*>& /*registries*/) const {
-  if (get_capability_version_ == 3) {
-    return GetCapability3(graph_viewer, {});
-  }
-
-  std::vector<std::unique_ptr<ComputeCapability>> result;
-
-  /* 
-  Very basic search for groups of nodes that can be handled by the EP.
-  This doesn't work perfectly if you have a scenario like the following where A and D could be handled by the EP
-  but B is between them in the topological sort as you'll get two single node capabilities. However if can also
-  be advantageous if C and E could be handled by the EP as they would be combined with D even though not connected.
-  Not sure how often each of these scenarios happens. 
-
-    A  B  C
-    | /   |
-    D     E
-    |     |
-    
-  Would probably be better to walk the edges for each node the EP can handle as they are iterated in topological order,
-  accumulating nodes (and saving which ones have been taken) until you run out. This would guarantee all
-  connected nodes that can be handled are grouped together.     
-  */
-
-  std::vector<std::vector<const Node*>> node_groups;
-  std::vector<const Node*> cur_group;
-
-  for (NodeIndex node_index : graph_viewer.GetNodesInTopologicalOrder()) {
-    const Node* node = graph_viewer.GetNode(node_index);  // never nullptr
-    if (ops_.count(node->OpType())) {
-      cur_group.push_back(node);
-    } else if (!cur_group.empty()) {
-      node_groups.push_back(std::move(cur_group));
-    }
-  }
-
-  if (!cur_group.empty()) {
-    node_groups.push_back(std::move(cur_group));
-  }
-
-  if (node_groups.empty()) {
-    return result;
-  }
-
-  for (const auto& group : node_groups) {
-    auto generate_metadef_name = [this, &graph_viewer]() {
-      uint64_t model_hash;
-      int metadef_id = GenerateMetaDefId(graph_viewer, model_hash);
-      auto meta_def = std::make_unique<::onnxruntime::IndexedSubGraph::MetaDef>();
-      return ep_name_ + "_" + std::to_string(model_hash) + "_" + std::to_string(metadef_id);
-    };
-
-    result.push_back(utils::MakeComputeCapability(graph_viewer, group, generate_metadef_name, ep_name_));
-  }
-
-  return result;
 }
 
 common::Status InternalTestingExecutionProvider::Compile(const std::vector<FusedNodeAndGraph>& fused_nodes,

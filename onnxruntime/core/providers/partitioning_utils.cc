@@ -256,6 +256,8 @@ CreateSupportedPartitions(const GraphViewer& graph_viewer,
                                 << ". Nodes in old partition: " << cur_group.size() << "\n";
           LOGS_DEFAULT(VERBOSE) << group_str(cur_group) << "\n";
         }
+#else
+        ORT_UNUSED_PARAMETER(debug_output);
 #endif
         node_groups.insert({cur_group.front()->Index(), std::move(cur_group)});
       }
