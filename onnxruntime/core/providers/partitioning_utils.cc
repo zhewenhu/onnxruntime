@@ -4,6 +4,7 @@
 #include "core/providers/partitioning_utils.h"
 
 #include <queue>
+#include <vector>
 
 #include "core/framework/compute_capability.h"
 #include "core/framework/execution_provider.h"
@@ -276,11 +277,13 @@ CreateSupportedPartitions(const GraphViewer& graph_viewer,
 
         if (processed_nodes.find(node) == processed_nodes.cend()) {
           // add to partition if all inputs available
-          bool inputs_available = std::all_of(
-              node->InputNodesBegin(), node->InputNodesEnd(),
-              [&processed_nodes](const Node& upstream_node) {
-                return processed_nodes.find(&upstream_node) != processed_nodes.cend();
-              });
+          bool inputs_available = true;
+          for (auto cur = node->InputNodesBegin(), end = node->InputNodesEnd(); cur != end; ++cur) {
+            if (processed_nodes.find(&*cur) == processed_nodes.cend()) {
+              inputs_available = false;
+              break;
+            }
+          }
 
           if (inputs_available) {
             cur_group.push_back(node);
