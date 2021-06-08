@@ -4,7 +4,6 @@
 #include "core/providers/partitioning_utils.h"
 
 #include <queue>
-#include <vector>
 
 #include "core/framework/compute_capability.h"
 #include "core/framework/execution_provider.h"

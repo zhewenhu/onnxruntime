@@ -6,6 +6,7 @@
 #include <functional>
 #include <memory>
 #include <unordered_set>
+#include <vector>
 
 #include "core/graph/basic_types.h"
 
