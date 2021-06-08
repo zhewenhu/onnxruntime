@@ -90,8 +90,11 @@ jobs:
           pathtoPublish: '$(Build.SourcesDirectory)/Artifact'
 
       # WTIH THIS:
+
+      
       - task: AzureCLI@2
         inputs:
+          azureSubscription: '00c06639-6ee4-454e-8058-8d8b1703bd87'
           scriptType: 'ps'
           scriptLocation: 'inlineScript'
           inlineScript: 'az storage blob upload --account-name anubiscustomerstorage  --account-key $(account-key) --container-name upload --file $(Build.SourcesDirectory)/Artifact/*.whl --directory ort-trt-ep'
