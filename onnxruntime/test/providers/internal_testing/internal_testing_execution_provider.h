@@ -28,8 +28,9 @@ class InternalTestingExecutionProvider : public IExecutionProvider {
 
  private:
   const std::string ep_name_;
+
+  // List of operators that the EP will claim nodes for
   const std::unordered_set<std::string> ops_;
-  const bool debug_output_;
 
   // operators that we stop processing at.
   // all nodes of an operator in this list and all their downstream nodes will be skipped
@@ -37,5 +38,7 @@ class InternalTestingExecutionProvider : public IExecutionProvider {
   //      so from the NMS node on we want to use the CPU EP as the remaining work to do is far cheaper than
   //      the cost of going back to NNAPI.
   const std::unordered_set<std::string> stop_ops_;
+
+  const bool debug_output_;
 };
 }  // namespace onnxruntime
