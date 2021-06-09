@@ -80,15 +80,42 @@ jobs:
       - script: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/build/copy_wheel.sh -p $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf'
         displayName: 'Copy Wheel from Docker'
         workingDirectory: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/build'
-      - script: 'cp -r $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/dist/ $(Build.SourcesDirectory)/Artifact'
-        displayName: 'Test Wheel Copy'
+    
+      - script: 'OUTPUT=$(ls dist) && az storage blob upload --account-name anubiscustomerstorage  --account-key $(account-key) --container-name upload --file $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/dist/*.whl --name $OUTPUT'
+        displayName: 'Upload Wheel File'
         workingDirectory: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/'
 
-      # - task: AzureFileCopy@4
+      # - script: 'cp -r $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/dist/*.whl $(Build.SourcesDirectory)/Artifact'
+      #   displayName: 'Test Wheel Copy'
+      #   workingDirectory: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/'
+      # - task: PublishBuildArtifacts@1
       #   inputs:
-      #     SourcePath: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/dist'
-      #     Destination: 'AzureBlob'
-      #     ContainerName: 'upload'
+      #     pathtoPublish: '$(Build.SourcesDirectory)/Artifact'
+
+      
+
+      # # WTIH THIS:
+      #   script: 'cp -r $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/dist/*.whl $(Build.SourcesDirectory)/Artifact'
+      #   displayName: 'Test Wheel Copy'
+      #   workingDirectory: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/'
+      # - task: CmdLine@2
+      #   inputs:
+      #     script: 'az storage blob upload --account-name anubiscustomerstorage  --account-key $(account-key) --container-name upload --file $(Build.SourcesDirectory)/Artifact/*.whl --directory ort-trt-ep''
+          
+      # - task: AzureCLI@2
+      #   inputs:
+      #     azureSubscription: '00c06639-6ee4-454e-8058-8d8b1703bd87'
+      #     scriptType: 'ps'
+      #     scriptLocation: 'inlineScript'
+      #     inlineScript: '
+      #     #arguments: 'secret'
+
+      # # - task: AzureFileCopy@4
+      # #   inputs:
+      # #     SourcePath: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/dist'
+      # #     AzureSubscription: TODO: Need Permissions
+      # #     Destination: 'AzureBlob'
+      # #     ContainerName: 'upload'
 
     - ${{ if eq(parameters.RunOnnxZoo, true) }}:
       - script: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/run_perf$(args) -o "onnx-zoo-models" '
@@ -117,15 +144,15 @@ jobs:
         workingDirectory: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/'
         env:
           LD_LIBRARY_PATH : "/home/hcsuser/TensorRT-7.2.2.3/lib"
-    
-    - script: 'cp -r $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/result/ $(Build.SourcesDirectory)/Artifact'
-      displayName: 'Prepare Artifacts'
-      workingDirectory: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/'
 
-    - task: PublishBuildArtifacts@1
-      inputs:
-        pathtoPublish: '$(Build.SourcesDirectory)/Artifact'
-        artifactName: 'result'
+    - ${{ if or(eq(parameters.RunPartner, true), eq(parameters.RunMany, true), eq(parameters.RunOnnxZoo, true)) }}:
+      - script: 'cp -r $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/result/ $(Build.SourcesDirectory)/Artifact'
+        displayName: 'Prepare Artifacts'
+        workingDirectory: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/'
+      - task: PublishBuildArtifacts@1
+        inputs:
+          pathtoPublish: '$(Build.SourcesDirectory)/Artifact'
+          artifactName: 'result'
     
     - ${{ if eq(parameters.PostToDashboard, true) }}:
       - script: 'python3 $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/post.py -r $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/result -c $(Build.SourceVersion) -u "https://dev.azure.com/onnxruntime/onnxruntime/_build/results?buildId=$(Build.BuildId)" ' 
