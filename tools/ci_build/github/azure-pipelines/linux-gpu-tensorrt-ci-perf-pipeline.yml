@@ -80,12 +80,8 @@ jobs:
       - script: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/build/copy_wheel.sh -p $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf'
         displayName: 'Copy Wheel from Docker'
         workingDirectory: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/build'
-      
-      - script: 'OUTPUT=$(ls dist) && echo $OUTPUT'
-        displayName: 'Print wheel name'
-        workingDirectory: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/'
-
-      - script: 'OUTPUT=$(ls dist) && echo "az storage blob upload --account-name anubiscustomerstorage  --account-key $(account-key) --container-name upload --file $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/dist/*.whl --name $OUTPUT"'
+    
+      - script: 'OUTPUT=$(ls dist) && az storage blob upload --account-name anubiscustomerstorage  --account-key $(account-key) --container-name upload --file $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/dist/*.whl --name $OUTPUT'
         displayName: 'Upload Wheel File'
         workingDirectory: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/'
 
