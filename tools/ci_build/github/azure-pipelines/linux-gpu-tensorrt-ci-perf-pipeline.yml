@@ -85,6 +85,9 @@ jobs:
         displayName: 'Print wheel name'
         workingDirectory: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/'
 
+      - script: 'echo "az storage blob upload --account-name anubiscustomerstorage  --account-key $(account-key) --container-name upload --file $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/dist/*.whl --name $OUTPUT"'
+        displayName: 'Upload Wheel File'
+
       # - script: 'cp -r $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/dist/*.whl $(Build.SourcesDirectory)/Artifact'
       #   displayName: 'Test Wheel Copy'
       #   workingDirectory: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/'
@@ -92,9 +95,7 @@ jobs:
       #   inputs:
       #     pathtoPublish: '$(Build.SourcesDirectory)/Artifact'
 
-      # - script: 'az storage blob upload --account-name anubiscustomerstorage  --account-key $(account-key) --container-name upload --file $(Build.SourcesDirectory)/Artifact/*.whl'
-      #   displayName: 'Upload Wheel File'
-
+      
 
       # # WTIH THIS:
       #   script: 'cp -r $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/dist/*.whl $(Build.SourcesDirectory)/Artifact'
