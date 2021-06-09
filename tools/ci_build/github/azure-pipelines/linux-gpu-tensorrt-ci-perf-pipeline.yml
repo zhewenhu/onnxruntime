@@ -81,7 +81,6 @@ jobs:
         displayName: 'Copy Wheel from Docker'
         workingDirectory: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/build'
       
-      # TO DO: REPLACE 
       - script: 'cp -r $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/dist/*.whl $(Build.SourcesDirectory)/Artifact'
         displayName: 'Test Wheel Copy'
         workingDirectory: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/'
@@ -89,23 +88,31 @@ jobs:
         inputs:
           pathtoPublish: '$(Build.SourcesDirectory)/Artifact'
 
-      # WTIH THIS:
+      - script: 'az storage blob upload --account-name anubiscustomerstorage  --account-key $(account-key) --container-name upload --file $(Build.SourcesDirectory)/Artifact/*.whl --directory ort-trt-ep'
+        displayName: 'Upload Wheel File'
 
-      
-      - task: AzureCLI@2
-        inputs:
-          azureSubscription: '00c06639-6ee4-454e-8058-8d8b1703bd87'
-          scriptType: 'ps'
-          scriptLocation: 'inlineScript'
-          inlineScript: 'az storage blob upload --account-name anubiscustomerstorage  --account-key $(account-key) --container-name upload --file $(Build.SourcesDirectory)/Artifact/*.whl --directory ort-trt-ep'
-          #arguments: 'secret'
-
-      # - task: AzureFileCopy@4
+      # # WTIH THIS:
+      #   script: 'cp -r $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/dist/*.whl $(Build.SourcesDirectory)/Artifact'
+      #   displayName: 'Test Wheel Copy'
+      #   workingDirectory: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/'
+      # - task: CmdLine@2
       #   inputs:
-      #     SourcePath: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/dist'
-      #     AzureSubscription: TODO: Need Permissions
-      #     Destination: 'AzureBlob'
-      #     ContainerName: 'upload'
+      #     script: 'az storage blob upload --account-name anubiscustomerstorage  --account-key $(account-key) --container-name upload --file $(Build.SourcesDirectory)/Artifact/*.whl --directory ort-trt-ep''
+          
+      # - task: AzureCLI@2
+      #   inputs:
+      #     azureSubscription: '00c06639-6ee4-454e-8058-8d8b1703bd87'
+      #     scriptType: 'ps'
+      #     scriptLocation: 'inlineScript'
+      #     inlineScript: '
+      #     #arguments: 'secret'
+
+      # # - task: AzureFileCopy@4
+      # #   inputs:
+      # #     SourcePath: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/dist'
+      # #     AzureSubscription: TODO: Need Permissions
+      # #     Destination: 'AzureBlob'
+      # #     ContainerName: 'upload'
 
     - ${{ if eq(parameters.RunOnnxZoo, true) }}:
       - script: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/run_perf$(args) -o "onnx-zoo-models" '
