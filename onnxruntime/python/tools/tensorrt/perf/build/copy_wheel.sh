@@ -1,14 +1,18 @@
 #!/bin/bash 
 
-while getopts p: parameter
+while getopts t: parameter
 do case "${parameter}"
 in 
-p) PERF_DIR=${OPTARG};;
+t) TRT_CONTAINER=${OPTARG};;
 esac
 done 
 
-cd $PERF_DIR
-rm -rf dist
+# copying wheel over
+sudo rm -rf ../dist
 id=$(sudo docker create ort-master)
-sudo docker cp $id:/code/onnxruntime/build/Linux/Release/dist/ $PERF_DIR
+sudo docker cp $id:/code/onnxruntime/build/Linux/Release/dist/ ../
 sudo docker rm -v $id
+
+# adding trt container version
+wheel_name=$(echo ../dist/*|sed 's/-cp/.'$TRT_CONTAINER'-cp/')
+sudo mv ../dist/* $wheel_name
