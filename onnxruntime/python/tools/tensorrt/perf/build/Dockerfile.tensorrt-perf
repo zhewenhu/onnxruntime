@@ -5,19 +5,20 @@
 # Dockerfile to run ONNXRuntime with TensorRT integration
 
 # nvidia TensorRT Base Image
-FROM nvcr.io/nvidia/tensorrt:21.04-py3
+ARG TRT_CONTAINER=21.04
+
+FROM nvcr.io/nvidia/tensorrt:${TRT_CONTAINER}-py3
 
 ARG ONNXRUNTIME_REPO=https://github.com/Microsoft/onnxruntime
 ARG ONNXRUNTIME_BRANCH=master
 
-#RUN apt-get update &&\
-#    apt-get install -y sudo git bash unattended-upgrades
-#RUN unattended-upgrade
+RUN apt-get update &&\
+    apt-get install -y sudo git bash unattended-upgrades
+RUN unattended-upgrade
 
 WORKDIR /code
 ENV PATH /usr/local/nvidia/bin:/usr/local/cuda/bin:/code/cmake-3.18.3-Linux-x86_64/bin:/opt/miniconda/bin:${PATH}
 ENV LD_LIBRARY_PATH /opt/miniconda/lib:$LD_LIBRARY_PATH
-
 
 # Prepare onnxruntime repository & build onnxruntime with TensorRT
 RUN git clone --single-branch --branch ${ONNXRUNTIME_BRANCH} --recursive ${ONNXRUNTIME_REPO} onnxruntime &&\
