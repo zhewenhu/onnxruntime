@@ -10,6 +10,9 @@ class Node;
 
 namespace QDQ {
 
+static constexpr const char* QOName = "QuantizeLinear";
+static constexpr const char* DQOPName = "DequantizeLinear";
+
 enum QDQInputIndex : int {
   INPUT_ID = 0,
   SCALE_ID = 1,
