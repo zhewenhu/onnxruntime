@@ -882,6 +882,10 @@ def run_onnxruntime(args, models):
         os.chdir(path)
         path = os.getcwd()
 
+       
+        import psutil
+        logger.info("memory usage {}".format(psutil.virtual_memory().percent))
+
         if args.running_mode == "validate": 
             remove_profiling_files(path)
         
@@ -1019,6 +1023,7 @@ def run_onnxruntime(args, models):
                     else: 
                         result = inference_ort(args, name, sess, ep, inputs, result_template, args.test_times, batch_size)
                 if result:
+
                     latency_result[ep] = {}
                     latency_result[ep]["average_latency_ms"] = result["average_latency_ms"]
                     latency_result[ep]["latency_90_percentile"] = result["latency_90_percentile"]
