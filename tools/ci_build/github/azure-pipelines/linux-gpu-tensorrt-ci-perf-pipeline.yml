@@ -51,7 +51,7 @@ jobs:
       ${{ if ne(parameters.RunDocker, true) }}:
         value: _machine.sh
     - name: args
-      value: $(runenv) -e "$(ep_list)"
+      value: $(runenv) -e "$(epList)"
     - name: run_conda
       value: eval "$(command conda 'shell.bash' 'hook' 2> /dev/null)" && conda activate perf37 
   timeoutInMinutes: 3000 
