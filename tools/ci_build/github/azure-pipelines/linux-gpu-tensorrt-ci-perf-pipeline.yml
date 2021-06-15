@@ -83,10 +83,10 @@ jobs:
           targetType: 'inline'
           script: |
             $wheel_file = Get-ChildItem /home/hcsuser/perf/dist
-            echo $wheel_file
-            # Add-Type -AssemblyName System.Web
+            Add-Type -AssemblyName System.Web
             
-            # $ort_trt_ep_pkg_blob_path = ep/$wheel_file
+            $ort_trt_ep_pkg_blob_path = ep/$wheel_file
+            echo $ort_trt_ep_pkg_blob_path
             # $expiredays = New-TimeSpan -Days 1
             # $end = (Get-Date) + $expiredays
             
