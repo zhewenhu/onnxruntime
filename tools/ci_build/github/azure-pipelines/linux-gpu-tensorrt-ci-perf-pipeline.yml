@@ -82,7 +82,7 @@ jobs:
         inputs:
           targetType: 'inline'
           script: |
-            $wheel_file = Get-ChildItem ../dist
+            $wheel_file = Get-ChildItem /home/hcsuser/perf/dist
             echo $wheel_file
             # Add-Type -AssemblyName System.Web
             
