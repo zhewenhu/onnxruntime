@@ -12,8 +12,8 @@ namespace QDQ {
 /**
 @Class QDQ::RulesTransformer
 
-Transformer that fuses QDQ and fp32 ops into quantized ops 
-Using rules to define the nodes to match and actions to take.
+Transformer that fuses QDQ and fp32 ops into quantized ops. 
+Uses rules to define the nodes to match and actions to take.
 */
 class RulesTransformer : public GraphTransformer {
  public:
@@ -22,8 +22,8 @@ class RulesTransformer : public GraphTransformer {
  private:
   Status ApplyImpl(Graph& graph, bool& modified, int graph_level, const logging::Logger& logger) const override;
 
-  // on set of rules, keyed on OpType. Domain is checked within Rules given that should rarely clash.
-  const std::unordered_map<std::string, Rules> rules_;
+  std::vector<std::unique_ptr<Rules>> rules_;
+  std::unordered_map<std::string, const Rules*> op_to_rules_;
 };
 
 }  // namespace QDQ

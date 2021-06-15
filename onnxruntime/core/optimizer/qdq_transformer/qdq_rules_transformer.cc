@@ -11,22 +11,34 @@ namespace onnxruntime {
 namespace QDQ {
 class RulesTransformerImpl {
  public:
-  RulesTransformerImpl(Graph& graph, const std::unordered_map<std::string, Rules>& rules)
-      : graph_{graph}, rules_{rules} {
+  RulesTransformerImpl(Graph& graph, const std::vector<std::unique_ptr<Rules>>& rules)
+      : graph_{graph} /*, rules_{rules} */ {
+    for (const auto& rule : rules) {
+      for (const auto& op_info : rule->NodeSelection.ops_and_versions_) {
+        bool inserted = op_to_rules_.insert({op_info.first, &*rule}).second;
+        ORT_ENFORCE(inserted, "Multiple entries for operator is not supported. OpType=", op_info.first);
+      }
+    }
   }
 
   bool IsMatch(const Node& node) const {
-    // initial lookup for match on just op type
-    auto op_rules = rules_.find(node.OpType());
-    if (op_rules == rules_.cend()) {
+    if (node.Domain() != kOnnxDomain) {
       return false;
     }
 
-    const Rules& rules = op_rules->second;
-
-    if (node.OpType() != rules.NodeSelection.target_op_ ||
-        node.Domain() != rules.NodeSelection.target_domain_) {
+    auto op_rule = op_to_rules_.find(node.OpType());
+    if (op_rule == op_to_rules_.cend()) {
       return false;
+    }
+
+    const auto& rules = *op_rule->second;
+
+    // check the supported versions if specified
+    const auto& versions = rules.NodeSelection.ops_and_versions_.find(node.OpType())->second;
+    if (!versions.empty()) {
+      if (std::find(versions.cbegin(), versions.cend(), node.SinceVersion()) == versions.cend()) {
+        return false;
+      }
     }
 
     // use 'for' loop for debugging. switch to std::all_of before checkin
@@ -60,78 +72,91 @@ class RulesTransformerImpl {
 
  private:
   Graph& graph_;
-  const std::unordered_map<std::string, Rules>& rules_;
+  //const std::vector<Rules>& rules_;
+  //std::unordered_set<std::string> ops_;
+  std::unordered_map<std::string, const Rules*> op_to_rules_;
 };
-/*
-  // Q/DQ contains optional input is not supported
-  // non-scalar Q/DQ scale and zero point needs are not supported
-  if (dq_input_defs.size() != QDQInputIndex::TOTAL_COUNT ||
-      q_input_defs.size() != QDQInputIndex::TOTAL_COUNT ||
-      !optimizer_utils::IsScalar(*q_input_defs[QDQInputIndex::SCALE_ID]) ||
-      !optimizer_utils::IsScalar(*q_input_defs[QDQInputIndex::ZERO_POINT_ID]) ||
-      !optimizer_utils::IsScalar(*dq_input_defs[QDQInputIndex::SCALE_ID]) ||
-      !optimizer_utils::IsScalar(*dq_input_defs[QDQInputIndex::ZERO_POINT_ID])) {
-    return false;
-  }
 
-  // if Q/DQ scale and zero point are not constant, return false
-  const ONNX_NAMESPACE::TensorProto* dq_scale_tensor_proto =
-      graph_utils::GetConstantInitializer(graph, dq_input_defs[QDQInputIndex::SCALE_ID]->Name());
-  const ONNX_NAMESPACE::TensorProto* q_scale_tensor_proto =
-      graph_utils::GetConstantInitializer(graph, q_input_defs[QDQInputIndex::SCALE_ID]->Name());
-  const ONNX_NAMESPACE::TensorProto* dq_zp_tensor_proto =
-      graph_utils::GetConstantInitializer(graph, dq_input_defs[QDQInputIndex::ZERO_POINT_ID]->Name());
-  const ONNX_NAMESPACE::TensorProto* q_zp_tensor_proto =
-      graph_utils::GetConstantInitializer(graph, q_input_defs[QDQInputIndex::ZERO_POINT_ID]->Name());
-  if (nullptr == q_zp_tensor_proto ||
-      nullptr == dq_zp_tensor_proto ||
-      nullptr == q_scale_tensor_proto ||
-      nullptr == dq_scale_tensor_proto) {
-    return false;
-
-*/
+#define ADD_RULE(container, rule, ...) \
+  container.push_back(std::unique_ptr<ConstraintChecker>(new rule(__VA_ARGS__)))
+#define ADD_ACTION(container, action, ...) \
+  container.push_back(std::unique_ptr<Action>(new action(__VA_ARGS__)))
 
 namespace {
-Rules ReshapeRules() {
-  std::vector<std::unique_ptr<ConstraintChecker>> rules{
-      //std::make_unique<InOutCount>(Direction::kInput, QDQInputIndex::TOTAL_COUNT),
-      //std::make_unique<InOutCount>(Direction::kOutput, QDQInputIndex::TOTAL_COUNT),
-      //std::make_unique<ConstantInitializerChecker>(InOutDefSlot{Direction::kInput, QDQInputIndex::SCALE_ID}),
-      //std::make_unique<ConstantInitializerChecker>(InOutDefSlot{Direction::kInput, QDQInputIndex::ZERO_POINT_ID}),
-      //std::make_unique<ConstantInitializerChecker>(InOutDefSlot{Direction::kOutput, QDQInputIndex::SCALE_ID}),
-      //std::make_unique<ConstantInitializerChecker>(InOutDefSlot{Direction::kOutput, QDQInputIndex::ZERO_POINT_ID}),
-  };
 
-  /*
-  // need push_back as i
-  rules.push_back(std::make_unique<InOutCount>(Direction::kInput, QDQInputIndex::TOTAL_COUNT));
-  rules.push_back(std::make_unique<InOutCount>(Direction::kOutput, QDQInputIndex::TOTAL_COUNT));
-  rules.push_back(std::make_unique<ConstantInitializerChecker>(InOutDefSlot{Direction::kInput, QDQInputIndex::SCALE_ID}));
-  rules.push_back(std::make_unique<ConstantInitializerChecker>(InOutDefSlot{Direction::kInput, QDQInputIndex::ZERO_POINT_ID}));
-  rules.push_back(std::make_unique<ConstantInitializerChecker>(InOutDefSlot{Direction::kOutput, QDQInputIndex::SCALE_ID}));
-  rules.push_back(std::make_unique<ConstantInitializerChecker>(InOutDefSlot{Direction::kOutput, QDQInputIndex::ZERO_POINT_ID}));
-  */
-  return Rules{NodeSelectionRules{"Reshape",
-                                  kOnnxDomain,
-                                  std::move(rules)},
-               ActionRules{}};
+std::pair<NodeAndArg, NodeAndArg> MoveInput(size_t src, size_t src_idx, size_t dest, size_t dest_idx) {
+  return {NodeAndArg{src, InOutDefSlot{Direction::kInput, src_idx}},
+          NodeAndArg{dest, InOutDefSlot{Direction::kInput, dest_idx}}};
 }
+
+std::pair<NodeAndArg, NodeAndArg> MoveOutput(size_t src, size_t src_idx, size_t dest, size_t dest_idx) {
+  return {NodeAndArg{src, InOutDefSlot{Direction::kOutput, src_idx}},
+          NodeAndArg{dest, InOutDefSlot{Direction::kOutput, dest_idx}}};
+}
+
+// create rules for ops that don't change the data
+std::unique_ptr<Rules> SimpleQDQRules() {
+  std::vector<std::unique_ptr<ConstraintChecker>> constraints;
+
+  // check that input 0 and output 0 are connected to a DQ and Q node,
+  ADD_RULE(constraints, QDQNodePairChecker, InOutDefSlot{Direction::kInput, 0}, InOutDefSlot{Direction::kOutput, 0});
+
+  std::vector<std::unique_ptr<Action>> actions;
+
+  // 3 nodes. 0=DQ, 1=other, 2=Q. Merge into other. Move DQ input 0 to other input 0 and Q output 0 to other output 0.
+  // delete nodes 0 and 2
+  ADD_ACTION(actions, MergeIntoExisting, {MoveInput(0, 0, 1, 0), MoveOutput(2, 0, 1, 0)}, {0, 2});
+
+  // rules apply to all versions of the operators so empty list of supported versions
+  //NodeSelectionRules selection{
+  //    {{"Gather", {}},
+  //     {"Reshape", {}},
+  //     {"Transpose", {}}},
+  //    std::move(constraints)};
+
+  return std::make_unique<Rules>(Rules{NodeSelectionRules{
+                                           {{"Gather", {}},
+                                            {"Reshape", {}},
+                                            {"Transpose", {}}},
+                                           std::move(constraints)},
+                                       std::move(actions)});
+}
+
+// create rules for ops with 2 inputs
+//Rules BinaryQDQRules() {
+//}
 }  // namespace
 
 RulesTransformer::RulesTransformer() noexcept
-    : GraphTransformer("QDQ::RulesTransformer"),
-      rules_{
-          {"Reshape", ReshapeRules()}} {
+    : GraphTransformer("QDQ::RulesTransformer") {
+  rules_.reserve(8);
+
+  rules_.push_back(std::move(SimpleQDQRules()));
+
+  // setup lookup map for all the rules
+  for (const auto& rule : rules_) {
+    for (const auto& op_info : rule->NodeSelection.ops_and_versions_) {
+      const auto& op_name = op_info.first;
+      op_to_rules_.insert({op_name, &*rule});
+    }
+  }
 }
 
 Status RulesTransformer::ApplyImpl(Graph& graph, bool& modified, int graph_level,
                                    const logging::Logger& logger) const {
   RulesTransformerImpl impl(graph, rules_);
-  GraphViewer graph_viewer(graph);  // <-- constructing a new instance is pretty costly and we should avoid in optimizers where possible
+  GraphViewer graph_viewer(graph);
 
   for (auto index : graph_viewer.GetNodesInTopologicalOrder()) {
     auto& node = *graph.GetNode(index);
+
+    // no point replacing a node with a quantized version if it is producing a graph output
+    if (!graph.GetNodeOutputsInGraphOutputs(node).empty()) {
+      continue;
+    }
+
     ORT_RETURN_IF_ERROR(Recurse(node, modified, graph_level, logger));
+
     if (node.GetExecutionProviderType() == kCpuExecutionProvider) {
       if (impl.IsMatch(node)) {
         ORT_RETURN_IF_ERROR(impl.Process(node));
