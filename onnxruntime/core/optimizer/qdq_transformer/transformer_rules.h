@@ -26,15 +26,8 @@ enum class Direction { kInput,
 // struct to define the location of an input or output definition for a Node
 struct InOutDefSlot {
   Direction in_out;
-  size_t idx;
+  int idx;
 };
-
-//// target of an operation defined with TargetNode combined with an InOutDefSlot
-//// If the
-//enum class TargetNode { kInput,
-//                        kOutput,
-//                        kExisting,
-//                        kNew };
 
 const Node* NodeFromSlot(const Node& node, const InOutDefSlot& slot);
 
@@ -123,6 +116,8 @@ class ConstantScalarChecker : public InOutChecker {
   }
 };
 
+// check the input or output count of a node
+// does not count missing optional inputes
 class InOutCount : public ConstraintChecker {
  public:
   InOutCount(Direction type, size_t count) : type_{type}, count_{count} {}
@@ -140,50 +135,78 @@ class InOutCount : public ConstraintChecker {
   const size_t count_;
 };
 
-//class InOutOpTypeChecker : public ConstraintChecker {
-// public:
-//  InOutOpTypeChecker(InOutDefSlot slot, const std::string& op_type) : slot_{slot}, op_type_{op_type} {
-//  }
-//
-//  bool operator()(const Graph& graph, const Node& node) const override {
-//    const Node* in_out_node = NodeFromSlot(node, slot_);
-//    return in_out_node && in_out_node->OpType() == op_type_;
-//
-//    //if (slot_.in_out == Direction::kInput) {
-//    //  auto iter = std::find_if(node.InputEdgesBegin(), node.InputEdgesEnd(),
-//    //                           [this](const Node::EdgeEnd& edge) {
-//    //                             return (edge.GetDstArgIndex() == slot_.idx);
-//    //                           });
-//
-//    //  return iter != node.InputEdgesEnd() &&
-//    //         iter->GetNode().OpType() == op_type_;
-//    //} else {
-//    //  auto iter = std::find_if(node.OutputEdgesBegin(), node.OutputEdgesEnd(),
-//    //                           [this](const Node::EdgeEnd& edge) {
-//    //                             return (edge.GetSrcArgIndex() == slot_.idx);
-//    //                           });
-//
-//    //  return iter != node.OutputEdgesEnd() &&
-//    //         iter->GetNode().OpType() == op_type_;
-//    //}
-//  }
-//
-// private:
-//  InOutDefSlot slot_;
-//  const std::string op_type_;
-//};
+// check if an input or output is coming from a specific OpType
+class InOutOpTypeChecker : public ConstraintChecker {
+ public:
+  InOutOpTypeChecker(InOutDefSlot slot, const std::string& op_type) : slot_{slot}, op_type_{op_type} {
+  }
+
+  bool operator()(const Graph& /*graph*/, const Node& node) const override {
+    const Node* in_out_node = NodeFromSlot(node, slot_);
+    return in_out_node && in_out_node->OpType() == op_type_;
+
+    if (slot_.in_out == Direction::kInput) {
+      auto iter = std::find_if(node.InputEdgesBegin(), node.InputEdgesEnd(),
+                               [this](const Node::EdgeEnd& edge) {
+                                 return (edge.GetDstArgIndex() == slot_.idx);
+                               });
+
+      return iter != node.InputEdgesEnd() &&
+             iter->GetNode().OpType() == op_type_;
+    } else {
+      auto iter = std::find_if(node.OutputEdgesBegin(), node.OutputEdgesEnd(),
+                               [this](const Node::EdgeEnd& edge) {
+                                 return (edge.GetSrcArgIndex() == slot_.idx);
+                               });
+
+      return iter != node.OutputEdgesEnd() &&
+             iter->GetNode().OpType() == op_type_;
+    }
+  }
+
+ private:
+  InOutDefSlot slot_;
+  const std::string op_type_;
+};
+
+struct NodeSelector {
+  // Select one or more nodes to process if the constraints are satisfied
+  virtual bool operator()(Graph& graph, const Node& node, std::vector<Node*>& selection) const = 0;
+  virtual ~NodeSelector() = default;
+};
 
 // Base QDQ checker. Provides the DQ and Q nodes to the operator specific checkers
-class QDQChecker : public ConstraintChecker {
+class QDQSelector : public NodeSelector {
  public:
-  QDQChecker() = default;
-
-  bool operator()(const Graph& graph, const Node& node) const override {
+  bool operator()(Graph& graph, const Node& node, std::vector<Node*>& selection) const override {
     std::vector<const Node*> dq_nodes = graph_utils::FindParentsByType(node, DQOpName);
     std::vector<const Node*> q_nodes = graph_utils::FindChildrenByType(node, QOpName);
 
-    return Check(graph, node, dq_nodes, q_nodes);
+    if (!Check(graph, node, dq_nodes, q_nodes)) {
+      return false;
+    }
+
+    auto get_mutable_node = [&graph](const Node* node) {
+      // we use the non-const GetNode to convert the const Node* to Node*
+      return graph.GetNode(node->Index());
+    };
+
+    // TODO: If this isn't always the case we may need to do the selection in the derived classes
+    selection.reserve(dq_nodes.size() + 1 + q_nodes.size());
+    for (const Node* dq_node : dq_nodes) {
+      selection.push_back(get_mutable_node(dq_node));
+    }
+    selection.push_back(get_mutable_node(&node));
+
+    for (const Node* q_node : q_nodes) {
+      selection.push_back(get_mutable_node(q_node));
+    }
+
+    return true;
   }
+
+ protected:
+  QDQSelector() = default;
 
  private:
   bool virtual Check(const Graph& graph, const Node& node,
@@ -193,9 +216,9 @@ class QDQChecker : public ConstraintChecker {
 
 // Single DQ -> node -> Q.
 // Zero point and scale are constant scalars and match
-class QDQSimpleChecker : public QDQChecker {
+class QDQSimpleSelector : public QDQSelector {
  public:
-  QDQSimpleChecker();
+  QDQSimpleSelector();
 
  private:
   bool Check(const Graph& graph, const Node& node,
@@ -206,31 +229,6 @@ class QDQSimpleChecker : public QDQChecker {
   const ConstantScalarChecker dq_zero_point_is_constant_scalar_;
   const ConstantScalarChecker q_scale_is_constant_scalar_;
   const ConstantScalarChecker q_zero_point_is_constant_scalar_;
-};
-
-// 1 DQ in, 1 Q out, no graph outputs, constant scalar zp and scale, matching zp and scale
-class QDQNodePairChecker : public ConstraintChecker {
- public:
-  QDQNodePairChecker(InOutDefSlot dq_slot, InOutDefSlot q_slot);
-
- private:
-  bool operator()(const Graph& graph, const Node& node) const override;
-
-  const InOutDefSlot dq_slot_;
-  //const InOutOpTypeChecker dq_in_;
-  const ConstantScalarChecker dq_scale_is_constant_scalar_;
-  const ConstantScalarChecker dq_zero_point_is_constant_scalar_;
-  const InOutDefSlot q_slot_;
-  //const InOutOpTypeChecker q_out_;
-  const ConstantScalarChecker q_scale_is_constant_scalar_;
-  const ConstantScalarChecker q_zero_point_is_constant_scalar_;
-};
-
-struct NodeSelectionRules {
-  std::unordered_map<std::string, std::vector<int>> ops_and_versions_;
-
-  // need to use unique_ptr as the values are polymorphic.
-  std::vector<std::unique_ptr<ConstraintChecker>> rules;
 };
 
 //struct ArgHandler {
@@ -274,6 +272,7 @@ struct NodeSelectionRules {
 // actions that are applied to a set of nodes identified during selection
 struct Action {
   virtual Status operator()(Graph&, std::vector<Node*>& nodes) = 0;
+  virtual ~Action() = default;
 
   // helper to validate the index when fetching a node
   Node* GetNode(size_t index, std::vector<Node*>& nodes, bool required = true) {
@@ -294,12 +293,14 @@ struct MoveInputOutput : public Action {
     Node& src = *GetNode(source_.node_idx, nodes);
     Node& dest = *GetNode(target_.node_idx, nodes);
 
-    ORT_RETURN_IF_ERROR(MoveNodeArg(src, dest));
+    ORT_RETURN_IF_ERROR(MoveNodeArg(graph, src, dest));
     ORT_RETURN_IF_ERROR(MoveEdges(graph, src, dest));
+
+    return Status::OK();
   }
 
  private:
-  Status MoveNodeArg(Node& src, Node& dest) const {
+  Status MoveNodeArg(Graph& graph, Node& src, Node& dest) const {
     auto& src_defs = (source_.in_out_slot.in_out == Direction::kInput)
                          ? src.MutableInputDefs()
                          : src.MutableOutputDefs();
@@ -314,9 +315,34 @@ struct MoveInputOutput : public Action {
       return ORT_MAKE_STATUS(ONNXRUNTIME, FAIL, "Index out of range");
     }
 
+    // remove any edge to the slot we're replacing
+    RemoveEdge(graph, dest, target_.in_out_slot);
+
     dest_defs[target_.in_out_slot.idx] = src_defs[source_.in_out_slot.idx];
 
     return Status::OK();
+  }
+
+  // TODO: Refactor so the processing on the edges is a plugin and we don't need to duplicate the logic here and in
+  // MoveEdges to find the matching edges
+  void RemoveEdge(Graph& graph, Node& node, const InOutDefSlot& slot) const {
+    if (slot.in_out == Direction::kInput) {
+      // move input edge if present
+      auto iter = std::find_if(node.InputEdgesBegin(), node.InputEdgesEnd(),
+                               [&slot](const Node::EdgeEnd& edge) {
+                                 return (edge.GetDstArgIndex() == slot.idx);
+                               });
+
+      if (iter != node.InputEdgesEnd()) {
+        const Node& iter_node = iter->GetNode();
+        graph.RemoveEdge(iter_node.Index(), node.Index(), iter->GetSrcArgIndex(), slot.idx);
+      }
+
+    } else {
+      // otherwise we need to move all output edges (if any)
+      auto edges = graph_utils::GraphEdge::GetNodeOutputEdges(node, slot.idx);
+      graph_utils::GraphEdge::RemoveGraphEdges(graph, edges);
+    }
   }
 
   Status MoveEdges(Graph& graph, Node& src, Node& dest) const {
@@ -336,17 +362,14 @@ struct MoveInputOutput : public Action {
 
     } else {
       // otherwise we need to move all output edges (if any)
-      auto iter = std::find_if(src.OutputEdgesBegin(), src.OutputEdgesEnd(),
-                               [this](const Node::EdgeEnd& edge) {
-                                 return (edge.GetSrcArgIndex() == source_.in_out_slot.idx);
-                               });
-
-      for (const auto end = src.OutputEdgesEnd(); iter != end; ++iter) {
-        const Node& iter_node = iter->GetNode();
-        graph.RemoveEdge(src.Index(), iter_node.Index(), source_.in_out_slot.idx, iter->GetSrcArgIndex());
-        graph.AddEdge(dest.Index(), iter->GetNode().Index(), target_.in_out_slot.idx, iter->GetDstArgIndex());
+      auto edges = graph_utils::GraphEdge::GetNodeOutputEdges(src, source_.in_out_slot.idx);
+      graph_utils::GraphEdge::RemoveGraphEdges(graph, edges);
+      for (const auto& edge : edges) {
+        graph.AddEdge(dest.Index(), edge.dst_node, target_.in_out_slot.idx, edge.dst_arg_index);
       }
     }
+
+    return Status::OK();
   }
 
  private:
@@ -364,6 +387,8 @@ struct RemoveNodes : public Action {
       graph_utils::RemoveNodeOutputEdges(graph, node);
       graph.RemoveNode(node.Index());
     }
+
+    return Status::OK();
   }
 
  private:
@@ -417,9 +442,11 @@ struct MergeIntoExisting : public Action {
 //  std::vector<std::unique_ptr<ArgHandler>> output_handlers_;
 //};
 
-struct Rules {
-  NodeSelectionRules NodeSelection;
-  std::vector<std::unique_ptr<Action>> Actions;
+struct SelectorAndActions {
+  // Operator and supported versions for the node that selection will start from.
+  std::unordered_map<std::string, std::vector<int>> ops_and_versions;
+  std::unique_ptr<NodeSelector> selector;
+  std::vector<std::unique_ptr<Action>> actions;
 };
 
 }  // namespace QDQ

@@ -22,8 +22,8 @@ class RulesTransformer : public GraphTransformer {
  private:
   Status ApplyImpl(Graph& graph, bool& modified, int graph_level, const logging::Logger& logger) const override;
 
-  std::vector<std::unique_ptr<Rules>> rules_;
-  std::unordered_map<std::string, const Rules*> op_to_rules_;
+  std::vector<std::unique_ptr<SelectorAndActions>> rules_and_actions_;
+  std::unordered_map<std::string, const SelectorAndActions*> op_to_rules_and_actions_;
 };
 
 }  // namespace QDQ

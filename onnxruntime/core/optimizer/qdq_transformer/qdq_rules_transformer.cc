@@ -11,156 +11,136 @@ namespace onnxruntime {
 namespace QDQ {
 class RulesTransformerImpl {
  public:
-  RulesTransformerImpl(Graph& graph, const std::vector<std::unique_ptr<Rules>>& rules)
+  RulesTransformerImpl(Graph& graph, const std::vector<std::unique_ptr<SelectorAndActions>>& rules_and_actions)
       : graph_{graph} /*, rules_{rules} */ {
-    for (const auto& rule : rules) {
-      for (const auto& op_info : rule->NodeSelection.ops_and_versions_) {
-        bool inserted = op_to_rules_.insert({op_info.first, &*rule}).second;
+    for (const auto& rule_and_actions : rules_and_actions) {
+      for (const auto& op_info : rule_and_actions->ops_and_versions) {
+        bool inserted = op_to_rules_and_actions_.insert({op_info.first, &*rule_and_actions}).second;
         ORT_ENFORCE(inserted, "Multiple entries for operator is not supported. OpType=", op_info.first);
       }
     }
   }
 
-  bool IsMatch(const Node& node) const {
-    if (node.Domain() != kOnnxDomain) {
-      return false;
-    }
+  Status MatchAndProcess(const Node& node) const {
+    Status status = Status::OK();
 
-    auto op_rule = op_to_rules_.find(node.OpType());
-    if (op_rule == op_to_rules_.cend()) {
-      return false;
-    }
-
-    const auto& rules = *op_rule->second;
-
-    // check the supported versions if specified
-    const auto& versions = rules.NodeSelection.ops_and_versions_.find(node.OpType())->second;
-    if (!versions.empty()) {
-      if (std::find(versions.cbegin(), versions.cend(), node.SinceVersion()) == versions.cend()) {
-        return false;
+    do {
+      if (node.Domain() != kOnnxDomain) {
+        break;
       }
-    }
 
-    // use 'for' loop for debugging. switch to std::all_of before checkin
-    for (const auto& rule : rules.NodeSelection.rules) {
-      if (!(*rule)(graph_, node)) {
-        return false;
+      auto op_rule = op_to_rules_and_actions_.find(node.OpType());
+      if (op_rule == op_to_rules_and_actions_.cend()) {
+        break;
       }
-    }
 
-    bool redo = std::all_of(rules.NodeSelection.rules.cbegin(),
-                            rules.NodeSelection.rules.cend(),
-                            [this, &node](const std::unique_ptr<ConstraintChecker>& check) {
-                              return (*check)(graph_, node);
-                            });
+      const auto& rules_and_actions = *op_rule->second;
 
-    assert(redo);  // all_of should return the same result
+      // check the supported versions if specified
+      const auto& versions = rules_and_actions.ops_and_versions.find(node.OpType())->second;
+      if (!versions.empty()) {
+        if (std::find(versions.cbegin(), versions.cend(), node.SinceVersion()) == versions.cend()) {
+          break;
+        }
+      }
 
-    return true;
-  }
+      std::vector<Node*> selections;
+      if (!(*rules_and_actions.selector)(graph_, node, selections)) {
+        break;
+      }
 
-  Status Process(const Node& /*node*/) const {
-    // create new node/s
+      std::cout << "Matched " << node.OpType() << "\n";
 
-    // move edges for inputs
+      for (const auto& action : rules_and_actions.actions) {
+        status = (*action)(graph_, selections);
+        if (!status.IsOK()) {
+          break;
+        }
+      }
+    } while (false);
 
-    // move edges for outputs
-
-    // remove nodes
-    return Status::OK();
+    return status;
   }
 
  private:
   Graph& graph_;
-  //const std::vector<Rules>& rules_;
-  //std::unordered_set<std::string> ops_;
-  std::unordered_map<std::string, const Rules*> op_to_rules_;
+  std::unordered_map<std::string, const SelectorAndActions*> op_to_rules_and_actions_;
 };
 
-#define ADD_RULE(container, rule, ...) \
-  container.push_back(std::unique_ptr<ConstraintChecker>(new rule(__VA_ARGS__)))
+//#define ADD_RULE(container, rule, ...) \
+//  container.push_back(std::unique_ptr<ConstraintChecker>(new rule(__VA_ARGS__)))
 #define ADD_ACTION(container, action, ...) \
   container.push_back(std::unique_ptr<Action>(new action(__VA_ARGS__)))
 
 namespace {
 
-std::pair<NodeAndArg, NodeAndArg> MoveInput(size_t src, size_t src_idx, size_t dest, size_t dest_idx) {
-  return {NodeAndArg{src, InOutDefSlot{Direction::kInput, src_idx}},
-          NodeAndArg{dest, InOutDefSlot{Direction::kInput, dest_idx}}};
+std::pair<NodeAndArg, NodeAndArg> MoveInput(size_t src_node_idx, int src_arg_idx,
+                                            size_t dest_node_idx, int dest_arg_idx) {
+  return {NodeAndArg{src_node_idx, InOutDefSlot{Direction::kInput, src_arg_idx}},
+          NodeAndArg{dest_node_idx, InOutDefSlot{Direction::kInput, dest_arg_idx}}};
 }
 
-std::pair<NodeAndArg, NodeAndArg> MoveOutput(size_t src, size_t src_idx, size_t dest, size_t dest_idx) {
-  return {NodeAndArg{src, InOutDefSlot{Direction::kOutput, src_idx}},
-          NodeAndArg{dest, InOutDefSlot{Direction::kOutput, dest_idx}}};
+std::pair<NodeAndArg, NodeAndArg> MoveOutput(size_t src_node_idx, int src_arg_idx,
+                                             size_t dest_node_idx, int dest_arg_idx) {
+  return {NodeAndArg{src_node_idx, InOutDefSlot{Direction::kOutput, src_arg_idx}},
+          NodeAndArg{dest_node_idx, InOutDefSlot{Direction::kOutput, dest_arg_idx}}};
 }
 
 // create rules for ops that don't change the data
-std::unique_ptr<Rules> SimpleQDQRules() {
-  std::vector<std::unique_ptr<ConstraintChecker>> constraints;
+std::unique_ptr<SelectorAndActions> SimpleQDQRules() {
+  //std::vector<std::unique_ptr<ConstraintChecker>> constraints;
 
   // check that input 0 and output 0 are connected to a DQ and Q node,
-  ADD_RULE(constraints, QDQNodePairChecker, InOutDefSlot{Direction::kInput, 0}, InOutDefSlot{Direction::kOutput, 0});
+  //  ADD_RULE(constraints, QDQSimpleSelector);
 
+  std::unique_ptr<NodeSelector> selector(new QDQSimpleSelector());
   std::vector<std::unique_ptr<Action>> actions;
 
-  // 3 nodes. 0=DQ, 1=other, 2=Q. Merge into other. Move DQ input 0 to other input 0 and Q output 0 to other output 0.
-  // delete nodes 0 and 2
+  // 3 nodes. 0=DQ, 1=target, 2=Q. Merge into target and remove DQ and Q.
+  // Move DQ input 0 to target input 0.
+  // Move Q output 0 to other output 0.
+  // Delete DQ and Q
   ADD_ACTION(actions, MergeIntoExisting, {MoveInput(0, 0, 1, 0), MoveOutput(2, 0, 1, 0)}, {0, 2});
 
-  // rules apply to all versions of the operators so empty list of supported versions
-  //NodeSelectionRules selection{
-  //    {{"Gather", {}},
-  //     {"Reshape", {}},
-  //     {"Transpose", {}}},
-  //    std::move(constraints)};
-
-  return std::make_unique<Rules>(Rules{NodeSelectionRules{
-                                           {{"Gather", {}},
-                                            {"Reshape", {}},
-                                            {"Transpose", {}}},
-                                           std::move(constraints)},
-                                       std::move(actions)});
+  return std::make_unique<SelectorAndActions>(SelectorAndActions{{{"Gather", {}},
+                                                                  {"Reshape", {}},
+                                                                  {"Transpose", {}}},
+                                                                 std::move(selector),
+                                                                 std::move(actions)});
 }
 
-// create rules for ops with 2 inputs
-//Rules BinaryQDQRules() {
-//}
 }  // namespace
 
 RulesTransformer::RulesTransformer() noexcept
     : GraphTransformer("QDQ::RulesTransformer") {
-  rules_.reserve(8);
+  rules_and_actions_.reserve(8);
 
-  rules_.push_back(std::move(SimpleQDQRules()));
+  rules_and_actions_.push_back(std::move(SimpleQDQRules()));
 
   // setup lookup map for all the rules
-  for (const auto& rule : rules_) {
-    for (const auto& op_info : rule->NodeSelection.ops_and_versions_) {
+  for (const auto& entry : rules_and_actions_) {
+    for (const auto& op_info : entry->ops_and_versions) {
       const auto& op_name = op_info.first;
-      op_to_rules_.insert({op_name, &*rule});
+      op_to_rules_and_actions_.insert({op_name, &*entry});
     }
   }
 }
 
 Status RulesTransformer::ApplyImpl(Graph& graph, bool& modified, int graph_level,
                                    const logging::Logger& logger) const {
-  RulesTransformerImpl impl(graph, rules_);
+  RulesTransformerImpl impl(graph, rules_and_actions_);
   GraphViewer graph_viewer(graph);
 
   for (auto index : graph_viewer.GetNodesInTopologicalOrder()) {
-    auto& node = *graph.GetNode(index);
-
-    // no point replacing a node with a quantized version if it is producing a graph output
-    if (!graph.GetNodeOutputsInGraphOutputs(node).empty()) {
-      continue;
+    auto* node = graph.GetNode(index);
+    if (node == nullptr) {
+      continue;  // was removed by this transformer
     }
 
-    ORT_RETURN_IF_ERROR(Recurse(node, modified, graph_level, logger));
+    ORT_RETURN_IF_ERROR(Recurse(*node, modified, graph_level, logger));
 
-    if (node.GetExecutionProviderType() == kCpuExecutionProvider) {
-      if (impl.IsMatch(node)) {
-        ORT_RETURN_IF_ERROR(impl.Process(node));
-      }
+    if (node->GetExecutionProviderType() == kCpuExecutionProvider) {
+      ORT_RETURN_IF_ERROR(impl.MatchAndProcess(*node));
     }
   }
   return Status::OK();
