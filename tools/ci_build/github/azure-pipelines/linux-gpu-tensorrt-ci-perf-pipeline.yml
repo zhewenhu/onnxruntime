@@ -81,7 +81,7 @@ jobs:
       - task: PowerShell@2
         inputs:
           filePath: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/build/start_job.ps1'
-          arguments: '-account_key $(account-key)'
+          arguments: '-file_folder $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/dist -account_key $(account-key)'
 
     - ${{ if eq(parameters.RunOnnxZoo, true) }}:
       - script: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/run_perf$(args) -o "onnx-zoo-models" '
