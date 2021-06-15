@@ -42,6 +42,7 @@ class ONNXQuantizer:
         self.mode = mode  # QuantizationMode.Value
         self.static = static  # use static quantization for inputs.
         self.fuse_dynamic_quant = False
+        self.disable_subgraph_quantization = 'DisableSubgraph' in self.extra_options and self.extra_options['DisableSubgraph']
         self.q_matmul_const_b_only = 'MatMulConstBOnly' in self.extra_options and self.extra_options['MatMulConstBOnly']
         self.is_weight_symmetric = 'WeightSymmetric' not in self.extra_options or self.extra_options['WeightSymmetric']
 
@@ -66,11 +67,9 @@ class ONNXQuantizer:
         self.parent = None
         self.graph_scope = "/" # for human readable debug information
         self.tensor_names = { } # in case the shape inference not totally working
-        self.tensor_names = {vi.name: 1 for vi in model.graph.value_info}
         self.tensor_names.update({ot.name: 1 for ot in model.graph.output})
         self.tensor_names.update({it.name: 1 for it in model.graph.input})
         for node in self.model.model.graph.node:
-            self.tensor_names.update({input_name: 1 for input_name in node.input})
             self.tensor_names.update({output_name: 1 for output_name in node.output})
 
         self.opset_version = self.check_opset_version()
@@ -265,7 +264,8 @@ class ONNXQuantizer:
 
         for node in self.model.nodes():
             # quantize subgraphes if have
-            node = self.quantize_node_with_sub_graph(node)
+            if not self.disable_subgraph_quantization:
+                node = self.quantize_node_with_sub_graph(node)
 
             number_of_existing_new_nodes = len(self.new_nodes)
             if self.should_quantize(node):
