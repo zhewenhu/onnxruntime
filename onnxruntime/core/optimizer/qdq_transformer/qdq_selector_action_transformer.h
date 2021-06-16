@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "core/optimizer/selectors_actions/selector_actions_transformer.h"
+#include "core/optimizer/selectors_actions/selector_action_transformer.h"
 
 namespace onnxruntime {
 /**
