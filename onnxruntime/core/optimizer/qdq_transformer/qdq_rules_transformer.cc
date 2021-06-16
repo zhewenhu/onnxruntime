@@ -21,7 +21,7 @@ class RulesTransformerImpl {
     }
   }
 
-  Status MatchAndProcess(const Node& node) const {
+  Status MatchAndProcess(const Node& node, bool& modified) const {
     Status status = Status::OK();
 
     do {
@@ -59,6 +59,8 @@ class RulesTransformerImpl {
           break;
         }
       }
+
+      modified = true;
     } while (false);
 
     return status;
@@ -132,12 +134,14 @@ std::unique_ptr<SelectorAndActions> BinaryOpQDQRules() {
 
   // set any missing zero point to 0.
   ADD_ACTION(actions, SetOptionalZeroPoint, {0, 1, 3});
-  ADD_ACTION(actions, ReplaceWithNew, 2,  // replace node 2
-             {MoveInput(0, -1, -1),       // append all inputs from dq[0]
-              MoveInput(1, -1, -1),       // append all inputs from dq[1]
-              MoveInput(3, 1, -1),        // append scale from q[0]
-              MoveInput(3, 2, -1),        // append zp from q[0]
-              MoveOutput(3, -1, -1)}      // and use the outputs from q[0]
+  ADD_ACTION(actions, ReplaceWithNew,
+             2,                       // replace node 2
+             kMSDomain,               // QLinearAdd and QLinearMul are internal ops
+             {MoveInput(0, -1, -1),   // append all inputs from dq[0]
+              MoveInput(1, -1, -1),   // append all inputs from dq[1]
+              MoveInput(3, 1, -1),    // append scale from q[0]
+              MoveInput(3, 2, -1),    // append zp from q[0]
+              MoveOutput(3, -1, -1)}  // and use the outputs from q[0]
   );
 
   return std::make_unique<SelectorAndActions>(SelectorAndActions{{{"Add", {}},
@@ -145,6 +149,28 @@ std::unique_ptr<SelectorAndActions> BinaryOpQDQRules() {
                                                                  std::move(selector),
                                                                  std::move(actions)});
 }
+
+std::unique_ptr<SelectorAndActions> ConvQDQRules() {
+  std::unique_ptr<NodeSelector> selector(new QDQConvSelector());
+  std::vector<std::unique_ptr<Action>> actions;
+
+  // 0=DQ X, 1=DQ W, 2=DQ B (optional), 3=Conv, 4=Q
+  ADD_ACTION(actions, ReplaceWithNew,
+             3,                       // replace node 3
+             kOnnxDomain,             // QLinearConv is from ONNX
+             {MoveInput(0, -1, -1),   // append all inputs from dq[0]
+              MoveInput(1, -1, -1),   // append all inputs from dq[1]
+              MoveInput(4, 1, -1),    // append scale from q[0]
+              MoveInput(4, 2, -1),    // append zp from q[0]
+              MoveInput(2, 0, -1),    // (optional) append input dq[2][0]
+              MoveOutput(4, -1, -1)}  // and use the outputs from q[0]
+  );
+
+  return std::make_unique<SelectorAndActions>(SelectorAndActions{{{"Conv", {}}},
+                                                                 std::move(selector),
+                                                                 std::move(actions)});
+}
+
 }  // namespace
 
 RulesTransformer::RulesTransformer() noexcept
@@ -153,6 +179,7 @@ RulesTransformer::RulesTransformer() noexcept
 
   rules_and_actions_.push_back(std::move(SimpleQDQRules()));
   rules_and_actions_.push_back(std::move(BinaryOpQDQRules()));
+  rules_and_actions_.push_back(std::move(ConvQDQRules()));
 
   // setup lookup map for all the rules
   for (const auto& entry : rules_and_actions_) {
@@ -177,7 +204,7 @@ Status RulesTransformer::ApplyImpl(Graph& graph, bool& modified, int graph_level
     ORT_RETURN_IF_ERROR(Recurse(*node, modified, graph_level, logger));
 
     if (node->GetExecutionProviderType() == kCpuExecutionProvider) {
-      ORT_RETURN_IF_ERROR(impl.MatchAndProcess(*node));
+      ORT_RETURN_IF_ERROR(impl.MatchAndProcess(*node, modified));
     }
   }
   return Status::OK();

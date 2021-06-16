@@ -29,7 +29,7 @@ struct InOutDefSlot {
   int idx;  // idx of -1 means 'all' if a source, or 'end' if a target
 };
 
-const Node* NodeFromSlot(const Node& node, const InOutDefSlot& slot);
+//const Node* NodeFromSlot(const Node& node, const InOutDefSlot& slot);
 
 struct NodeAndArg {
   size_t node_idx;
@@ -70,21 +70,6 @@ class InOutChecker : public ConstraintChecker {
   const bool optional_;
 };
 
-class TensorElemTypeChecker : public InOutChecker {
- public:
-  TensorElemTypeChecker(InOutDefSlot slot, int32_t type) : InOutChecker{slot}, elem_type_{type} {}
-
- private:
-  bool Check(const Graph&, const NodeArg& node_arg) const override {
-    const auto* type = node_arg.TypeAsProto();
-    return type != nullptr &&
-           type->has_tensor_type() &&
-           type->tensor_type().elem_type() == elem_type_;
-  }
-
-  const int32_t elem_type_;
-};
-
 class IsScalarChecker : public InOutChecker {
  public:
   IsScalarChecker(InOutDefSlot slot) : InOutChecker{slot} {}
@@ -116,8 +101,25 @@ class ConstantScalarChecker : public InOutChecker {
   }
 };
 
+/*
+// check that an input or output is a tensor with the specified element type
+class TensorElemTypeChecker : public InOutChecker {
+ public:
+  TensorElemTypeChecker(InOutDefSlot slot, int32_t type) : InOutChecker{slot}, elem_type_{type} {}
+
+ private:
+  bool Check(const Graph&, const NodeArg& node_arg) const override {
+    const auto* type = node_arg.TypeAsProto();
+    return type != nullptr &&
+           type->has_tensor_type() &&
+           type->tensor_type().elem_type() == elem_type_;
+  }
+
+  const int32_t elem_type_;
+};
+
 // check the input or output count of a node
-// does not count missing optional inputes
+// does not count missing optional inputs
 class InOutCount : public ConstraintChecker {
  public:
   InOutCount(Direction type, size_t count) : type_{type}, count_{count} {}
@@ -141,7 +143,7 @@ class InOutOpTypeChecker : public ConstraintChecker {
   InOutOpTypeChecker(InOutDefSlot slot, const std::string& op_type) : slot_{slot}, op_type_{op_type} {
   }
 
-  bool operator()(const Graph& /*graph*/, const Node& node) const override {
+  bool operator()(const Graph&, const Node& node) const override {
     const Node* in_out_node = NodeFromSlot(node, slot_);
     return in_out_node && in_out_node->OpType() == op_type_;
 
@@ -168,9 +170,10 @@ class InOutOpTypeChecker : public ConstraintChecker {
   InOutDefSlot slot_;
   const std::string op_type_;
 };
+*/
 
 struct NodeSelector {
-  // Select one or more nodes to process if the constraints are satisfied
+  // Select one or more nodes for an Action to process if the constraints are satisfied
   virtual bool operator()(Graph& graph, const Node& node, std::vector<Node*>& selection) const = 0;
   virtual ~NodeSelector() = default;
 };
@@ -178,45 +181,26 @@ struct NodeSelector {
 // Base QDQ checker. Provides the DQ and Q nodes to the operator specific checkers
 class QDQSelector : public NodeSelector {
  public:
-  bool operator()(Graph& graph, const Node& node, std::vector<Node*>& selection) const override {
-    std::vector<const Node*> dq_nodes = graph_utils::FindParentsByType(node, DQOpName);
-    std::vector<const Node*> q_nodes = graph_utils::FindChildrenByType(node, QOpName);
-
-    if (!Check(graph, node, dq_nodes, q_nodes)) {
-      return false;
-    }
-
-    auto get_mutable_node = [&graph](const Node* node) {
-      // we use the non-const GetNode to convert the const Node* to Node*
-      return graph.GetNode(node->Index());
-    };
-
-    // TODO: If this packing isn't always the case (e.g. are there scenarios with optional inputs where we'd need
-    // empty slots in the vector so the Action definition always works) we may need to do the selection
-    // in the derived classes
-    selection.reserve(dq_nodes.size() + 1 + q_nodes.size());
-    for (const Node* dq_node : dq_nodes) {
-      selection.push_back(get_mutable_node(dq_node));
-    }
-    selection.push_back(get_mutable_node(&node));
-
-    for (const Node* q_node : q_nodes) {
-      selection.push_back(get_mutable_node(q_node));
-    }
-
-    return true;
-  }
+  bool operator()(Graph& graph, const Node& node, std::vector<Node*>& selection) const override;
 
  protected:
   QDQSelector() = default;
 
-  // base check that we have the expected number of QDQ inputs/outputs, and 'node' isn't producing a graph output
+  // override if you need to add entries for missing optional DQ inputs
+  // Called post-Check if Check returned `true`
+  virtual void AdjustDQNodes(std::vector<const Node*>& /*dq_nodes*/) const {}
+
+  // base check that we have the expected number of QDQ inputs/outputs, and `node` isn't producing a graph output
+  // num_dq_inputs defaults to the number of inputs `node` has
   bool CheckQDQNodes(const Graph& graph, const Node& node,
                      const std::vector<const Node*>& dq_nodes,
                      const std::vector<const Node*>& q_nodes,
-                     size_t num_dq_inputs = -1) const {
-    if (num_dq_inputs == -1) {
-      num_dq_inputs = node.InputDefs().size();
+                     size_t num_dq_inputs = std::numeric_limits<size_t>::max()) const {
+    if (num_dq_inputs == std::numeric_limits<size_t>::max()) {
+      const auto& input_defs = node.InputDefs();
+      // adjust for an optional input that has an entry but does not exist
+      num_dq_inputs = std::count_if(input_defs.cbegin(), input_defs.cend(),
+                                    [](const NodeArg* def) { return def && def->Exists(); });
     }
 
     return num_dq_inputs == dq_nodes.size() &&
@@ -247,15 +231,24 @@ class QDQSimpleSelector : public QDQSelector {
   const ConstantScalarChecker q_zero_point_is_constant_scalar_;
 };
 
+// 2 DQ nodes providing input -> node -> Q
 class QDQBinarySelector : public QDQSelector {
- public:
-  QDQBinarySelector();
-
- private:
   bool Check(const Graph& graph, const Node& node,
              const std::vector<const Node*>& dq_nodes,
              const std::vector<const Node*>& q_nodes) const override;
 };
+
+class QDQConvSelector : public QDQSelector {
+  bool Check(const Graph& graph, const Node& node,
+             const std::vector<const Node*>& dq_nodes,
+             const std::vector<const Node*>& q_nodes) const override;
+
+  void AdjustDQNodes(std::vector<const Node*>& dq_nodes) const override;
+};
+
+//
+// Actions
+//
 
 // actions that are applied to a set of nodes identified during selection
 struct Action {
@@ -345,6 +338,7 @@ struct SetOptionalZeroPoint : public Action {
 
 struct ReplaceWithNew : public Action {
   ReplaceWithNew(size_t node_to_replace,
+                 const std::string& domain,
                  std::initializer_list<std::pair<NodeAndArg, InOutDefSlot>> value_moves);
 
  private:
@@ -355,6 +349,7 @@ struct ReplaceWithNew : public Action {
   // but this may not be needed for QDQ.
 
   size_t node_to_replace_;
+  const std::string domain_;
   std::vector<std::pair<NodeAndArg, InOutDefSlot>> value_moves_;
 };
 

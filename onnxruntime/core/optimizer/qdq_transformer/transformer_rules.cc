@@ -13,24 +13,25 @@ namespace onnxruntime {
 namespace QDQ {
 
 namespace {
-const Node* NodeFromSlot(const Node& node, const InOutDefSlot& slot) {
-  if (slot.in_out == Direction::kInput) {
-    auto iter = std::find_if(node.InputEdgesBegin(), node.InputEdgesEnd(),
-                             [&slot](const Node::EdgeEnd& edge) {
-                               return (edge.GetDstArgIndex() == slot.idx);
-                             });
+//const Node* NodeFromSlot(const Node& node, const InOutDefSlot& slot) {
+//  if (slot.in_out == Direction::kInput) {
+//    auto iter = std::find_if(node.InputEdgesBegin(), node.InputEdgesEnd(),
+//                             [&slot](const Node::EdgeEnd& edge) {
+//                               return (edge.GetDstArgIndex() == slot.idx);
+//                             });
+//
+//    return iter != node.InputEdgesEnd() ? &iter->GetNode() : nullptr;
+//  } else {
+//    auto iter = std::find_if(node.OutputEdgesBegin(), node.OutputEdgesEnd(),
+//                             [&slot](const Node::EdgeEnd& edge) {
+//                               return (edge.GetSrcArgIndex() == slot.idx);
+//                             });
+//
+//    return iter != node.OutputEdgesEnd() ? &iter->GetNode() : nullptr;
+//  }
+//}
 
-    return iter != node.InputEdgesEnd() ? &iter->GetNode() : nullptr;
-  } else {
-    auto iter = std::find_if(node.OutputEdgesBegin(), node.OutputEdgesEnd(),
-                             [&slot](const Node::EdgeEnd& edge) {
-                               return (edge.GetSrcArgIndex() == slot.idx);
-                             });
-
-    return iter != node.OutputEdgesEnd() ? &iter->GetNode() : nullptr;
-  }
-}
-
+// TODO: Move to utils?
 struct MoveInputOutputImpl {
   MoveInputOutputImpl(const InOutDefSlot& src_slot, const InOutDefSlot& dest_slot)
       : src_slot_{src_slot},
@@ -133,6 +134,43 @@ struct MoveInputOutputImpl {
 
 }  // namespace
 
+//
+// Selector implementations
+//
+
+bool QDQSelector::operator()(Graph& graph, const Node& node, std::vector<Node*>& selection) const {
+  // GetDQNodes can be overridden so an op which has optional DQ inputs can insert nullptr in the correct
+  // slots for those
+  std::vector<const Node*> dq_nodes = graph_utils::FindParentsByType(node, DQOpName);
+  std::vector<const Node*> q_nodes = graph_utils::FindChildrenByType(node, QOpName);
+
+  if (!Check(graph, node, dq_nodes, q_nodes)) {
+    return false;
+  }
+
+  AdjustDQNodes(dq_nodes);
+
+  auto get_mutable_node = [&graph](const Node* node) {
+    // we use the non-const GetNode to convert the const Node* to Node*
+    return graph.GetNode(node->Index());
+  };
+
+  // TODO: If this packing isn't always the case (e.g. are there scenarios with optional inputs where we'd need
+  // empty slots in the vector so the Action definition always works) we may need to do the selection
+  // in the derived classes
+  selection.reserve(dq_nodes.size() + 1 + q_nodes.size());
+  for (const Node* dq_node : dq_nodes) {
+    selection.push_back(get_mutable_node(dq_node));
+  }
+  selection.push_back(get_mutable_node(&node));
+
+  for (const Node* q_node : q_nodes) {
+    selection.push_back(get_mutable_node(q_node));
+  }
+
+  return true;
+}
+
 QDQSimpleSelector::QDQSimpleSelector()
     : QDQSelector{},
       dq_scale_is_constant_scalar_{InOutDefSlot{Direction::kInput, QDQInputIndex::SCALE_ID}},
@@ -145,7 +183,6 @@ bool QDQSimpleSelector::Check(const Graph& graph,
                               const Node& node,
                               const std::vector<const Node*>& dq_nodes,
                               const std::vector<const Node*>& q_nodes) const {
-  //
   if (!CheckQDQNodes(graph, node, dq_nodes, q_nodes, 1)) {
     return false;
   }
@@ -177,8 +214,6 @@ bool QDQSimpleSelector::Check(const Graph& graph,
          *q_scale.data<float>() == *dq_scale.data<float>();
 }
 
-QDQBinarySelector::QDQBinarySelector() : QDQSelector{} {}
-
 bool QDQBinarySelector::Check(const Graph& graph,
                               const Node& node,
                               const std::vector<const Node*>& dq_nodes,
@@ -194,6 +229,48 @@ bool QDQBinarySelector::Check(const Graph& graph,
   return dt_input_1 == dt_input_2 &&
          dt_input_1 == dt_output;
 }
+
+bool QDQConvSelector::Check(const Graph& graph,
+                            const Node& node,
+                            const std::vector<const Node*>& dq_nodes,
+                            const std::vector<const Node*>& q_nodes) const {
+  if (!CheckQDQNodes(graph, node, dq_nodes, q_nodes)) {
+    return false;
+  }
+
+  // TODO: Can we create more generic checkers for the element type comparisons that can be re-used across the selectors
+  // so that we just use that with the set of checks to make?
+  //   - check type of individual input/output
+  //   - check 2 types match
+  //     - type selection of 1 input/output + type to compare to
+  //     - or type selections of 2 inputs/outputs
+  //   - check multiple types match
+  // To generalize: check a collection of entries match. entries could be a type selector for an input/output or a type
+  // The type selector could maybe have a cast to int for comparison against TensorProto_DataType values
+
+  // Currently QLinearConv only support activation type uint8_t and output type uint8_t
+  int32_t dt_input = dq_nodes[0]->InputDefs()[0]->TypeAsProto()->tensor_type().elem_type();
+  int32_t dt_output = q_nodes[0]->OutputDefs()[0]->TypeAsProto()->tensor_type().elem_type();
+  if (dt_input != ONNX_NAMESPACE::TensorProto_DataType::TensorProto_DataType_UINT8 ||
+      dt_output != ONNX_NAMESPACE::TensorProto_DataType::TensorProto_DataType_UINT8) {
+    return false;
+  }
+
+  if (dq_nodes.size() < 3) {  // no bias
+    return true;
+  }
+
+  int32_t dt_bias = dq_nodes[2]->InputDefs()[0]->TypeAsProto()->tensor_type().elem_type();
+  return dt_bias == ONNX_NAMESPACE::TensorProto_DataType::TensorProto_DataType_INT32;
+}
+
+void QDQConvSelector::AdjustDQNodes(std::vector<const Node*>& dq_nodes) const {
+  dq_nodes.resize(3);  // add nullptr for bias if missing
+}
+
+//
+// Action implementations
+//
 
 Status MoveInputOutput::operator()(Graph& graph, std::vector<Node*>& nodes) {
   Node& src = *GetNode(source_.node_idx, nodes);
@@ -213,8 +290,10 @@ Status MergeIntoExisting::operator()(Graph& graph, std::vector<Node*>& nodes) {
 }
 
 ReplaceWithNew::ReplaceWithNew(size_t node_to_replace,
+                               const std::string& domain,
                                std::initializer_list<std::pair<NodeAndArg, InOutDefSlot>> value_moves)
     : node_to_replace_{node_to_replace},
+      domain_{domain},
       value_moves_{value_moves} {
 }
 
@@ -228,7 +307,7 @@ Status ReplaceWithNew::operator()(Graph& graph, std::vector<Node*>& nodes) {
                              {},  // input defs
                              {},  // output defs
                              &replaced_node.GetAttributes(),
-                             kMSDomain);
+                             domain_);
 
   node.SetExecutionProviderType(kCpuExecutionProvider);
 
@@ -236,8 +315,15 @@ Status ReplaceWithNew::operator()(Graph& graph, std::vector<Node*>& nodes) {
     const NodeAndArg& src_info = pair.first;
     const InOutDefSlot& dest_slot = pair.second;
 
-    Node& src = *GetNode(src_info.node_idx, nodes);
-    MoveInputOutputImpl(src_info.in_out_slot, dest_slot)(graph, src, node);
+    // allow for optional inputs. GetNode with throw if we're missing something we expected to be there
+    bool node_required = dest_slot.in_out == Direction::kOutput;
+    Node* src = GetNode(src_info.node_idx, nodes, node_required);
+    if (src != nullptr) {
+      MoveInputOutputImpl(src_info.in_out_slot, dest_slot)(graph, *src, node);
+    } else {
+      // optional inputs are always last in the list of things to move, so we don't need to insert a
+      // nullptr in the input/output defs (TODO: Confirm)
+    }
   }
 
   RemoveAllNodes()(graph, nodes);

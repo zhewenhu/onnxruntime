@@ -113,7 +113,8 @@ void QDQTransformerConvTests() {
                       12 /*opset_version*/,
                       0.01 /*per_sample_tolerance*/,
                       0.01 /*relative_per_sample_tolerance*/,
-                      std::make_unique<QDQTransformer>());
+                      std::make_unique<QDQ::RulesTransformer>()
+                      /*std::make_unique<QDQTransformer>()*/);
   };
 
   test_case({1, 12, 37}, {32, 12, 5});
@@ -302,7 +303,8 @@ void QDQTransformerAveragePoolTests() {
                       12 /*opset_version*/,
                       0.01 /*per_sample_tolerance*/,
                       0.01 /*relative_per_sample_tolerance*/,
-                      std::make_unique<QDQTransformer>());
+                      std::make_unique<QDQ::RulesTransformer>()
+                      /*std::make_unique<QDQTransformer>()*/);
   };
 
   test_case({1, 12, 37});
@@ -519,7 +521,8 @@ void QDQTransformerMatMulTests(bool has_output_q) {
                       12 /*opset_version*/,
                       0.01 /*per_sample_tolerance*/,
                       0.01 /*relative_per_sample_tolerance*/,
-                      std::make_unique<QDQTransformer>());
+                      std::make_unique<QDQ::RulesTransformer>()
+                      /*std::make_unique<QDQTransformer>()*/);
   };
 
   test_case({1, 2, 2}, {1, 2, 4});
@@ -1497,7 +1500,8 @@ TEST(QDQTransformerTests, Concat_UInt8) {
                       12 /*opset_version*/,
                       0.01f /*per_sample_tolerance*/,
                       0.01f /*relative_per_sample_tolerance*/,
-                      std::make_unique<QDQTransformer>());
+                      std::make_unique<QDQ::RulesTransformer>()
+                      /*std::make_unique<QDQTransformer>()*/);
   };
 
   test_case({{1, 6, 36}, {1, 3, 36}}, 1);
