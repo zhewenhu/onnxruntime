@@ -8,7 +8,7 @@ $end = (Get-Date) + $expiredays
 
 $ort_trt_ep_pkg_sas_uri = az storage blob generate-sas -c upload -n $ort_trt_ep_pkg_blob_path --account-name anubiscustomerstorage --account-key $account_key --full-uri --permissions r --expiry $end.ToString("yyyy-MM-ddTHH:mmZ") --https-only
 
-$ort_trt_ep_pkg_sas_uri = [System.Web.HttpUtility]::UrlDecode($ort_trt_ep_pkg_sas_uri[2])
+$ort_trt_ep_pkg_sas_uri = $ort_trt_ep_pkg_sas_uri.Substring(1, $ort_trt_ep_pkg_sas_uri.Length-2)
 
 $body_trt_perf_compare = @{
    "Name"="TRT_PERF_COMPARE";
