@@ -161,6 +161,9 @@ option(onnxruntime_ENABLE_BITCODE "Enable bitcode for iOS only" OFF)
 # build eager mode
 option(onnxruntime_ENABLE_EAGER_MODE "build ort eager mode")
 
+# build separate library of schemas of (custom) ops used by ORT (for ONNX to MLIR translation)
+option(onnxruntime_BUILD_OPSCHEMA_LIB "Build op schema library" ON)
+
 # Single output director for all binaries
 set (RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin CACHE PATH "Single output directory for all binaries.")
 
@@ -661,7 +664,7 @@ if(onnxruntime_BUILD_BENCHMARKS)
     # We will not need to install benchmark since we link it statically.
     set(BENCHMARK_ENABLE_INSTALL OFF CACHE BOOL "Disable benchmark install to avoid overwriting vendor install.")
     add_subdirectory(${PROJECT_SOURCE_DIR}/external/googlebenchmark EXCLUDE_FROM_ALL)
-    add_library(benchmark::benchmark ALIAS benchmark)
+    #add_library(benchmark::benchmark ALIAS benchmark)
   endif()
 endif()
 
@@ -1735,4 +1738,9 @@ if(BUILD_PKGCONFIG_FILES)
     ${CMAKE_CURRENT_BINARY_DIR}/libonnxruntime.pc @ONLY)
   install( FILES  ${CMAKE_CURRENT_BINARY_DIR}/libonnxruntime.pc DESTINATION
     ${CMAKE_INSTALL_LIBDIR}/pkgconfig )
+endif()
+
+if (onnxruntime_BUILD_OPSCHEMA_LIB AND onnxruntime_ENABLE_TRAINING)
+  # opschema library requires training ops as well
+  include(onnxruntime_opschema_lib.cmake)
 endif()
