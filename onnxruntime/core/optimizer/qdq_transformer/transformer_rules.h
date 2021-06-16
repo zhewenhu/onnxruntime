@@ -26,7 +26,7 @@ enum class Direction { kInput,
 // struct to define the location of an input or output definition for a Node
 struct InOutDefSlot {
   Direction in_out;
-  int idx;
+  int idx;  // idx of -1 means 'all' if a source, or 'end' if a target
 };
 
 const Node* NodeFromSlot(const Node& node, const InOutDefSlot& slot);
@@ -191,7 +191,9 @@ class QDQSelector : public NodeSelector {
       return graph.GetNode(node->Index());
     };
 
-    // TODO: If this isn't always the case we may need to do the selection in the derived classes
+    // TODO: If this packing isn't always the case (e.g. are there scenarios with optional inputs where we'd need
+    // empty slots in the vector so the Action definition always works) we may need to do the selection
+    // in the derived classes
     selection.reserve(dq_nodes.size() + 1 + q_nodes.size());
     for (const Node* dq_node : dq_nodes) {
       selection.push_back(get_mutable_node(dq_node));
@@ -207,6 +209,20 @@ class QDQSelector : public NodeSelector {
 
  protected:
   QDQSelector() = default;
+
+  // base check that we have the expected number of QDQ inputs/outputs, and 'node' isn't producing a graph output
+  bool CheckQDQNodes(const Graph& graph, const Node& node,
+                     const std::vector<const Node*>& dq_nodes,
+                     const std::vector<const Node*>& q_nodes,
+                     size_t num_dq_inputs = -1) const {
+    if (num_dq_inputs == -1) {
+      num_dq_inputs = node.InputDefs().size();
+    }
+
+    return num_dq_inputs == dq_nodes.size() &&
+           node.OutputDefs().size() == q_nodes.size() &&
+           optimizer_utils::CheckOutputEdges(graph, node, q_nodes.size());
+  }
 
  private:
   bool virtual Check(const Graph& graph, const Node& node,
@@ -231,43 +247,15 @@ class QDQSimpleSelector : public QDQSelector {
   const ConstantScalarChecker q_zero_point_is_constant_scalar_;
 };
 
-//struct ArgHandler {
-//  virtual NodeArg* GetNodeArg(Graph& /*graph*/, Node& /*orig_node*/) const = 0;
-//  virtual void MoveEdges(Graph& /*graph*/, Node& /*orig_node*/, Node& /*new_node*/) const = 0;
-//  virtual ~ArgHandler() = default;
-//};
-//
-//// ArgHandler if a new initializer value was created
-//struct CreateInputOutput : public ArgHandler {
-//  CreateInputOutput(const std::string& name, ONNX_NAMESPACE::TypeProto type)
-//      : name_{name}, type_{type} {}
-//
-//  NodeArg* GetNodeArg(Graph& graph, Node& /*orig_node*/) const override {
-//    // create the new node arg for the initializer and add it to the graph
-//    auto new_name = graph.GenerateNodeArgName(name_);
-//
-//    graph.GetOrCreateNodeArg(new_name, &type_);
-//  }
-//
-//  void MoveEdges(Graph& /*graph*/, Node& /*orig_node*/, Node& /*new_node*/) const override {
-//    return;
-//  }
-//
-// private:
-//  const std::string name_;
-//  const ONNX_NAMESPACE::TypeProto type_;
-//};
-//
-//struct CreateNodeRule {
-//  std::string op_type;
-//  std::string domain;
-//  std::string name;  // generated?
-//
-//  std::vector<NodeAndArg> inputs;
-//  std::vector<NodeAndArg> outputs;
-//
-//  Node* operator()(Graph&, std::vector<Node*>&);
-//};
+class QDQBinarySelector : public QDQSelector {
+ public:
+  QDQBinarySelector();
+
+ private:
+  bool Check(const Graph& graph, const Node& node,
+             const std::vector<const Node*>& dq_nodes,
+             const std::vector<const Node*>& q_nodes) const override;
+};
 
 // actions that are applied to a set of nodes identified during selection
 struct Action {
@@ -275,7 +263,7 @@ struct Action {
   virtual ~Action() = default;
 
   // helper to validate the index when fetching a node
-  Node* GetNode(size_t index, std::vector<Node*>& nodes, bool required = true) {
+  Node* GetNode(size_t index, const std::vector<Node*>& nodes, bool required = true) {
     Node* node = nullptr;
     ORT_ENFORCE(index < nodes.size() &&
                 ((node = nodes[index]) != nullptr || !required));
@@ -289,88 +277,7 @@ struct MoveInputOutput : public Action {
   MoveInputOutput(NodeAndArg src, NodeAndArg dest) : source_{src}, target_{dest} {
   }
 
-  Status operator()(Graph& graph, std::vector<Node*>& nodes) override {
-    Node& src = *GetNode(source_.node_idx, nodes);
-    Node& dest = *GetNode(target_.node_idx, nodes);
-
-    ORT_RETURN_IF_ERROR(MoveNodeArg(graph, src, dest));
-    ORT_RETURN_IF_ERROR(MoveEdges(graph, src, dest));
-
-    return Status::OK();
-  }
-
- private:
-  Status MoveNodeArg(Graph& graph, Node& src, Node& dest) const {
-    auto& src_defs = (source_.in_out_slot.in_out == Direction::kInput)
-                         ? src.MutableInputDefs()
-                         : src.MutableOutputDefs();
-
-    auto& dest_defs = (target_.in_out_slot.in_out == Direction::kInput)
-                          ? dest.MutableInputDefs()
-                          : dest.MutableOutputDefs();
-
-    if (source_.in_out_slot.idx >= src_defs.size() ||
-        target_.in_out_slot.idx >= dest_defs.size()) {
-      // TODO improve error message
-      return ORT_MAKE_STATUS(ONNXRUNTIME, FAIL, "Index out of range");
-    }
-
-    // remove any edge to the slot we're replacing
-    RemoveEdge(graph, dest, target_.in_out_slot);
-
-    dest_defs[target_.in_out_slot.idx] = src_defs[source_.in_out_slot.idx];
-
-    return Status::OK();
-  }
-
-  // TODO: Refactor so the processing on the edges is a plugin and we don't need to duplicate the logic here and in
-  // MoveEdges to find the matching edges
-  void RemoveEdge(Graph& graph, Node& node, const InOutDefSlot& slot) const {
-    if (slot.in_out == Direction::kInput) {
-      // move input edge if present
-      auto iter = std::find_if(node.InputEdgesBegin(), node.InputEdgesEnd(),
-                               [&slot](const Node::EdgeEnd& edge) {
-                                 return (edge.GetDstArgIndex() == slot.idx);
-                               });
-
-      if (iter != node.InputEdgesEnd()) {
-        const Node& iter_node = iter->GetNode();
-        graph.RemoveEdge(iter_node.Index(), node.Index(), iter->GetSrcArgIndex(), slot.idx);
-      }
-
-    } else {
-      // otherwise we need to move all output edges (if any)
-      auto edges = graph_utils::GraphEdge::GetNodeOutputEdges(node, slot.idx);
-      graph_utils::GraphEdge::RemoveGraphEdges(graph, edges);
-    }
-  }
-
-  Status MoveEdges(Graph& graph, Node& src, Node& dest) const {
-    if (source_.in_out_slot.in_out == Direction::kInput) {
-      // move input edge if present
-      auto iter = std::find_if(src.InputEdgesBegin(), src.InputEdgesEnd(),
-                               [this](const Node::EdgeEnd& edge) {
-                                 return (edge.GetDstArgIndex() == source_.in_out_slot.idx);
-                               });
-
-      // initializer or graph input doesn't have an edge so either zero or one edges to process
-      if (iter != src.InputEdgesEnd()) {
-        const Node& iter_node = iter->GetNode();
-        graph.RemoveEdge(iter_node.Index(), src.Index(), iter->GetSrcArgIndex(), source_.in_out_slot.idx);
-        graph.AddEdge(iter_node.Index(), dest.Index(), iter->GetSrcArgIndex(), target_.in_out_slot.idx);
-      }
-
-    } else {
-      // otherwise we need to move all output edges (if any)
-      auto edges = graph_utils::GraphEdge::GetNodeOutputEdges(src, source_.in_out_slot.idx);
-      graph_utils::GraphEdge::RemoveGraphEdges(graph, edges);
-      for (const auto& edge : edges) {
-        graph.AddEdge(dest.Index(), edge.dst_node, target_.in_out_slot.idx, edge.dst_arg_index);
-      }
-    }
-
-    return Status::OK();
-  }
+  Status operator()(Graph& graph, std::vector<Node*>& nodes) override;
 
  private:
   NodeAndArg source_;
@@ -395,6 +302,19 @@ struct RemoveNodes : public Action {
   const std::vector<size_t> nodes_to_remove_;
 };
 
+struct RemoveAllNodes : public Action {
+  Status operator()(Graph& graph, std::vector<Node*>& nodes) override {
+    for (auto* node : nodes) {
+      if (node != nullptr) {
+        graph_utils::RemoveNodeOutputEdges(graph, *node);
+        graph.RemoveNode(node->Index());
+      }
+    }
+
+    return Status::OK();
+  }
+};
+
 struct MergeIntoExisting : public Action {
   MergeIntoExisting(std::initializer_list<std::pair<NodeAndArg, NodeAndArg>> value_moves,
                     std::initializer_list<size_t> nodes_to_remove)
@@ -407,40 +327,36 @@ struct MergeIntoExisting : public Action {
 
   std::vector<std::pair<NodeAndArg, NodeAndArg>> value_moves_;
 
-  std::vector<size_t> nodes_to_remove_;  // index into 'nodes' arg operator() is called with
+  std::vector<size_t> nodes_to_remove_;  // index into 'nodes' vector that operator() is called with
 };
 
-//struct ReplaceWithNew : public Action {
-// protected:
-//  ReplaceWithNew(std::unique_ptr<CreateNodeRule> creator,
-//                 std::initializer_list<size_t> nodes_to_remove,
-//                 std::initializer_list<std::unique_ptr<ArgHandler>> input_handlers,
-//                 std::initializer_list<std::unique_ptr<ArgHandler>> output_handlers)
-//      : node_creation_{std::move(creator)},
-//        nodes_to_remove_{nodes_to_remove},
-//        input_handlers_{input_handlers},
-//        output_handlers_{output_handlers} {
-//  }
-//
-// private:
-//  Status operator()(Graph&, std::vector<Node*>& nodes) override {
-//    return Status::OK();
-//  }
-//
-//  std::unique_ptr<CreateNodeRule> node_creation_;
-//
-//  // 2 scenarios.
-//  // Drop DQ and D nodes and move edges to existing middle node
-//  // Create new QLinear node and move edges from existing DQ, Q and middle nodes depending on the op
-//
-//  std::vector<size_t> nodes_to_remove_;  // index into 'nodes' arg operator() is called with
-//
-//  // handlers to move inputs/outputs.
-//  // direction can be inferred by whether a node is going to be removed or not
-//  //std::vector<std::pair<InOutDefSlot, std::unique_ptr<ArgHandler>>> in_out_handlers_;
-//  std::vector<std::unique_ptr<ArgHandler>> input_handlers_;
-//  std::vector<std::unique_ptr<ArgHandler>> output_handlers_;
-//};
+struct SetOptionalZeroPoint : public Action {
+  SetOptionalZeroPoint(std::initializer_list<size_t> nodes_to_update)
+      : nodes_to_update_{nodes_to_update} {}
+
+ private:
+  virtual Status operator()(Graph&, std::vector<Node*>& nodes);
+
+  std::vector<size_t> nodes_to_update_;  // index into 'nodes' vector that operator() is called with
+
+  static const ONNX_NAMESPACE::TensorProto optional_zero_point_int8_;
+  static const ONNX_NAMESPACE::TensorProto optional_zero_point_uint8_;
+};
+
+struct ReplaceWithNew : public Action {
+  ReplaceWithNew(size_t node_to_replace,
+                 std::initializer_list<std::pair<NodeAndArg, InOutDefSlot>> value_moves);
+
+ private:
+  Status operator()(Graph&, std::vector<Node*>& nodes) override;
+
+  // TODO: setup mechanism to create a new NodeArg
+  // If we use resize on the input defs we can do the moves and directly populate the slot with a new NodeArg
+  // but this may not be needed for QDQ.
+
+  size_t node_to_replace_;
+  std::vector<std::pair<NodeAndArg, InOutDefSlot>> value_moves_;
+};
 
 struct SelectorAndActions {
   // Operator and supported versions for the node that selection will start from.

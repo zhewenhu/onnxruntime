@@ -51,6 +51,8 @@ class RulesTransformerImpl {
 
       std::cout << "Matched " << node.OpType() << "\n";
 
+      // NOTE: To replay the modifications we just need to save the Action name and the set of node indexes to pass
+      // to it.
       for (const auto& action : rules_and_actions.actions) {
         status = (*action)(graph_, selections);
         if (!status.IsOK()) {
@@ -74,6 +76,7 @@ class RulesTransformerImpl {
 
 namespace {
 
+// moves between two existing nodes where the dest node idx is known
 std::pair<NodeAndArg, NodeAndArg> MoveInput(size_t src_node_idx, int src_arg_idx,
                                             size_t dest_node_idx, int dest_arg_idx) {
   return {NodeAndArg{src_node_idx, InOutDefSlot{Direction::kInput, src_arg_idx}},
@@ -84,6 +87,17 @@ std::pair<NodeAndArg, NodeAndArg> MoveOutput(size_t src_node_idx, int src_arg_id
                                              size_t dest_node_idx, int dest_arg_idx) {
   return {NodeAndArg{src_node_idx, InOutDefSlot{Direction::kOutput, src_arg_idx}},
           NodeAndArg{dest_node_idx, InOutDefSlot{Direction::kOutput, dest_arg_idx}}};
+}
+
+// moves to new node
+std::pair<NodeAndArg, InOutDefSlot> MoveInput(size_t src_node_idx, int src_arg_idx, int dest_arg_idx) {
+  return {NodeAndArg{src_node_idx, InOutDefSlot{Direction::kInput, src_arg_idx}},
+          InOutDefSlot{Direction::kInput, dest_arg_idx}};
+}
+
+std::pair<NodeAndArg, InOutDefSlot> MoveOutput(size_t src_node_idx, int src_arg_idx, int dest_arg_idx) {
+  return {NodeAndArg{src_node_idx, InOutDefSlot{Direction::kOutput, src_arg_idx}},
+          InOutDefSlot{Direction::kOutput, dest_arg_idx}};
 }
 
 // create rules for ops that don't change the data
@@ -104,11 +118,33 @@ std::unique_ptr<SelectorAndActions> SimpleQDQRules() {
 
   return std::make_unique<SelectorAndActions>(SelectorAndActions{{{"Gather", {}},
                                                                   {"Reshape", {}},
-                                                                  {"Transpose", {}}},
+                                                                  {"Transpose", {}},
+                                                                  {"MaxPool", {12}}},
                                                                  std::move(selector),
                                                                  std::move(actions)});
 }
 
+std::unique_ptr<SelectorAndActions> BinaryOpQDQRules() {
+  std::unique_ptr<NodeSelector> selector(new QDQBinarySelector());
+  std::vector<std::unique_ptr<Action>> actions;
+
+  // 0=DQ for inputA, 1=DQ for inputB, 2=target, 3=Q
+
+  // set any missing zero point to 0.
+  ADD_ACTION(actions, SetOptionalZeroPoint, {0, 1, 3});
+  ADD_ACTION(actions, ReplaceWithNew, 2,  // replace node 2
+             {MoveInput(0, -1, -1),       // append all inputs from dq[0]
+              MoveInput(1, -1, -1),       // append all inputs from dq[1]
+              MoveInput(3, 1, -1),        // append scale from q[0]
+              MoveInput(3, 2, -1),        // append zp from q[0]
+              MoveOutput(3, -1, -1)}      // and use the outputs from q[0]
+  );
+
+  return std::make_unique<SelectorAndActions>(SelectorAndActions{{{"Add", {}},
+                                                                  {"Mul", {}}},
+                                                                 std::move(selector),
+                                                                 std::move(actions)});
+}
 }  // namespace
 
 RulesTransformer::RulesTransformer() noexcept
@@ -116,6 +152,7 @@ RulesTransformer::RulesTransformer() noexcept
   rules_and_actions_.reserve(8);
 
   rules_and_actions_.push_back(std::move(SimpleQDQRules()));
+  rules_and_actions_.push_back(std::move(BinaryOpQDQRules()));
 
   // setup lookup map for all the rules
   for (const auto& entry : rules_and_actions_) {

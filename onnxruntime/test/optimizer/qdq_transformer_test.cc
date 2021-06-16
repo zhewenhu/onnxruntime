@@ -5,8 +5,10 @@
 #include "core/graph/onnx_protobuf.h"
 #include "core/mlas/inc/mlas.h"
 #include "core/optimizer/qdq_transformer/qdq_transformer.h"
+#include "core/optimizer/qdq_transformer/qdq_rules_transformer.h"
 #include "core/session/environment.h"
 #include "core/session/inference_session.h"
+
 #include "test/compare_ortvalue.h"
 #include "test/test_environment.h"
 #include "test/framework/test_utils.h"
@@ -387,7 +389,8 @@ void QDQTransformerBinaryOpTests(const std::string& op_type, bool does_input1_su
                       12 /*opset_version*/,
                       0.01 /*per_sample_tolerance*/,
                       0.01 /*relative_per_sample_tolerance*/,
-                      std::make_unique<QDQTransformer>());
+                      //std::make_unique<QDQTransformer>(),
+                      std::make_unique<QDQ::RulesTransformer>());
   };
 
   test_case({1, 12, 37});
