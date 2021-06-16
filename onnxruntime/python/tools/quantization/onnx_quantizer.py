@@ -255,7 +255,8 @@ class ONNXQuantizer:
 
         # do not quantize non-constant B matrices for matmul
         if self.q_matmul_const_b_only:
-            if node.op_type == "MatMul" and self.find_initializer_in_path(node.input[1]):
+            if node.op_type == "MatMul" and (not self.find_initializer_in_path(node.input[1])):
+                print("Ignore MatMul due to non constant B: {}[{}]".format(self.graph_scope, node.name))
                 return False
 
         return True
