@@ -5,7 +5,7 @@
 #include "core/graph/onnx_protobuf.h"
 #include "core/mlas/inc/mlas.h"
 #include "core/optimizer/qdq_transformer/qdq_transformer.h"
-#include "core/optimizer/qdq_transformer/qdq_select_actions_transformer.h"
+#include "core/optimizer/qdq_transformer/qdq_selector_action_transformer.h"
 #include "core/session/environment.h"
 #include "core/session/inference_session.h"
 
