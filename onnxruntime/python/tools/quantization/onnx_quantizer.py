@@ -128,7 +128,7 @@ class ONNXQuantizer:
         graph_attrs = [attr for attr in node.attribute if attr.type == 5 or attr.type == 10]
         if len(graph_attrs) == 0:
             return node
-        node_name = node.name if node.name else "{}_node_count_{}".format(node.op_type, len(self.new_nodes))
+        node_name = node.name if node.name != "" else "{}_node_count_{}".format(node.op_type, len(self.new_nodes))
         kwargs = {}
         for attr in node.attribute:
             if attr.type == 5:
@@ -235,6 +235,13 @@ class ONNXQuantizer:
 
         return self.model.model
 
+    def find_initializer_in_path(self, initializer_name):
+        if find_by_name(initializer_name, self.model.initializer()) is not None:
+            return True
+        if self.parent is not None:
+            return self.parent.find_initializer_in_path(initializer_name)
+        return False
+
     def should_quantize(self, node):
         if self.nodes_to_quantize is not None and len(
                 self.nodes_to_quantize) != 0 and node.name not in self.nodes_to_quantize:
@@ -248,7 +255,7 @@ class ONNXQuantizer:
 
         # do not quantize non-constant B matrices for matmul
         if self.q_matmul_const_b_only:
-            if node.op_type == "MatMul" and find_by_name(node.input[1], self.model.initializer()) is None:
+            if node.op_type == "MatMul" and self.find_initializer_in_path(node.input[1]):
                 return False
 
         return True
