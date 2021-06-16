@@ -160,7 +160,7 @@ bool QDQSelector::operator()(Graph& graph, const Node& node, std::vector<Node*>&
   // in the derived classes
   selection.reserve(dq_nodes.size() + 1 + q_nodes.size());
   for (const Node* dq_node : dq_nodes) {
-    selection.push_back(get_mutable_node(dq_node));
+    selection.push_back(dq_node != nullptr ? get_mutable_node(dq_node) : nullptr);
   }
   selection.push_back(get_mutable_node(&node));
 
