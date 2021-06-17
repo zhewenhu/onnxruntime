@@ -8,7 +8,6 @@
 
 namespace onnxruntime {
 namespace {
-
 // Helpers to make the 'move' configuration more easily read
 //
 // moves between two existing nodes where the dest node idx is known
@@ -54,12 +53,12 @@ std::unique_ptr<SelectorAndAction> SimpleQDQRules() {
 
   std::unique_ptr<Action> all_actions{new MultiAction{std::move(actions)}};
 
-  return std::make_unique<SelectorAndAction>(SelectorAndAction{{{"Gather", {}},
-                                                                {"Reshape", {}},
-                                                                {"Transpose", {}},
-                                                                {"MaxPool", {12}}},
-                                                               std::move(selector),
-                                                               std::move(all_actions)});
+  return std::make_unique<SelectorAndAction>(SelectorAndAction::OpVersionsMap{{"Gather", {}},
+                                                                              {"Reshape", {}},
+                                                                              {"Transpose", {}},
+                                                                              {"MaxPool", {12}}},
+                                             std::move(selector),
+                                             std::move(all_actions));
 }
 
 std::unique_ptr<SelectorAndAction> BinaryOpQDQRules() {
@@ -80,10 +79,11 @@ std::unique_ptr<SelectorAndAction> BinaryOpQDQRules() {
   );
 
   std::unique_ptr<Action> all_actions{new MultiAction{std::move(actions)}};
-  return std::make_unique<SelectorAndAction>(SelectorAndAction{{{"Add", {}},
-                                                                {"Mul", {}}},
-                                                               std::move(selector),
-                                                               std::move(all_actions)});
+
+  return std::make_unique<SelectorAndAction>(SelectorAndAction::OpVersionsMap{{"Add", {}},
+                                                                              {"Mul", {}}},
+                                             std::move(selector),
+                                             std::move(all_actions));
 }
 
 std::unique_ptr<SelectorAndAction> ConvQDQRules() {
@@ -107,21 +107,22 @@ std::unique_ptr<SelectorAndAction> ConvQDQRules() {
 
   std::unique_ptr<Action> all_actions{new MultiAction{std::move(actions)}};
 
-  return std::make_unique<SelectorAndAction>(SelectorAndAction{{{"Conv", {}}},
-                                                               std::move(selector),
-                                                               std::move(all_actions)});
+  return std::make_unique<SelectorAndAction>(SelectorAndAction::OpVersionsMap{{"Conv", {}}},
+                                             std::move(selector),
+                                             std::move(all_actions));
 }
 
-static std::vector<std::unique_ptr<SelectorAndAction>>&& CreateQDQSelectorActionEntries() {
+static std::vector<std::unique_ptr<SelectorAndAction>> CreateQDQSelectorActionEntries() {
   std::vector<std::unique_ptr<SelectorAndAction>> qdq_selector_action_entries;
 
-  // can't use an initializer list with unique_ptr values so have to push_back each entry individually
+  // can't use an initializer list with unique_ptr values as that involves a copy,
+  // so have to push_back each entry individually
   qdq_selector_action_entries.reserve(8);
-  qdq_selector_action_entries.push_back(SimpleQDQRules());
-  qdq_selector_action_entries.push_back(BinaryOpQDQRules());
-  qdq_selector_action_entries.push_back(ConvQDQRules());
+  qdq_selector_action_entries.push_back(std::move(SimpleQDQRules()));
+  qdq_selector_action_entries.push_back(std::move(BinaryOpQDQRules()));
+  qdq_selector_action_entries.push_back(std::move(ConvQDQRules()));
 
-  return std::move(qdq_selector_action_entries);
+  return qdq_selector_action_entries;
 }
 
 }  // namespace
@@ -129,7 +130,7 @@ static std::vector<std::unique_ptr<SelectorAndAction>>&& CreateQDQSelectorAction
 QDQSelectorActionTransformer::QDQSelectorActionTransformer()
     : SelectorActionTransformer{
           "QDQSelectorActionTransformer",
-          std::move(CreateQDQSelectorActionEntries())} {
+          CreateQDQSelectorActionEntries()} {
 }
 
 }  // namespace onnxruntime

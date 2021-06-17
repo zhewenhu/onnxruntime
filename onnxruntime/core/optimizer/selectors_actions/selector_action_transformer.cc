@@ -9,9 +9,11 @@ SelectorActionTransformer::SelectorActionTransformer(
     const std::string& name,
     std::vector<std::unique_ptr<SelectorAndAction>>&& selectors_and_actions)
     : GraphTransformer(name),
-      selectors_and_actions_{std::move(selectors_and_actions)} {
+      selectors_and_actions_{} {
+  selectors_and_actions_ = std::move(selectors_and_actions);
+
   // setup a map so we lookup by operator type efficiently
-  for (const auto& selector_and_actions : selectors_and_actions) {
+  for (const auto& selector_and_actions : selectors_and_actions_) {
     for (const auto& op_info : selector_and_actions->ops_and_versions) {
       bool inserted = op_type_to_selector_and_action_.insert({op_info.first, &*selector_and_actions}).second;
 

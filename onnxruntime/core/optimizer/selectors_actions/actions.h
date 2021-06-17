@@ -27,6 +27,9 @@ struct Action {
 
     return node;
   }
+
+ protected:
+  Action() = default;
 };
 
 // helper to assembly multiple actions into a single instance. We do this to keep SelectionActionTransformer simpler
@@ -40,6 +43,9 @@ struct MultiAction : public Action {
 
     return Status::OK();
   }
+
+  // can't copy/assign actions_
+  ORT_DISALLOW_COPY_AND_ASSIGNMENT(MultiAction);
 
  private:
   std::vector<std::unique_ptr<Action>> actions_;

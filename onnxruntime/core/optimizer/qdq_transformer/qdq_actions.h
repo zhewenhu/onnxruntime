@@ -17,7 +17,7 @@ struct SetOptionalZeroPoint : public Action {
       : nodes_to_update_{nodes_to_update} {}
 
  private:
-  virtual Status operator()(Graph&, std::vector<Node*>& nodes);
+  Status operator()(Graph&, std::vector<Node*>& nodes) override;
 
   std::vector<size_t> nodes_to_update_;  // index into 'nodes' vector that operator() is called with
 
