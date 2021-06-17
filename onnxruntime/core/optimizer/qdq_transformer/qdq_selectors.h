@@ -35,11 +35,11 @@ class QDQSelector : public NodeSelector {
                      const std::vector<const Node*>& q_nodes) const = 0;
 };
 
-// Single DQ -> node -> Q.
-// Zero point and scale are constant scalars and match
-class QDQSimpleSelector : public QDQSelector {
+// Single DQ -> node that does not change data -> Q.
+// Zero point and scale are constant scalars and must match
+class QDQDropDQDNodesSelector : public QDQSelector {
  public:
-  QDQSimpleSelector();
+  QDQDropDQDNodesSelector();
 
  private:
   bool Check(const Graph& graph, const Node& node,
@@ -52,6 +52,19 @@ class QDQSimpleSelector : public QDQSelector {
   const ConstantScalarChecker q_zero_point_is_constant_scalar_;
 };
 
+// single input. default is to only support uint8.
+class QDQUnarySelector : public QDQSelector {
+ public:
+  QDQUnarySelector(bool int8_allowed = false) : int8_allowed_{int8_allowed} {}
+
+ private:
+  bool Check(const Graph& graph, const Node& node,
+             const std::vector<const Node*>& dq_nodes,
+             const std::vector<const Node*>& q_nodes) const override;
+
+  bool int8_allowed_;
+};
+
 // 2 DQ nodes providing input -> node -> Q
 class QDQBinarySelector : public QDQSelector {
   bool Check(const Graph& graph, const Node& node,
@@ -59,6 +72,7 @@ class QDQBinarySelector : public QDQSelector {
              const std::vector<const Node*>& q_nodes) const override;
 };
 
+//
 class QDQConvSelector : public QDQSelector {
   bool Check(const Graph& graph, const Node& node,
              const std::vector<const Node*>& dq_nodes,

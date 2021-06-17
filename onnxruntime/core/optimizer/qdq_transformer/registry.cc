@@ -24,7 +24,7 @@ std::unordered_map<std::string, QDQRegistry::QDQTransformerCreator> QDQRegistry:
     //REGISTER_QDQ_CREATOR(Add, QDQBinaryOpTransformer),
     //REGISTER_QDQ_CREATOR(Mul, QDQBinaryOpTransformer),
     REGISTER_QDQ_CREATOR(MatMul, QDQMatMulTransformer),
-    REGISTER_QDQ_CREATOR(AveragePool, QDQAveragePoolTransformer),
+    // REGISTER_QDQ_CREATOR(AveragePool, QDQAveragePoolTransformer),
     REGISTER_QDQ_CREATOR(Concat, QDQConcatTransformer),
 };
 }  // namespace onnxruntime

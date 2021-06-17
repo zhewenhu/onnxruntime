@@ -38,12 +38,12 @@ std::pair<NodeAndArg, InOutDefSlot> MoveOutput(size_t src_node_idx, int src_arg_
   container.push_back(std::unique_ptr<Action>(new action(__VA_ARGS__)))
 
 // create rules for ops that don't change the data
-std::unique_ptr<SelectorAndAction> SimpleQDQRules() {
+std::unique_ptr<SelectorAndAction> DropQDQNodesRules() {
   // 3 nodes. 0=DQ, 1=target, 2=Q. Merge into target and remove DQ and Q.
   // Move DQ input 0 to target input 0.
   // Move Q output 0 to other output 0.
   // Delete DQ and Q
-  std::unique_ptr<NodeSelector> selector(new QDQSimpleSelector());
+  std::unique_ptr<NodeSelector> selector(new QDQDropDQDNodesSelector());
 
   std::vector<std::unique_ptr<Action>> actions;
   ADD_ACTION(actions, MergeIntoExisting,
@@ -86,6 +86,29 @@ std::unique_ptr<SelectorAndAction> BinaryOpQDQRules() {
                                              std::move(all_actions));
 }
 
+std::unique_ptr<SelectorAndAction> UnaryOpQDQRules() {
+  // 3 nodes. 0=DQ, 2=target, 3=Q
+  // Replace with QLinear version of operator. Delete all original nodes.
+  std::unique_ptr<NodeSelector> selector(new QDQUnarySelector());
+
+  std::vector<std::unique_ptr<Action>> actions;
+  ADD_ACTION(actions, QDQ::SetOptionalZeroPoint, {0, 2});  // update the DQ and Q nodes
+  ADD_ACTION(actions, QDQ::ReplaceWithQLinear,
+             1,                       // replace node 1
+             kMSDomain,               // QLinearAdd and QLinearMul are internal ops
+             {MoveInput(0, -1, -1),   // append all inputs from dq[0]
+              MoveInput(2, 1, -1),    // append scale from q[0]
+              MoveInput(2, 2, -1),    // append zp from q[0]
+              MoveOutput(2, -1, -1)}  // and use the outputs from q[0]
+  );
+
+  std::unique_ptr<Action> all_actions{new MultiAction{std::move(actions)}};
+
+  return std::make_unique<SelectorAndAction>(SelectorAndAction::OpVersionsMap{{"AveragePool", {}}},
+                                             std::move(selector),
+                                             std::move(all_actions));
+}
+
 std::unique_ptr<SelectorAndAction> ConvQDQRules() {
   // 4 or 5 Nodes. 0=DQ X, 1=DQ W, 2=DQ B (optional), 3=Conv, 4=Q
   // Handle the DQ input for the Bias being optional.
@@ -118,7 +141,8 @@ static std::vector<std::unique_ptr<SelectorAndAction>> CreateQDQSelectorActionEn
   // can't use an initializer list with unique_ptr values as that involves a copy,
   // so have to push_back each entry individually
   qdq_selector_action_entries.reserve(8);
-  qdq_selector_action_entries.push_back(std::move(SimpleQDQRules()));
+  qdq_selector_action_entries.push_back(std::move(DropQDQNodesRules()));
+  qdq_selector_action_entries.push_back(std::move(UnaryOpQDQRules()));
   qdq_selector_action_entries.push_back(std::move(BinaryOpQDQRules()));
   qdq_selector_action_entries.push_back(std::move(ConvQDQRules()));
 

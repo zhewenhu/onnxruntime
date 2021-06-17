@@ -57,7 +57,7 @@ bool QDQSelector::operator()(Graph& graph, const Node& node, std::vector<Node*>&
   return true;
 }
 
-QDQSimpleSelector::QDQSimpleSelector()
+QDQDropDQDNodesSelector::QDQDropDQDNodesSelector()
     : QDQSelector{},
       dq_scale_is_constant_scalar_{InOutDefSlot{Direction::kInput, QDQ::QDQInputIndex::SCALE_ID}},
       dq_zero_point_is_constant_scalar_{InOutDefSlot{Direction::kInput, QDQ::QDQInputIndex::ZERO_POINT_ID}},
@@ -65,10 +65,10 @@ QDQSimpleSelector::QDQSimpleSelector()
       q_zero_point_is_constant_scalar_{InOutDefSlot{Direction::kInput, QDQ::QDQInputIndex::ZERO_POINT_ID}} {
 }
 
-bool QDQSimpleSelector::Check(const Graph& graph,
-                              const Node& node,
-                              const std::vector<const Node*>& dq_nodes,
-                              const std::vector<const Node*>& q_nodes) const {
+bool QDQDropDQDNodesSelector::Check(const Graph& graph,
+                                    const Node& node,
+                                    const std::vector<const Node*>& dq_nodes,
+                                    const std::vector<const Node*>& q_nodes) const {
   if (!CheckQDQNodes(graph, node, dq_nodes, q_nodes, 1)) {
     return false;
   }
@@ -101,6 +101,22 @@ bool QDQSimpleSelector::Check(const Graph& graph,
   return q_zp.data_type() == dq_zp.data_type() &&
          *q_zp.data<int8_t>() == *dq_zp.data<int8_t>() &&
          *q_scale.data<float>() == *dq_scale.data<float>();
+}
+
+bool QDQUnarySelector::Check(const Graph& graph, const Node& node,
+                             const std::vector<const Node*>& dq_nodes,
+                             const std::vector<const Node*>& q_nodes) const {
+  if (!CheckQDQNodes(graph, node, dq_nodes, q_nodes, 1)) {
+    return false;
+  }
+
+  int32_t dt_input = dq_nodes[0]->InputDefs()[0]->TypeAsProto()->tensor_type().elem_type();
+  int32_t dt_output = q_nodes[0]->OutputDefs()[0]->TypeAsProto()->tensor_type().elem_type();
+
+  return ((dt_input == ONNX_NAMESPACE::TensorProto_DataType::TensorProto_DataType_UINT8 ||
+           (int8_allowed_ && dt_input == ONNX_NAMESPACE::TensorProto_DataType::TensorProto_DataType_INT8))) &&
+         ((dt_output == ONNX_NAMESPACE::TensorProto_DataType::TensorProto_DataType_UINT8 ||
+           (int8_allowed_ && dt_output == ONNX_NAMESPACE::TensorProto_DataType::TensorProto_DataType_INT8)));
 }
 
 bool QDQBinarySelector::Check(const Graph& graph,
