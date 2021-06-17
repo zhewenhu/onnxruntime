@@ -51,8 +51,8 @@ Status MoveInputOutputHelper::MoveNodeArg(Graph& graph, Node& src, Node& dest) c
                         : dest.MutableOutputDefs();
 
   auto process = [&](int src_idx) {
-    ORT_ENFORCE((src_idx == -1 || src_idx < src_defs.size()) &&
-                    (dest_slot_.idx == -1 || dest_slot_.idx < dest_defs.size()),
+    ORT_ENFORCE((src_idx == -1 || static_cast<size_t>(src_idx) < src_defs.size()) &&
+                    (dest_slot_.idx == -1 || static_cast<size_t>(dest_slot_.idx) < dest_defs.size()),
                 "Index out of range");
 
     if (append_) {
