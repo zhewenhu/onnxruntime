@@ -105,6 +105,8 @@ jobs:
          #Restore file permissions
          xargs -a $(Build.BinariesDirectory)/Release/perms.txt chmod a+x
          cd $(Build.SourcesDirectory)/java
+         which -a java
+         java -version
          /usr/local/gradle/bin/gradle "cmakeCheck" "-DcmakeBuildDir=$(Build.BinariesDirectory)/Release" "-DUSE_CUDA=1"
          cd /tmp
          python3 $(Build.SourcesDirectory)/tools/ci_build/build.py \
