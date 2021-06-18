@@ -76,7 +76,7 @@ jobs:
   timeoutInMinutes: 60
   workspace:
     clean: all
-  pool: centos7gpu
+  pool: centos7gpu2
   dependsOn:
   - Linux_Build
   steps:
