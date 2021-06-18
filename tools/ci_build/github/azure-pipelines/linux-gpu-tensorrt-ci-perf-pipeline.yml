@@ -21,6 +21,11 @@ parameters:
   type: boolean
   default: false
 
+- name: PublishWheel
+  displayName: Publish Wheel 
+  type: boolean
+  default: false
+
 - name: ModelGroups
   type: object
   default: 
@@ -73,7 +78,7 @@ jobs:
           filePath: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/build/start_job.ps1'
           arguments: '-file_folder $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/dist -account_key $(account-key)'
         displayName: 'Start Anubis Job'
-        
+
     - ${{ each option in parameters.ModelGroups }}:
       - script: '$(run_conda) && $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/run_perf_$(with_arguments) -o ${{option}} -m $(${{option}})'
         displayName: '${{option}} perf'
