@@ -7,31 +7,42 @@
 #include "core/optimizer/qdq_transformer/qdq_selectors.h"
 
 namespace onnxruntime {
+
+using NTO = onnxruntime::NodesToOptimize;
+
 namespace {
+
+//
 // Helpers to make the 'move' configuration more easily read
 //
-// moves between two existing nodes where the dest node idx is known
-std::pair<NodeAndArg, NodeAndArg> MoveInput(size_t src_node_idx, int src_arg_idx,
-                                            size_t dest_node_idx, int dest_arg_idx) {
-  return {NodeAndArg{src_node_idx, InOutDefSlot{Direction::kInput, src_arg_idx}},
-          NodeAndArg{dest_node_idx, InOutDefSlot{Direction::kInput, dest_arg_idx}}};
+
+// move specific input/output to slot on target node
+NodeAndMoveInfo MoveToSlot(const NTO::NodeLocation& src_node,
+                           Direction src_direction, int src_slot,
+                           Direction dest_direction, int dest_slot) {
+  return NodeAndMoveInfo{src_node,
+                         ValueMoveInfo{
+                             InOutDefSlot{src_direction, src_slot},      // move from this slot
+                             InOutDefSlot{dest_direction, dest_slot}}};  // to this one
 }
 
-std::pair<NodeAndArg, NodeAndArg> MoveOutput(size_t src_node_idx, int src_arg_idx,
-                                             size_t dest_node_idx, int dest_arg_idx) {
-  return {NodeAndArg{src_node_idx, InOutDefSlot{Direction::kOutput, src_arg_idx}},
-          NodeAndArg{dest_node_idx, InOutDefSlot{Direction::kOutput, dest_arg_idx}}};
+// move specific input/output and append to target node
+// is the source input/output is variadic (i.e. multiple values may need to be moved) set `variadic` to true
+NodeAndMoveInfo MoveAndAppend(const NTO::NodeLocation& src_node,
+                              Direction src_direction, int src_slot,
+                              Direction dest_direction,
+                              bool variadic = false) {
+  return NodeAndMoveInfo{src_node, ValueMoveInfo{InOutDefSlot{src_direction, src_slot},  // move from this slot
+                                                 dest_direction,                         // append here
+                                                 variadic}};
 }
 
-// moves to new node
-std::pair<NodeAndArg, InOutDefSlot> MoveInput(size_t src_node_idx, int src_arg_idx, int dest_arg_idx) {
-  return {NodeAndArg{src_node_idx, InOutDefSlot{Direction::kInput, src_arg_idx}},
-          InOutDefSlot{Direction::kInput, dest_arg_idx}};
-}
-
-std::pair<NodeAndArg, InOutDefSlot> MoveOutput(size_t src_node_idx, int src_arg_idx, int dest_arg_idx) {
-  return {NodeAndArg{src_node_idx, InOutDefSlot{Direction::kOutput, src_arg_idx}},
-          InOutDefSlot{Direction::kOutput, dest_arg_idx}};
+// move all inputs/outputs from the source node to the target node
+// if the last source input is variadic set `variadic` to true
+NodeAndMoveInfo MoveAll(const NTO::NodeLocation& src_node,
+                        Direction direction,  // moving inputs or outputs
+                        bool variadic = false) {
+  return NodeAndMoveInfo{src_node, ValueMoveInfo{direction, direction, variadic}};
 }
 
 #define ADD_ACTION(container, action, ...) \
@@ -43,13 +54,23 @@ std::unique_ptr<SelectorAndAction> DropQDQNodesRules() {
   // Move DQ input 0 to target input 0.
   // Move Q output 0 to other output 0.
   // Delete DQ and Q
+  NTO::NodeLocation dq{NTO::NodeType::kInput, 0};
+  NTO::NodeLocation q{NTO::NodeType::kOutput, 0};
+
   std::unique_ptr<NodeSelector> selector(new QDQDropDQDNodesSelector());
+
+  const std::initializer_list<NodeAndMoveInfo> moves{MoveToSlot(dq, Direction::kInput, 0, Direction::kInput, 0),
+                                                     MoveToSlot(q, Direction::kOutput, 0, Direction::kOutput, 0)};
 
   std::vector<std::unique_ptr<Action>> actions;
   ADD_ACTION(actions, MergeIntoExisting,
-             {MoveInput(0, 0, 1, 0),    // input 0 from DQ moves to target
-              MoveOutput(2, 0, 1, 0)},  // output 0 from Q moves to target
-             {0, 2});
+             moves,
+             //// from input node 0 (DQ) move input value 0 to input 0 of the target node
+             //{MoveToSlot(dq, Direction::kInput, 0, Direction::kInput, 0),
+             // // from output node 0 (Q) move output value 0 to output 0 of the target node
+             // MoveToSlot(q, Direction::kOutput, 0, Direction::kOutput, 0)},
+             //// remove input 0, do not remove the target node, remove output 0
+             NTO::NodeIndexes{{0}, false, {0}});
 
   std::unique_ptr<Action> all_actions{new MultiAction{std::move(actions)}};
 
@@ -64,19 +85,24 @@ std::unique_ptr<SelectorAndAction> DropQDQNodesRules() {
 std::unique_ptr<SelectorAndAction> BinaryOpQDQRules() {
   // 4 nodes. 0=DQ for inputA, 1=DQ for inputB, 2=target, 3=Q
   // Replace with QLinear version of operator. Delete all original nodes.
+  NTO::NodeLocation dq1{NTO::NodeType::kInput, 0};
+  NTO::NodeLocation dq2{NTO::NodeType::kInput, 0};
+  NTO::NodeLocation q{NTO::NodeType::kOutput, 0};
+
   std::unique_ptr<NodeSelector> selector(new QDQBinarySelector());
 
   std::vector<std::unique_ptr<Action>> actions;
-  ADD_ACTION(actions, QDQ::SetOptionalZeroPoint, {0, 1, 3});  // update the DQ and Q nodes
+
+  // set the version point on the two DQ input nodes and the Q output node
+  ADD_ACTION(actions, QDQ::SetOptionalZeroPoint, {dq1, dq2, q});
+
   ADD_ACTION(actions, QDQ::ReplaceWithQLinear,
-             2,                       // replace node 2
-             kMSDomain,               // QLinearAdd and QLinearMul are internal ops
-             {MoveInput(0, -1, -1),   // append all inputs from dq[0]
-              MoveInput(1, -1, -1),   // append all inputs from dq[1]
-              MoveInput(3, 1, -1),    // append scale from q[0]
-              MoveInput(3, 2, -1),    // append zp from q[0]
-              MoveOutput(3, -1, -1)}  // and use the outputs from q[0]
-  );
+             kMSDomain,
+             {MoveAll(dq1, Direction::kInput),                             // append all inputs from dq1
+              MoveAll(dq2, Direction::kInput),                             // append all inputs from dq2
+              MoveAndAppend(q, Direction::kInput, 1, Direction::kInput),   // append scale (input 1) from q
+              MoveAndAppend(q, Direction::kInput, 2, Direction ::kInput),  // append zp (input 2) from q
+              MoveAll(q, Direction::kOutput)});                            // and use the outputs from q
 
   std::unique_ptr<Action> all_actions{new MultiAction{std::move(actions)}};
 
@@ -87,20 +113,21 @@ std::unique_ptr<SelectorAndAction> BinaryOpQDQRules() {
 }
 
 std::unique_ptr<SelectorAndAction> UnaryOpQDQRules() {
-  // 3 nodes. 0=DQ, 2=target, 3=Q
+  // 3 nodes. 0=DQ, 1=target, 2=Q
   // Replace with QLinear version of operator. Delete all original nodes.
+  NTO::NodeLocation dq{NTO::NodeType::kInput, 0};
+  NTO::NodeLocation q{NTO::NodeType::kOutput, 0};
+
   std::unique_ptr<NodeSelector> selector(new QDQUnarySelector());
 
   std::vector<std::unique_ptr<Action>> actions;
-  ADD_ACTION(actions, QDQ::SetOptionalZeroPoint, {0, 2});  // update the DQ and Q nodes
+  ADD_ACTION(actions, QDQ::SetOptionalZeroPoint, {dq, q});  // update the DQ and Q nodes
   ADD_ACTION(actions, QDQ::ReplaceWithQLinear,
-             1,                       // replace node 1
-             kMSDomain,               // QLinearAdd and QLinearMul are internal ops
-             {MoveInput(0, -1, -1),   // append all inputs from dq[0]
-              MoveInput(2, 1, -1),    // append scale from q[0]
-              MoveInput(2, 2, -1),    // append zp from q[0]
-              MoveOutput(2, -1, -1)}  // and use the outputs from q[0]
-  );
+             kMSDomain,
+             {MoveAll(dq, Direction::kInput),                              // append all inputs from dq
+              MoveAndAppend(q, Direction::kInput, 1, Direction::kInput),   // append scale (input 1) from q
+              MoveAndAppend(q, Direction::kInput, 2, Direction ::kInput),  // append zp (input 2) from q
+              MoveAll(q, Direction::kOutput)});                            // and use the outputs from q
 
   std::unique_ptr<Action> all_actions{new MultiAction{std::move(actions)}};
 
@@ -114,19 +141,25 @@ std::unique_ptr<SelectorAndAction> ConvQDQRules() {
   // Handle the DQ input for the Bias being optional.
   // Replace Conv with QLinearConv
   // Delete all original nodes
+  NTO::NodeLocation dq_x{NTO::NodeType::kInput, 0};
+  NTO::NodeLocation dq_w{NTO::NodeType::kInput, 1};
+  NTO::NodeLocation dq_bias{NTO::NodeType::kInput, 2};
+  NTO::NodeLocation q{NTO::NodeType::kOutput, 0};
+
   std::unique_ptr<NodeSelector> selector(new QDQConvSelector());
 
   std::vector<std::unique_ptr<Action>> actions;
   ADD_ACTION(actions, QDQ::ReplaceWithQLinear,
-             3,                       // replace node 3
-             kOnnxDomain,             // QLinearConv is from ONNX
-             {MoveInput(0, -1, -1),   // append all inputs from dq[0]
-              MoveInput(1, -1, -1),   // append all inputs from dq[1]
-              MoveInput(4, 1, -1),    // append scale from q[0]
-              MoveInput(4, 2, -1),    // append zp from q[0]
-              MoveInput(2, 0, -1),    // (optional) append input dq[2][0]
-              MoveOutput(4, -1, -1)}  // and use the outputs from q[0]
-  );
+             kOnnxDomain,                                                  // QLinearConv is from ONNX
+             {MoveAll(dq_x, Direction::kInput),                            // append all inputs from x
+              MoveAll(dq_w, Direction::kInput),                            // append all inputs from w
+              MoveAndAppend(q, Direction::kInput, 1, Direction::kInput),   // append scale (input 1) from q
+              MoveAndAppend(q, Direction::kInput, 2, Direction ::kInput),  // append zp (input 2) from q
+              MoveAll(dq_bias, Direction::kInput),                         // (optional) append input bias
+              MoveAll(q, Direction::kOutput)});                            // and use the outputs from q
+
+  // MoveInput(2, 0, -1),    // (optional) append input dq[2][0]
+  // MoveOutput(4, -1, -1)}  // and use the outputs from q[0]
 
   std::unique_ptr<Action> all_actions{new MultiAction{std::move(actions)}};
 

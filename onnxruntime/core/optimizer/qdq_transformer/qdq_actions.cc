@@ -7,82 +7,81 @@
 namespace onnxruntime {
 namespace QDQ {
 
-ReplaceWithQLinear::ReplaceWithQLinear(size_t node_to_replace,
-                                       const std::string& domain,
-                                       std::initializer_list<std::pair<NodeAndArg, InOutDefSlot>> value_moves)
-    : node_to_replace_{node_to_replace},
-      domain_{domain},
+ReplaceWithQLinear::ReplaceWithQLinear(const std::string& domain,
+                                       std::initializer_list<NodeAndMoveInfo> value_moves)
+    : domain_{domain},
       value_moves_{value_moves} {
 }
 
-Status ReplaceWithQLinear::operator()(Graph& graph, std::vector<Node*>& nodes) {
-  auto& replaced_node = *GetNode(node_to_replace_, nodes);
+Status ReplaceWithQLinear::operator()(Graph& graph, const NodesToOptimize& selected_nodes) const {
+  auto& target = *selected_nodes.Target();
 
   // create node. we'll populate the input and output defs via moves
-  auto& node = graph.AddNode(replaced_node.Name(),
-                             "QLinear" + replaced_node.OpType(),
-                             replaced_node.Description(),
-                             {},  // input defs
-                             {},  // output defs
-                             &replaced_node.GetAttributes(),
-                             domain_);
+  auto& replacement = graph.AddNode(target.Name(),
+                                    "QLinear" + target.OpType(),
+                                    target.Description(),
+                                    {},  // input defs
+                                    {},  // output defs
+                                    &target.GetAttributes(),
+                                    domain_);
 
-  node.SetExecutionProviderType(kCpuExecutionProvider);
+  replacement.SetExecutionProviderType(kCpuExecutionProvider);
 
-  for (const auto& pair : value_moves_) {
-    const NodeAndArg& src_info = pair.first;
-    const InOutDefSlot& dest_slot = pair.second;
+  for (const auto& move : value_moves_) {
+    // get the nodes to copy from. allow for an optional input node (e.g. bias input to Conv)
+    auto src_nodes = selected_nodes.GetNodesAtLocation(move.src_node, /*required*/ false);
 
-    // allow for optional inputs. GetNode with throw if we're missing something we expected to be there
-    bool node_required = dest_slot.in_out == Direction::kOutput;
-    Node* src = GetNode(src_info.node_idx, nodes, node_required);
-    if (src != nullptr) {
-      // TODO: Could convert value_moves_ into a collection of MoveInputOutputHelper instance so we don't do
-      // that during construction. Not a big cost though.
-      ORT_RETURN_IF_ERROR(MoveInputOutputHelper(src_info.in_out_slot, dest_slot).Move(graph, *src, node));
-    } else {
-      // optional inputs are always last in the list of things to move, so we don't need to insert a
-      // nullptr in the input/output defs (TODO: Confirm)
+    ORT_ENFORCE(src_nodes.size() == 1 || move.value_move_info.append == true,
+                "Move of variadic values requires 'append' to be specific.");
+
+    for (Node* src : src_nodes) {
+      if (src != nullptr) {
+        // TODO: Could convert value_moves_ into a collection of MoveInputOutputHelper instance so we don't do
+        // that during construction. Not a big cost though.
+        ORT_RETURN_IF_ERROR(MoveInputOutputHelper::Move(graph, *src, replacement, move.value_move_info));
+      }
     }
   }
 
-  // TODO: Need to check that a DQ node providing input does not get removed if it has output edges that do not point
-  // to the new node, or if it produces a graph output.
-  // Could add a new 'remove nodes' variant that does this check and use it here instead of RemoveAllNodes
-  RemoveAllNodes()(graph, nodes);
+  auto status = RemoveAllNodes()(graph, selected_nodes);
 
-  return Status::OK();
+  return status;
 }
 
-Status SetOptionalZeroPoint::operator()(Graph& graph, std::vector<Node*>& nodes) {
-  for (const size_t idx : nodes_to_update_) {
-    Node& node = *GetNode(idx, nodes);
-    std::vector<NodeArg*>& input_defs = node.MutableInputDefs();
-    bool has_zp_input = input_defs.size() - 1 == QDQInputIndex::ZERO_POINT_ID;
-    if (has_zp_input && input_defs[QDQInputIndex::ZERO_POINT_ID]->Exists()) {
-      continue;  // zero point was set. No need to fill.
-    }
+Status SetOptionalZeroPoint::operator()(Graph& graph, const NodesToOptimize& selected_nodes) const {
+  for (const NodesToOptimize::NodeLocation& location : nodes_to_update_) {
+    // generally a single node, but if we're applying this to a variadic input or output there could be multiple
+    std::vector<Node*> nodes = selected_nodes.GetNodesAtLocation(location);
+    for (Node* node_ptr : nodes) {
+      Node& node = *node_ptr;  // GetNodesAtLocation requires the nodes to exist so we know this is not null
 
-    bool is_default_zp_signed = false;
-    if (node.OpType() == DQOpName) {
-      auto input_type = input_defs[0]->TypeAsProto()->tensor_type().elem_type();
-      is_default_zp_signed = ONNX_NAMESPACE::TensorProto_DataType_INT8 == input_type;
-    }
+      std::vector<NodeArg*>& input_defs = node.MutableInputDefs();
+      bool has_zp_input = input_defs.size() - 1 == QDQInputIndex::ZERO_POINT_ID;
+      if (has_zp_input && input_defs[QDQInputIndex::ZERO_POINT_ID]->Exists()) {
+        continue;  // zero point was set. No need to fill.
+      }
 
-    const ONNX_NAMESPACE::TensorProto& zp_tensor_proto = is_default_zp_signed
-                                                             ? optional_zero_point_int8_
-                                                             : optional_zero_point_uint8_;
+      bool is_default_zp_signed = false;
+      if (node.OpType() == DQOpName) {
+        auto input_type = input_defs[0]->TypeAsProto()->tensor_type().elem_type();
+        is_default_zp_signed = ONNX_NAMESPACE::TensorProto_DataType_INT8 == input_type;
+      }
 
-    const ONNX_NAMESPACE::TensorProto* dummy_zp_tensor_proto;
-    if (!graph.GetInitializedTensor(zp_tensor_proto.name(), dummy_zp_tensor_proto)) {
-      graph.AddInitializedTensor(zp_tensor_proto);
-    }
+      const ONNX_NAMESPACE::TensorProto& zp_tensor_proto = is_default_zp_signed
+                                                               ? optional_zero_point_int8_
+                                                               : optional_zero_point_uint8_;
 
-    auto& node_arg = graph.GetOrCreateNodeArg(zp_tensor_proto.name(), nullptr);
-    if (has_zp_input) {
-      input_defs.push_back(&node_arg);
-    } else {
-      input_defs[QDQInputIndex::ZERO_POINT_ID] = &node_arg;
+      const ONNX_NAMESPACE::TensorProto* dummy_zp_tensor_proto;
+      if (!graph.GetInitializedTensor(zp_tensor_proto.name(), dummy_zp_tensor_proto)) {
+        graph.AddInitializedTensor(zp_tensor_proto);
+      }
+
+      auto& node_arg = graph.GetOrCreateNodeArg(zp_tensor_proto.name(), nullptr);
+      if (has_zp_input) {
+        input_defs.push_back(&node_arg);
+      } else {
+        input_defs[QDQInputIndex::ZERO_POINT_ID] = &node_arg;
+      }
     }
   }
 

@@ -26,7 +26,7 @@ bool QDQSelector::CheckQDQNodes(const Graph& graph, const Node& node,
          optimizer_utils::CheckOutputEdges(graph, node, q_nodes.size());
 }
 
-bool QDQSelector::operator()(Graph& graph, const Node& node, std::vector<Node*>& selection) const {
+bool QDQSelector::operator()(Graph& graph, const Node& node, std::unique_ptr<NodesToOptimize>& selection) const {
   // GetDQNodes can be overridden so an op which has optional DQ inputs can insert nullptr in the correct
   // slots for those
   std::vector<const Node*> dq_nodes = graph_utils::FindParentsByType(node, QDQ::DQOpName);
@@ -44,15 +44,21 @@ bool QDQSelector::operator()(Graph& graph, const Node& node, std::vector<Node*>&
   };
 
   // TODO: If this packing isn't always the case we may need to do the insertion into `selection` via a virtual
-  selection.reserve(dq_nodes.size() + 1 + q_nodes.size());
+  NodesToOptimizeBuilder builder;
+  builder.input_nodes.reserve(dq_nodes.size());
+  builder.output_nodes.reserve(q_nodes.size());
+
   for (const Node* dq_node : dq_nodes) {
-    selection.push_back(dq_node != nullptr ? get_mutable_node(dq_node) : nullptr);
+    builder.input_nodes.push_back(dq_node != nullptr ? get_mutable_node(dq_node) : nullptr);
   }
-  selection.push_back(get_mutable_node(&node));
+
+  builder.target_node = get_mutable_node(&node);
 
   for (const Node* q_node : q_nodes) {
-    selection.push_back(get_mutable_node(q_node));
+    builder.output_nodes.push_back(get_mutable_node(q_node));
   }
+
+  selection = builder.Build();
 
   return true;
 }

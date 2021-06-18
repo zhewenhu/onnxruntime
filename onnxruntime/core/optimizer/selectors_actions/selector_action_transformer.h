@@ -15,7 +15,7 @@ class Node;
 struct NodeSelector {
   // Select one or more nodes for an Action to process if the constraints are satisfied.
   // `selection` is be ignored if this returns false
-  virtual bool operator()(Graph& graph, const Node& node, std::vector<Node*>& selection) const = 0;
+  virtual bool operator()(Graph& graph, const Node& node, std::unique_ptr<NodesToOptimize>& selection) const = 0;
   virtual ~NodeSelector() = default;
 
  protected:

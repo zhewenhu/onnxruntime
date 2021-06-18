@@ -39,41 +39,154 @@ static void ProcessEdge(Graph& graph, Node& src, const InOutDefSlot& src_slot,
     }
   }
 }
+
+Node* GetNodeByNodeIndex(Graph& graph, NodeIndex idx, bool required = true) {
+  if (idx == NodesToOptimize::EmptyNodeIndex) {
+    return nullptr;
+  }
+
+  Node* node = graph.GetNode(idx);
+  ORT_ENFORCE(node != nullptr || !required, "Node was required but not found at index ", idx);
+
+  return node;
+}
+
+std::vector<Node*> GetNodesByNodeIndex(Graph& graph, const std::vector<NodeIndex>& indexes) {
+  std::vector<Node*> nodes;
+  nodes.reserve(indexes.size());
+  std::for_each(indexes.cbegin(), indexes.cend(),
+                [&graph, &nodes](NodeIndex idx) {
+                  nodes.push_back(GetNodeByNodeIndex(graph, idx));
+                });
+
+  return nodes;
+}
 }  // namespace
 
+//
+// Selections
+//
+
+NodesToOptimize::NodesToOptimize(const std::vector<Node*>& input_nodes,
+                                 Node& target_node,
+                                 const std::vector<Node*>& output_nodes,
+                                 int num_input_defs, int num_output_defs)
+    : num_inputs{num_input_defs == -1 ? gsl::narrow_cast<int>(input_nodes.size()) : num_input_defs},
+      num_outputs{num_output_defs == -1 ? gsl::narrow_cast<int>(output_nodes.size()) : num_output_defs} {
+  //
+  if (num_input_defs != -1) {
+    num_extra_variadic_inputs_ = gsl::narrow_cast<int>(input_nodes.size()) - num_input_defs;
+  }
+
+  if (num_output_defs != -1) {
+    num_extra_variadic_outputs_ = gsl::narrow_cast<int>(output_nodes.size()) - num_output_defs;
+  }
+
+  nodes_.reserve(num_inputs + num_extra_variadic_inputs_ + 1 + num_outputs + num_extra_variadic_outputs_);
+  std::copy(input_nodes.begin(), input_nodes.end(), std::back_inserter(nodes_));
+  nodes_.push_back(&target_node);
+  std::copy(output_nodes.begin(), output_nodes.end(), std::back_inserter(nodes_));
+}
+
+NodesToOptimize::NodesToOptimize(Graph& graph,
+                                 const std::vector<NodeIndex>& input_nodes,
+                                 NodeIndex target_node,
+                                 const std::vector<NodeIndex>& output_nodes,
+                                 int num_input_defs, int num_output_defs)
+    : NodesToOptimize{GetNodesByNodeIndex(graph, input_nodes),
+                      *GetNodeByNodeIndex(graph, target_node),
+                      GetNodesByNodeIndex(graph, output_nodes),
+                      num_input_defs,
+                      num_output_defs} {
+}
+
+std::vector<Node*> NodesToOptimize::Inputs(const std::vector<int>& indexes, bool required) const {
+  std::vector<Node*> results;
+  results.reserve(num_inputs + num_extra_variadic_inputs_);
+
+  for (auto idx : indexes) {
+    if (idx == num_inputs - 1 && HasVariadicInput()) {
+      for (int i = 0, end = NumVariadicInputs(); i < end; ++i) {
+        results.push_back(GetNode(idx + i, required));
+      }
+    } else {
+    }
+  }
+
+  return results;
+}
+
+std::vector<Node*> NodesToOptimize::Outputs(const std::vector<int>& indexes, bool required) const {
+  std::vector<Node*> results;
+  results.reserve(num_outputs + num_extra_variadic_outputs_);
+
+  for (auto idx : indexes) {
+    if (idx == num_outputs - 1 && HasVariadicOutput()) {
+      for (int i = 0, end = NumVariadicOutputs(); i < end; ++i) {
+        results.push_back(GetNode(idx + i, required));
+      }
+    } else {
+    }
+  }
+
+  return results;
+}
+
+Node* NodesToOptimize::GetNodeAtLocation(const NodeLocation& location, bool required) const {
+  if (location.type == NodeType::kInput) {
+    return Input({location.index}, required);
+  } else if (location.type == NodeType::kOutput) {
+    return Output({location.index}, required);
+  } else
+    return {Target()};
+};
+
+std::vector<Node*> NodesToOptimize::GetNodesAtLocation(const NodeLocation& location, bool required) const {
+  if (location.type == NodeType::kInput) {
+    return Inputs({location.index}, required);
+  } else if (location.type == NodeType::kOutput) {
+    return Outputs({location.index}, required);
+  } else
+    return {Target()};
+};
+
+//
+//
+// Actions
+//
 Status MoveInputOutputHelper::MoveNodeArg(Graph& graph, Node& src, Node& dest) const {
-  auto& src_defs = (src_slot_.in_out == Direction::kInput)
+  auto& src_defs = (move_info_.src_slot.in_out == Direction::kInput)
                        ? src.MutableInputDefs()
                        : src.MutableOutputDefs();
 
-  auto& dest_defs = (dest_slot_.in_out == Direction::kInput)
+  auto& dest_defs = (move_info_.dest_slot.in_out == Direction::kInput)
                         ? dest.MutableInputDefs()
                         : dest.MutableOutputDefs();
 
   auto process = [&](int src_idx) {
-    ORT_ENFORCE((src_idx == -1 || static_cast<size_t>(src_idx) < src_defs.size()) &&
-                    (dest_slot_.idx == -1 || static_cast<size_t>(dest_slot_.idx) < dest_defs.size()),
+    ORT_ENFORCE((move_info_.copy_all || static_cast<size_t>(src_idx) < src_defs.size()) &&
+                    (move_info_.append || static_cast<size_t>(move_info_.dest_slot.idx) < dest_defs.size()),
                 "Index out of range");
 
-    if (append_) {
+    if (move_info_.append) {
       dest_defs.push_back(src_defs[src_idx]);
-      if (dest_slot_.in_out == Direction::kInput) {
+      if (move_info_.dest_slot.in_out == Direction::kInput) {
         // TODO: If we need to support variadic inputs appending 1 each time won't work
         dest.MutableInputArgsCount().push_back(1);
       }
     } else {
       // remove any edge to the slot we're replacing
-      RemoveEdge(graph, dest, dest_slot_);
-      dest_defs[dest_slot_.idx] = src_defs[src_slot_.idx];
+      RemoveEdge(graph, dest, move_info_.dest_slot);
+      dest_defs[move_info_.dest_slot.idx] = src_defs[move_info_.src_slot.idx];
     }
   };
 
-  if (copy_all_) {
+  if (move_info_.copy_all) {
     for (int i = 0, end = gsl::narrow<int>(src_defs.size()); i < end; ++i) {
       process(i);
     }
   } else {
-    process(src_slot_.idx);
+    process(move_info_.src_slot.idx);
   }
 
   return Status::OK();
@@ -85,7 +198,26 @@ void MoveInputOutputHelper::RemoveEdge(Graph& graph, Node& node, const InOutDefS
 }
 
 void MoveInputOutputHelper::MoveEdges(Graph& graph, Node& src, Node& dest) const {
-  ProcessEdge(graph, src, src_slot_, &dest, &dest_slot_);
+  ProcessEdge(graph, src, move_info_.src_slot, &dest, &move_info_.dest_slot);
+}
+
+bool CanSafelyRemoveNode(const Graph& graph, Node& node_to_remove, const Node* target_node) {
+  if (graph.GetNodeProvidesGraphOutput(node_to_remove)) {
+    return false;
+  }
+
+  bool safe = true;
+  if (target_node != nullptr) {
+    for (auto iter = node_to_remove.OutputEdgesBegin(), end = node_to_remove.OutputEdgesEnd(); iter != end; ++iter) {
+      if (&iter->GetNode() != target_node) {
+        return false;
+      }
+    }
+  } else {
+    safe = node_to_remove.GetOutputEdgesCount() == 0;
+  }
+
+  return safe;
 }
 
 }  // namespace onnxruntime

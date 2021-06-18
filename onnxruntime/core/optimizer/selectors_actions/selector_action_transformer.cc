@@ -46,7 +46,7 @@ Status SelectorActionTransformer::MatchAndProcess(Graph& graph, Node& node, bool
       }
     }
 
-    std::vector<Node*> selections;
+    std::unique_ptr<NodesToOptimize> selections;
     if (!(*selector_and_actions.selector)(graph, node, selections)) {
       break;
     }
@@ -60,7 +60,7 @@ Status SelectorActionTransformer::MatchAndProcess(Graph& graph, Node& node, bool
     // TODO: Should we require a single Action at this level to make life easier in terms of recreating the instance
     // that will process the nodes in a minimal build. It can derive from a generic MultiAction Action that provides
     // storage of all the individual actions to run.
-    status = (*selector_and_actions.action)(graph, selections);
+    status = (*selector_and_actions.action)(graph, *selections);
     if (!status.IsOK()) {
       break;
     }

@@ -277,7 +277,7 @@ bool IsSupportedDataType(const Node& node, const std::vector<std::string>& suppo
 }
 
 bool CheckOutputEdges(const Graph& graph, const Node& node, size_t expected_output_edges) {
-  if (!graph.GetNodeOutputsInGraphOutputs(node).empty()) {
+  if (graph.GetNodeProvidesGraphOutput(node)) {
     return false;
   }
 

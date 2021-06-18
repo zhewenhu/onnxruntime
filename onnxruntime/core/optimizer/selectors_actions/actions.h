@@ -6,7 +6,6 @@
 #include <vector>
 
 #include "core/common/common.h"
-#include "core/graph/graph.h"
 #include "core/graph/graph_utils.h"  // TODO: Minimize usage of this given we want to use Actions in a minimal build
 #include "core/optimizer/selectors_actions/helpers.h"
 
@@ -17,16 +16,8 @@ class Node;
 
 // actions that are applied to a set of nodes identified during selection
 struct Action {
-  virtual Status operator()(Graph&, std::vector<Node*>& nodes) = 0;
+  virtual Status operator()(Graph&, const NodesToOptimize& selected_nodes) const = 0;
   virtual ~Action() = default;
-
-  // helper to validate the index when fetching a node
-  Node* GetNode(size_t index, const std::vector<Node*>& nodes, bool required = true) {
-    Node* node = nullptr;
-    ORT_ENFORCE(index < nodes.size() && ((node = nodes[index]) != nullptr || !required));
-
-    return node;
-  }
 
  protected:
   Action() = default;
@@ -36,9 +27,9 @@ struct Action {
 struct MultiAction : public Action {
   MultiAction(std::vector<std::unique_ptr<Action>>&& actions) : actions_{std::move(actions)} {}
 
-  Status operator()(Graph& graph, std::vector<Node*>& nodes) override {
+  Status operator()(Graph& graph, const NodesToOptimize& selected_nodes) const override {
     for (const auto& action : actions_) {
-      ORT_RETURN_IF_ERROR((*action)(graph, nodes));
+      ORT_RETURN_IF_ERROR((*action)(graph, selected_nodes));
     }
 
     return Status::OK();
@@ -53,47 +44,29 @@ struct MultiAction : public Action {
 
 // Move a value from one node to another and adjusts edges accordingly
 struct MoveInputOutput : public Action {
-  MoveInputOutput(NodeAndArg src, NodeAndArg dest) : source_{src}, target_{dest} {
+  MoveInputOutput(const NodeAndMoveInfo& move_info) : move_info_(move_info) {
   }
 
-  Status operator()(Graph& graph, std::vector<Node*>& nodes) override;
+  Status operator()(Graph& graph, const NodesToOptimize& selected_nodes) const override;
 
  private:
-  NodeAndArg source_;
-  NodeAndArg target_;
+  const NodeAndMoveInfo move_info_;
 };
 
-// Remove selected nodes that the Action applies to based on index
+// Remove selected nodes that the Action applies to based on index.
 struct RemoveNodes : public Action {
-  RemoveNodes(const std::vector<size_t>& node_indexes)
-      : nodes_to_remove_{node_indexes} {}
+  RemoveNodes(const NodesToOptimize::NodeIndexes& nodes_to_remove) : nodes_to_remove_{nodes_to_remove} {}
 
-  Status operator()(Graph& graph, std::vector<Node*>& nodes) override {
-    for (auto idx : nodes_to_remove_) {
-      Node& node = *GetNode(idx, nodes);
-      graph_utils::RemoveNodeOutputEdges(graph, node);
-      graph.RemoveNode(node.Index());
-    }
-
-    return Status::OK();
-  }
+  Status operator()(Graph& graph, const NodesToOptimize& node_group) const override;
 
  private:
-  const std::vector<size_t> nodes_to_remove_;
+  const NodesToOptimize::NodeIndexes nodes_to_remove_;
 };
 
-// Remove all nodes that the Action applies to
+// Remove all nodes that the Action applies to which no longer produce consumed outputs.
+// NOTE: This requires any output edges to have been removed previously.
 struct RemoveAllNodes : public Action {
-  Status operator()(Graph& graph, std::vector<Node*>& nodes) override {
-    for (auto* node : nodes) {
-      if (node != nullptr) {
-        graph_utils::RemoveNodeOutputEdges(graph, *node);
-        graph.RemoveNode(node->Index());
-      }
-    }
-
-    return Status::OK();
-  }
+  Status operator()(Graph& graph, const NodesToOptimize& selected_nodes) const override;
 };
 
 // Merge multiple nodes into an existing nodes.
@@ -101,17 +74,19 @@ struct RemoveAllNodes : public Action {
 // Edge moves/removal will be automatically handled.
 // nodes_to_remove defines the nodes that are no longer needed after the merge.
 struct MergeIntoExisting : public Action {
-  MergeIntoExisting(std::initializer_list<std::pair<NodeAndArg, NodeAndArg>> value_moves,
-                    std::initializer_list<size_t> nodes_to_remove)
-      : value_moves_{value_moves},
-        nodes_to_remove_{nodes_to_remove} {
+  MergeIntoExisting(const std::initializer_list<NodeAndMoveInfo>& value_moves,
+                    const NodesToOptimize::NodeIndexes& nodes_to_remove)
+      : node_remover_{nodes_to_remove} {
+    for (const auto& value : value_moves) {
+      value_movers_.push_back(MoveInputOutput(value));
+    }
   }
 
  private:
-  virtual Status operator()(Graph&, std::vector<Node*>& nodes);
+  Status operator()(Graph&, const NodesToOptimize& selected_nodes) const override;
 
-  std::vector<std::pair<NodeAndArg, NodeAndArg>> value_moves_;
-  std::vector<size_t> nodes_to_remove_;  // index into 'nodes' vector that operator() is called with
+  std::vector<MoveInputOutput> value_movers_;
+  const RemoveNodes node_remover_;
 };
 
 }  // namespace onnxruntime
