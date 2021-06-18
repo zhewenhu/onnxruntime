@@ -74,8 +74,9 @@ struct RemoveAllNodes : public Action {
 // Edge moves/removal will be automatically handled.
 // nodes_to_remove defines the nodes that are no longer needed after the merge.
 struct MergeIntoExisting : public Action {
-  MergeIntoExisting(const std::initializer_list<NodeAndMoveInfo>& value_moves,
-                    const NodesToOptimize::NodeIndexes& nodes_to_remove)
+  MergeIntoExisting(  // const std::vector<NodeAndMoveInfo>& value_moves,
+      const std::initializer_list<NodeAndMoveInfo>& value_moves,
+      const NodesToOptimize::NodeIndexes& nodes_to_remove)
       : node_remover_{nodes_to_remove} {
     for (const auto& value : value_moves) {
       value_movers_.push_back(MoveInputOutput(value));

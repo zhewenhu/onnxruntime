@@ -51,35 +51,30 @@ NodeAndMoveInfo MoveAll(const NTO::NodeLocation& src_node,
 // create rules for ops that don't change the data
 std::unique_ptr<SelectorAndAction> DropQDQNodesRules() {
   // 3 nodes. 0=DQ, 1=target, 2=Q. Merge into target and remove DQ and Q.
-  // Move DQ input 0 to target input 0.
-  // Move Q output 0 to other output 0.
-  // Delete DQ and Q
   NTO::NodeLocation dq{NTO::NodeType::kInput, 0};
   NTO::NodeLocation q{NTO::NodeType::kOutput, 0};
 
   std::unique_ptr<NodeSelector> selector(new QDQDropDQDNodesSelector());
 
-  const std::initializer_list<NodeAndMoveInfo> moves{MoveToSlot(dq, Direction::kInput, 0, Direction::kInput, 0),
-                                                     MoveToSlot(q, Direction::kOutput, 0, Direction::kOutput, 0)};
+  // Move DQ input 0 to target input 0.
+  // Move Q output 0 to other output 0.
+  std::initializer_list<NodeAndMoveInfo> moves{
+      // from input node 0 (DQ) move input value 0 to input 0 of the target node
+      MoveToSlot(dq, Direction::kInput, 0, Direction::kInput, 0),
+      // from output node 0 (Q) move output value 0 to output 0 of the target node
+      MoveToSlot(q, Direction::kOutput, 0, Direction::kOutput, 0)};
 
-  std::vector<std::unique_ptr<Action>> actions;
-  ADD_ACTION(actions, MergeIntoExisting,
-             moves,
-             //// from input node 0 (DQ) move input value 0 to input 0 of the target node
-             //{MoveToSlot(dq, Direction::kInput, 0, Direction::kInput, 0),
-             // // from output node 0 (Q) move output value 0 to output 0 of the target node
-             // MoveToSlot(q, Direction::kOutput, 0, Direction::kOutput, 0)},
-             //// remove input 0, do not remove the target node, remove output 0
-             NTO::NodeIndexes{{0}, false, {0}});
+  // Delete DQ and Q but not the target node
+  NTO::NodeIndexes nodes_to_remove{{0}, false, {0}};
 
-  std::unique_ptr<Action> all_actions{new MultiAction{std::move(actions)}};
+  std::unique_ptr<Action> action(new MergeIntoExisting(moves, nodes_to_remove));
 
   return std::make_unique<SelectorAndAction>(SelectorAndAction::OpVersionsMap{{"Gather", {}},
                                                                               {"Reshape", {}},
                                                                               {"Transpose", {}},
                                                                               {"MaxPool", {12}}},
                                              std::move(selector),
-                                             std::move(all_actions));
+                                             std::move(action));
 }
 
 std::unique_ptr<SelectorAndAction> BinaryOpQDQRules() {
@@ -95,7 +90,6 @@ std::unique_ptr<SelectorAndAction> BinaryOpQDQRules() {
 
   // set the version point on the two DQ input nodes and the Q output node
   ADD_ACTION(actions, QDQ::SetOptionalZeroPoint, {dq1, dq2, q});
-
   ADD_ACTION(actions, QDQ::ReplaceWithQLinear,
              kMSDomain,
              {MoveAll(dq1, Direction::kInput),                             // append all inputs from dq1

@@ -20,7 +20,7 @@ class NodesToOptimize {
   };
 
   struct NodeLocation {
-    NodeType type;
+    NodeType type;  // is this a node providing input to the target, or consuming output from it
     int index;
   };
 
@@ -109,7 +109,7 @@ class NodesToOptimize {
  private:
   Node* GetNode(int index, bool required) const {
     Node* node = nullptr;
-    ORT_ENFORCE(index < nodes_.size() && ((node = nodes_[index]) != nullptr || !required));
+    ORT_ENFORCE(static_cast<size_t>(index) < nodes_.size() && ((node = nodes_[index]) != nullptr || !required));
 
     return node;
   }
@@ -181,9 +181,9 @@ struct ValueMoveInfo {
 
   InOutDefSlot src_slot;
   InOutDefSlot dest_slot;
-  bool is_variadic{false};  // set if the copy involves a variadic
   bool copy_all{false};     // ignore src_slot.idx and copy all values
   bool append{false};       // ignore dest_slot.idx and append to existing values
+  bool is_variadic{false};  // set if the copy involves a variadic
 
  private:
   ValueMoveInfo() = default;
