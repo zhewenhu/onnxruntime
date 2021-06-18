@@ -26,7 +26,7 @@ class NodesToOptimize {
 
   // index indexes in NodesToOptimize::Input and Output
   struct NodeIndexes {
-    const std::vector<int>& input_node_indexes;
+    const std::vector<int> input_node_indexes;
     bool include_target_node;
     const std::vector<int> output_node_indexes;
   };

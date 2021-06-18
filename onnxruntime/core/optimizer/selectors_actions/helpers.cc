@@ -110,6 +110,7 @@ std::vector<Node*> NodesToOptimize::Inputs(const std::vector<int>& indexes, bool
         results.push_back(GetNode(idx + i, required));
       }
     } else {
+      results.push_back(GetNode(idx, required));
     }
   }
 
@@ -120,12 +121,16 @@ std::vector<Node*> NodesToOptimize::Outputs(const std::vector<int>& indexes, boo
   std::vector<Node*> results;
   results.reserve(num_outputs + num_extra_variadic_outputs_);
 
+  // offset by all the inputs and the target node
+  const int offset = num_inputs + num_extra_variadic_inputs_ + 1;
+
   for (auto idx : indexes) {
     if (idx == num_outputs - 1 && HasVariadicOutput()) {
       for (int i = 0, end = NumVariadicOutputs(); i < end; ++i) {
-        results.push_back(GetNode(idx + i, required));
+        results.push_back(GetNode(offset + idx + i, required));
       }
     } else {
+      results.push_back(GetNode(offset + idx, required));
     }
   }
 
@@ -202,12 +207,17 @@ void MoveInputOutputHelper::MoveEdges(Graph& graph, Node& src, Node& dest) const
 }
 
 bool CanSafelyRemoveNode(const Graph& graph, Node& node_to_remove, const Node* target_node) {
-  if (graph.GetNodeProvidesGraphOutput(node_to_remove)) {
-    return false;
-  }
-
   bool safe = true;
   if (target_node != nullptr) {
+    // TODO: Refine this as it's a little vague.
+    // Caller should provide a bool saying whether we need to check graph outputs
+    // Assumption is that once we get to the downstream nodes from the target nodes, we wouldn't have touched those
+    // nodes if they were producing graph outputs. Inputs to the target node are a different story, as it's fine
+    // to take their outputs and use it in a replacement node
+    if (graph.GetNodeProvidesGraphOutput(node_to_remove)) {
+      return false;
+    }
+
     for (auto iter = node_to_remove.OutputEdgesBegin(), end = node_to_remove.OutputEdgesEnd(); iter != end; ++iter) {
       if (&iter->GetNode() != target_node) {
         return false;

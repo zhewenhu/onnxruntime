@@ -55,12 +55,13 @@ struct MoveInputOutput : public Action {
 
 // Remove selected nodes that the Action applies to based on index.
 struct RemoveNodes : public Action {
-  RemoveNodes(const NodesToOptimize::NodeIndexes& nodes_to_remove) : nodes_to_remove_{nodes_to_remove} {}
+  RemoveNodes(const NodesToOptimize::NodeIndexes& nodes_to_remove)
+      : nodes_to_remove_{nodes_to_remove} {}
 
   Status operator()(Graph& graph, const NodesToOptimize& node_group) const override;
 
  private:
-  const NodesToOptimize::NodeIndexes nodes_to_remove_;
+  NodesToOptimize::NodeIndexes nodes_to_remove_;
 };
 
 // Remove all nodes that the Action applies to which no longer produce consumed outputs.
@@ -87,7 +88,7 @@ struct MergeIntoExisting : public Action {
   Status operator()(Graph&, const NodesToOptimize& selected_nodes) const override;
 
   std::vector<MoveInputOutput> value_movers_;
-  const RemoveNodes node_remover_;
+  RemoveNodes node_remover_;
 };
 
 }  // namespace onnxruntime
