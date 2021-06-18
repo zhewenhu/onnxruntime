@@ -65,10 +65,10 @@ bool QDQSelector::operator()(Graph& graph, const Node& node, std::unique_ptr<Nod
 
 QDQDropDQDNodesSelector::QDQDropDQDNodesSelector()
     : QDQSelector{},
-      dq_scale_is_constant_scalar_{InOutDefSlot{Direction::kInput, QDQ::QDQInputIndex::SCALE_ID}},
-      dq_zero_point_is_constant_scalar_{InOutDefSlot{Direction::kInput, QDQ::QDQInputIndex::ZERO_POINT_ID}},
-      q_scale_is_constant_scalar_{InOutDefSlot{Direction::kInput, QDQ::QDQInputIndex::SCALE_ID}},
-      q_zero_point_is_constant_scalar_{InOutDefSlot{Direction::kInput, QDQ::QDQInputIndex::ZERO_POINT_ID}} {
+      dq_scale_is_constant_scalar_{InOutDefSlot{ArgType::kInput, QDQ::QDQInputIndex::SCALE_ID}},
+      dq_zero_point_is_constant_scalar_{InOutDefSlot{ArgType::kInput, QDQ::QDQInputIndex::ZERO_POINT_ID}},
+      q_scale_is_constant_scalar_{InOutDefSlot{ArgType::kInput, QDQ::QDQInputIndex::SCALE_ID}},
+      q_zero_point_is_constant_scalar_{InOutDefSlot{ArgType::kInput, QDQ::QDQInputIndex::ZERO_POINT_ID}} {
 }
 
 bool QDQDropDQDNodesSelector::Check(const Graph& graph,

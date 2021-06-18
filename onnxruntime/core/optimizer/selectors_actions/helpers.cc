@@ -12,7 +12,7 @@ namespace {
 // moves edges from src+src_slot to dest node+dest_slot if provided.
 static void ProcessEdge(Graph& graph, Node& src, const InOutDefSlot& src_slot,
                         Node* dest, const InOutDefSlot* dest_slot) {
-  if (src_slot.in_out == Direction::kInput) {
+  if (src_slot.in_out == ArgType::kInput) {
     // move input edge if present
     auto iter = std::find_if(src.InputEdgesBegin(), src.InputEdgesEnd(),
                              [&src_slot](const Node::EdgeEnd& edge) {
@@ -22,9 +22,11 @@ static void ProcessEdge(Graph& graph, Node& src, const InOutDefSlot& src_slot,
     // initializer or graph input doesn't have an edge so either zero or one edges to process
     if (iter != src.InputEdgesEnd()) {
       const Node& iter_node = iter->GetNode();
-      graph.RemoveEdge(iter_node.Index(), src.Index(), iter->GetSrcArgIndex(), src_slot.idx);
+      // need to save this before calling RemoveEdge as that invalidates the iterator
+      auto iter_src_idx = iter->GetSrcArgIndex();
+      graph.RemoveEdge(iter_node.Index(), src.Index(), iter_src_idx, src_slot.idx);
       if (dest && dest_slot) {
-        graph.AddEdge(iter_node.Index(), dest->Index(), iter->GetSrcArgIndex(), dest_slot->idx);
+        graph.AddEdge(iter_node.Index(), dest->Index(), iter_src_idx, dest_slot->idx);
       }
     }
 
@@ -159,12 +161,12 @@ std::vector<Node*> NodesToOptimize::GetNodesAtLocation(const NodeLocation& locat
 //
 // Actions
 //
-Status MoveInputOutputHelper::MoveNodeArg(Graph& graph, Node& src, Node& dest) const {
-  auto& src_defs = (move_info_.src_slot.in_out == Direction::kInput)
+Status MoveInputOutputHelper::MoveImpl(Graph& graph, Node& src, Node& dest) const {
+  auto& src_defs = (move_info_.src_slot.in_out == ArgType::kInput)
                        ? src.MutableInputDefs()
                        : src.MutableOutputDefs();
 
-  auto& dest_defs = (move_info_.dest_slot.in_out == Direction::kInput)
+  auto& dest_defs = (move_info_.dest_slot.in_out == ArgType::kInput)
                         ? dest.MutableInputDefs()
                         : dest.MutableOutputDefs();
 
@@ -175,14 +177,24 @@ Status MoveInputOutputHelper::MoveNodeArg(Graph& graph, Node& src, Node& dest) c
 
     if (move_info_.append) {
       dest_defs.push_back(src_defs[src_idx]);
-      if (move_info_.dest_slot.in_out == Direction::kInput) {
-        // TODO: If we need to support variadic inputs appending 1 each time won't work
+
+      // now that we have a dest index we can move edges
+      InOutDefSlot src_slot{move_info_.src_slot.in_out, src_idx};
+      InOutDefSlot dest_slot{move_info_.dest_slot.in_out, gsl::narrow_cast<int>(dest_defs.size()) - 1};
+      ProcessEdge(graph, src, {move_info_.src_slot.in_out, src_idx}, &dest, &dest_slot);
+
+      // also need to set the arg count
+      if (move_info_.dest_slot.in_out == ArgType::kInput) {
+        // TODO: need flag if this is a variadic input/output to do a +1 on back() if not the first one
         dest.MutableInputArgsCount().push_back(1);
       }
     } else {
       // remove any edge to the slot we're replacing
-      RemoveEdge(graph, dest, move_info_.dest_slot);
+      ProcessEdge(graph, dest, move_info_.dest_slot, nullptr, nullptr);
+
       dest_defs[move_info_.dest_slot.idx] = src_defs[move_info_.src_slot.idx];
+
+      ProcessEdge(graph, src, move_info_.src_slot, &dest, &move_info_.dest_slot);
     }
   };
 
@@ -195,39 +207,6 @@ Status MoveInputOutputHelper::MoveNodeArg(Graph& graph, Node& src, Node& dest) c
   }
 
   return Status::OK();
-}
-
-// MoveEdges to find the matching edges
-void MoveInputOutputHelper::RemoveEdge(Graph& graph, Node& node, const InOutDefSlot& slot) const {
-  ProcessEdge(graph, node, slot, nullptr, nullptr);
-}
-
-void MoveInputOutputHelper::MoveEdges(Graph& graph, Node& src, Node& dest) const {
-  ProcessEdge(graph, src, move_info_.src_slot, &dest, &move_info_.dest_slot);
-}
-
-bool CanSafelyRemoveNode(const Graph& graph, Node& node_to_remove, const Node* target_node) {
-  bool safe = true;
-  if (target_node != nullptr) {
-    // TODO: Refine this as it's a little vague.
-    // Caller should provide a bool saying whether we need to check graph outputs
-    // Assumption is that once we get to the downstream nodes from the target nodes, we wouldn't have touched those
-    // nodes if they were producing graph outputs. Inputs to the target node are a different story, as it's fine
-    // to take their outputs and use it in a replacement node
-    if (graph.GetNodeProvidesGraphOutput(node_to_remove)) {
-      return false;
-    }
-
-    for (auto iter = node_to_remove.OutputEdgesBegin(), end = node_to_remove.OutputEdgesEnd(); iter != end; ++iter) {
-      if (&iter->GetNode() != target_node) {
-        return false;
-      }
-    }
-  } else {
-    safe = node_to_remove.GetOutputEdgesCount() == 0;
-  }
-
-  return safe;
 }
 
 }  // namespace onnxruntime

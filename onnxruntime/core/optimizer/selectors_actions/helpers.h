@@ -141,12 +141,12 @@ struct NodesToOptimizeBuilder {
 // Action helpers
 //
 
-enum class Direction { kInput,
-                       kOutput };
+enum class ArgType { kInput,
+                     kOutput };
 
 // struct to define the location of an input or output definition for a Node
 struct InOutDefSlot {
-  Direction in_out;
+  ArgType in_out;
   int idx;  // idx of -1 means 'all' if a source, or 'end' if a target
 };
 
@@ -163,7 +163,7 @@ struct ValueMoveInfo {
       : src_slot(src_slot_in), dest_slot(dest_slot_in) {}
 
   // copy all from source to destination
-  ValueMoveInfo(Direction src_slot_type, Direction dest_slot_type, bool variadic = false)
+  ValueMoveInfo(ArgType src_slot_type, ArgType dest_slot_type, bool variadic = false)
       : src_slot{src_slot_type, -1},
         dest_slot{dest_slot_type, -1},
         copy_all{true},
@@ -172,7 +172,7 @@ struct ValueMoveInfo {
   }
 
   // append single value (may be variadic) from source to destination
-  ValueMoveInfo(InOutDefSlot src_slot_in, Direction dest_slot_type, bool variadic = false)
+  ValueMoveInfo(InOutDefSlot src_slot_in, ArgType dest_slot_type, bool variadic = false)
       : src_slot(src_slot_in),
         dest_slot{dest_slot_type, -1},
         copy_all{false},
@@ -211,27 +211,10 @@ struct MoveInputOutputHelper {
   MoveInputOutputHelper(const ValueMoveInfo& move_info)
       : move_info_{move_info} {}
 
-  Status MoveImpl(Graph& graph, Node& src, Node& dest) {
-    ORT_RETURN_IF_ERROR(MoveNodeArg(graph, src, dest));
-    MoveEdges(graph, src, dest);
-
-    return Status::OK();
-  }
-
-  Status MoveNodeArg(Graph& graph, Node& src, Node& dest) const;
-
-  // MoveEdges to find the matching edges
-  void RemoveEdge(Graph& graph, Node& node, const InOutDefSlot& slot) const;
-
-  void MoveEdges(Graph& graph, Node& src, Node& dest) const;
+  Status MoveImpl(Graph& graph, Node& src, Node& dest) const;
 
  private:
   const ValueMoveInfo& move_info_;
 };
-
-// check if a Node involved in the optimization can be safely removed.
-// Requires the node_to_remove to not be producing any graph outputs, and to not be producing any outputs
-// consumed by nodes other than the target node for the optimization.
-bool CanSafelyRemoveNode(const Graph& graph, Node& node_to_remove, const Node* target_node);
 
 }  // namespace onnxruntime

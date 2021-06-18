@@ -9,53 +9,64 @@ using namespace ONNX_NAMESPACE;
 using namespace ::onnxruntime::common;
 namespace onnxruntime {
 
-Status RemoveNodes::operator()(Graph& graph, const NodesToOptimize& selected_nodes) const {
-  auto remove = [&graph](Node* node, const Node* target_node = nullptr) {
-    // TODO: Should we wire in the logger for messages about skipped nodes?
-    if (node && CanSafelyRemoveNode(graph, *node, target_node)) {
+namespace {
+
+// Check if a node involved in an optimization can be safely removed.
+// This requires that the optimizer correctly handles nodes producing graph outputs and does not attempt to delete
+// one of those nodes unless it has created a new source for the graph output. As we can't easily remove the NodeArg
+// from the Node::OutputDefs for the node being removed, we do not check if the node provides graph outputs here.
+bool CanSafelyRemoveNode(Node& node_to_remove, const std::unordered_set<const Node*>& removal_set) {
+  bool safe = true;
+  for (auto iter = node_to_remove.OutputEdgesBegin(), end = node_to_remove.OutputEdgesEnd(); iter != end; ++iter) {
+    if (removal_set.find(&iter->GetNode()) == removal_set.cend()) {
+      safe = false;
+      break;
+    }
+  }
+
+  return safe;
+}
+
+// remove nodes that are safe to do so. 'safe' means no output edges to nodes not in the set of nodes being removed.
+// there is NO check on a node producing a graph output. we assume the optimizer has handled that already.
+void SafelyRemoveNodes(Graph& graph, const gsl::span<Node* const>& nodes_to_remove) {
+  std::unordered_set<const Node*> removal_set(nodes_to_remove.cbegin(), nodes_to_remove.cend());
+
+  for (Node* node : nodes_to_remove) {
+    if (node && CanSafelyRemoveNode(*node, removal_set)) {
       // TODO: It's slightly insane we don't support optionally removing the output edges as part of Graph::RemoveNode
       // but to make that change we need to validate a lot of existing code
       graph_utils::RemoveNodeOutputEdges(graph, *node);
       graph.RemoveNode(node->Index());
     }
-  };
+  }
+}
+}  // namespace
 
-  const Node* target_node = selected_nodes.Target();
+Status RemoveNodes::operator()(Graph& graph, const NodesToOptimize& selected_nodes) const {
+  std::vector<Node*> nodes_to_remove;
+  nodes_to_remove.reserve(selected_nodes.AllNodes().size());
+
   for (Node* node : selected_nodes.Inputs(nodes_to_remove_.input_node_indexes)) {
-    remove(node, target_node);
+    nodes_to_remove.push_back(node);
   }
 
-  // checking output edges in CanSafelyRemoveNode against the target node is no longer relevant
-  // as we've processed all the inputs (so we can no longer have an output edge that points to it)
-  target_node = nullptr;
-
   if (nodes_to_remove_.include_target_node) {
-    remove(selected_nodes.Target());
+    nodes_to_remove.push_back(selected_nodes.Target());
   }
 
   for (Node* node : selected_nodes.Outputs(nodes_to_remove_.output_node_indexes)) {
-    remove(node);
+    nodes_to_remove.push_back(node);
   }
+
+  SafelyRemoveNodes(graph, nodes_to_remove);
 
   return Status::OK();
 }
 
 Status RemoveAllNodes::operator()(Graph& graph, const NodesToOptimize& selected_nodes) const {
-  const Node* target_node = selected_nodes.Target();
-
-  for (auto* node : selected_nodes.AllNodes()) {
-    if (node != nullptr) {
-      // AllNodes are ordered as inputs, target, output. if we just removed the target node, it's no longer valid
-      if (node == target_node) {
-        target_node = nullptr;
-      }
-
-      if (CanSafelyRemoveNode(graph, *node, target_node)) {
-        graph_utils::RemoveNodeOutputEdges(graph, *node);
-        graph.RemoveNode(node->Index());
-      }
-    }
-  }
+  // std::vector<Node*> nodes_to_remove(selected_nodes.AllNodes());
+  SafelyRemoveNodes(graph, selected_nodes.AllNodes());
 
   return Status::OK();
 }

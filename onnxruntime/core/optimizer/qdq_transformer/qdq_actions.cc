@@ -36,8 +36,6 @@ Status ReplaceWithQLinear::operator()(Graph& graph, const NodesToOptimize& selec
 
     for (Node* src : src_nodes) {
       if (src != nullptr) {
-        // TODO: Could convert value_moves_ into a collection of MoveInputOutputHelper instance so we don't do
-        // that during construction. Not a big cost though.
         ORT_RETURN_IF_ERROR(MoveInputOutputHelper::Move(graph, *src, replacement, move.value_move_info));
       }
     }

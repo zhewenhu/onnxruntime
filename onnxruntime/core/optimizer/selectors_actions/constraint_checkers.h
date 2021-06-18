@@ -26,7 +26,7 @@ struct ConstraintChecker {
 class InOutChecker : public ConstraintChecker {
  public:
   bool operator()(const Graph& graph, const Node& node) const override {
-    const auto& node_arg = slot_.in_out == Direction::kInput
+    const auto& node_arg = slot_.in_out == ArgType::kInput
                                ? *node.InputDefs().at(slot_.idx)
                                : *node.OutputDefs().at(slot_.idx);
 
@@ -94,10 +94,10 @@ class TensorElemTypeChecker : public InOutChecker {
 // does not include missing optional inputs in the total.
 class InOutCount : public ConstraintChecker {
  public:
-  InOutCount(Direction type, size_t count) : type_{type}, count_{count} {}
+  InOutCount(ArgType type, size_t count) : type_{type}, count_{count} {}
 
   bool operator()(const Graph&, const Node& node) const override {
-    const auto& defs = type_ == Direction::kInput ? node.InputDefs() : node.OutputDefs();
+    const auto& defs = type_ == ArgType::kInput ? node.InputDefs() : node.OutputDefs();
     auto num_defs = gsl::narrow_cast<size_t>(std::count_if(defs.cbegin(), defs.cend(),
                                                            [](const NodeArg* def) { return def->Exists(); }));
 
@@ -105,7 +105,7 @@ class InOutCount : public ConstraintChecker {
   }
 
  private:
-  const Direction type_;
+  const ArgType type_;
   const size_t count_;
 };
 

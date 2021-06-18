@@ -3,7 +3,7 @@
 namespace onnxruntime {
 namespace {
 const Node* NodeFromSlot(const Node& node, const InOutDefSlot& slot) {
-  if (slot.in_out == Direction::kInput) {
+  if (slot.in_out == ArgType::kInput) {
     auto iter = std::find_if(node.InputEdgesBegin(), node.InputEdgesEnd(),
                              [&slot](const Node::EdgeEnd& edge) {
                                return (edge.GetDstArgIndex() == slot.idx);
