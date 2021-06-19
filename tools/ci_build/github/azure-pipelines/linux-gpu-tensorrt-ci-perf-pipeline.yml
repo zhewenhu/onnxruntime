@@ -41,7 +41,7 @@ jobs:
     - name: with_arguments
       value: $(environment) -e "$(epList)"
     - name: run_conda
-      value: eval "$(command conda 'shell.bash' 'hook' 2> /dev/null)" && conda activate perf3.8 
+      value: eval "$(command conda 'shell.bash' 'hook' 2> /dev/null)" && conda activate new_perf3.8 
   timeoutInMinutes: 3000 
       
   steps:
