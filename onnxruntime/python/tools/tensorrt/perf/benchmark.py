@@ -281,7 +281,7 @@ def get_acl_version():
 #######################################################################################################################################
 def load_onnx_model_zoo_test_data(path, all_inputs_shape, data_type="fp32"):
     logger.info("Parsing test data in {} ...".format(path))
-    output = get_output(["find", path, "-name", "test_data*", "-type", "d"])
+    output = get_output(["find", "-L", path, "-name", "test_data*", "-type", "d"])
     test_data_set_dir = split_and_sort_output(output)
     logger.info(test_data_set_dir)
 
