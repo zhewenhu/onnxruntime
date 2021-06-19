@@ -29,11 +29,11 @@ bool CanSafelyRemoveNode(Node& node_to_remove, const std::unordered_set<const No
 
 // remove nodes that are safe to do so. 'safe' means no output edges to nodes not in the set of nodes being removed.
 // there is NO check on a node producing a graph output. we assume the optimizer has handled that already.
-void SafelyRemoveNodes(Graph& graph, const gsl::span<Node* const>& nodes_to_remove) {
+void SafelyRemoveNodes(Graph& graph, const std::vector<Node*>& nodes_to_remove, const Node* skip_target) {
   std::unordered_set<const Node*> removal_set(nodes_to_remove.cbegin(), nodes_to_remove.cend());
 
   for (Node* node : nodes_to_remove) {
-    if (node && CanSafelyRemoveNode(*node, removal_set)) {
+    if (node && node != skip_target && CanSafelyRemoveNode(*node, removal_set)) {
       // TODO: It's slightly insane we don't support optionally removing the output edges as part of Graph::RemoveNode
       // but to make that change we need to validate a lot of existing code
       graph_utils::RemoveNodeOutputEdges(graph, *node);
@@ -43,30 +43,30 @@ void SafelyRemoveNodes(Graph& graph, const gsl::span<Node* const>& nodes_to_remo
 }
 }  // namespace
 
+//Status RemoveNodes::operator()(Graph& graph, const NodesToOptimize& selected_nodes) const {
+//  std::vector<Node*> nodes_to_remove;
+//  nodes_to_remove.reserve(selected_nodes.AllNodes().size());
+//
+//  for (Node* node : selected_nodes.Inputs(nodes_to_remove_.input_node_indexes)) {
+//    nodes_to_remove.push_back(node);
+//  }
+//
+//  if (nodes_to_remove_.include_target_node) {
+//    nodes_to_remove.push_back(selected_nodes.Target());
+//  }
+//
+//  for (Node* node : selected_nodes.Outputs(nodes_to_remove_.output_node_indexes)) {
+//    nodes_to_remove.push_back(node);
+//  }
+//
+//  SafelyRemoveNodes(graph, nodes_to_remove);
+//
+//  return Status::OK();
+//}
+
 Status RemoveNodes::operator()(Graph& graph, const NodesToOptimize& selected_nodes) const {
-  std::vector<Node*> nodes_to_remove;
-  nodes_to_remove.reserve(selected_nodes.AllNodes().size());
-
-  for (Node* node : selected_nodes.Inputs(nodes_to_remove_.input_node_indexes)) {
-    nodes_to_remove.push_back(node);
-  }
-
-  if (nodes_to_remove_.include_target_node) {
-    nodes_to_remove.push_back(selected_nodes.Target());
-  }
-
-  for (Node* node : selected_nodes.Outputs(nodes_to_remove_.output_node_indexes)) {
-    nodes_to_remove.push_back(node);
-  }
-
-  SafelyRemoveNodes(graph, nodes_to_remove);
-
-  return Status::OK();
-}
-
-Status RemoveAllNodes::operator()(Graph& graph, const NodesToOptimize& selected_nodes) const {
-  // std::vector<Node*> nodes_to_remove(selected_nodes.AllNodes());
-  SafelyRemoveNodes(graph, selected_nodes.AllNodes());
+  Node* skip_target = preserve_target_node_ ? selected_nodes.Target() : nullptr;
+  SafelyRemoveNodes(graph, selected_nodes.AllNodes(), skip_target);
 
   return Status::OK();
 }

@@ -24,12 +24,12 @@ class NodesToOptimize {
     int index;
   };
 
-  // index indexes in NodesToOptimize::Input and Output
-  struct NodeIndexes {
-    const std::vector<int> input_node_indexes;
-    bool include_target_node;
-    const std::vector<int> output_node_indexes;
-  };
+  //// index indexes in NodesToOptimize::Input and Output
+  //struct NodeIndexes {
+  //  const std::vector<int> input_node_indexes;
+  //  bool include_target_node;
+  //  const std::vector<int> output_node_indexes;
+  //};
 
   // nodes to assemble. num_inputs and num_outputs default to the size of input_nodes and output_nodes.
   // specify num_input_defs/num_output_defs if the last input/output is variadic
@@ -100,7 +100,7 @@ class NodesToOptimize {
   // Generally returns a single node unless it's a variadic input/output. Prefer GetNodeAtLocation if possible.
   std::vector<Node*> GetNodesAtLocation(const NodeLocation& location, bool required = true) const;
 
-  gsl::span<Node* const> AllNodes() const { return gsl::make_span(nodes_); }
+  const std::vector<Node*>& AllNodes() const { return nodes_; }
 
   NodesToOptimize(NodesToOptimize&&) = default;
   NodesToOptimize& operator=(NodesToOptimize&&) = default;

@@ -58,14 +58,11 @@ std::unique_ptr<SelectorAndAction> DropQDQNodesRules() {
 
   // Move DQ input 0 to target input 0.
   // Move Q output 0 to target output 0.
-  std::initializer_list<NodeAndMoveInfo> moves{
+  std::vector<NodeAndMoveInfo> moves{
       MoveToSlot(dq, ArgType::kInput, 0, ArgType::kInput, 0),
       MoveToSlot(q, ArgType::kOutput, 0, ArgType::kOutput, 0)};
 
-  // Delete DQ and Q but not the target node
-  NTO::NodeIndexes nodes_to_remove{{0}, false, {0}};
-
-  std::unique_ptr<Action> action(new MergeIntoExisting(moves, nodes_to_remove));
+  std::unique_ptr<Action> action(new MergeIntoExisting(moves));
 
   return std::make_unique<SelectorAndAction>(SelectorAndAction::OpVersionsMap{{"Gather", {}},
                                                                               {"Reshape", {}},
@@ -86,12 +83,15 @@ std::unique_ptr<SelectorAndAction> UnaryOpQDQRules() {
   std::vector<std::unique_ptr<Action>> actions;
   ADD_ACTION(actions, QDQ::SetOptionalZeroPoint, {dq, q});  // update the DQ and Q nodes
 
-  ADD_ACTION(actions, QDQ::ReplaceWithQLinear,                         // create new QLinear node to replace target
-             kMSDomain,                                                // new operator is in MS domain
-             {MoveAll(dq, ArgType::kInput),                            // append all inputs from dq to new node
-              MoveAndAppend(q, ArgType::kInput, 1, ArgType::kInput),   // append scale (input 1) from q
-              MoveAndAppend(q, ArgType::kInput, 2, ArgType ::kInput),  // append zp (input 2) from q
-              MoveAll(q, ArgType::kOutput)});                          // and use the outputs from q
+  std::vector<NodeAndMoveInfo> moves{
+      MoveAll(dq, ArgType::kInput),                            // append all inputs from dq to new node
+      MoveAndAppend(q, ArgType::kInput, 1, ArgType::kInput),   // append scale (input 1) from q
+      MoveAndAppend(q, ArgType::kInput, 2, ArgType ::kInput),  // append zp (input 2) from q
+      MoveAll(q, ArgType::kOutput)};
+
+  ADD_ACTION(actions, QDQ::ReplaceWithQLinear,  // create new QLinear node to replace target
+             kMSDomain,                         // new operator is in MS domain
+             std::move(moves));
 
   std::unique_ptr<Action> all_actions{new MultiAction{std::move(actions)}};
 
@@ -114,13 +114,16 @@ std::unique_ptr<SelectorAndAction> BinaryOpQDQRules() {
   // set the version point on the two DQ input nodes and the Q output node
   ADD_ACTION(actions, QDQ::SetOptionalZeroPoint, {dq1, dq2, q});
 
-  ADD_ACTION(actions, QDQ::ReplaceWithQLinear,                         // create new QLinear node to replace target
-             kMSDomain,                                                // new operator is in MS domain
-             {MoveAll(dq1, ArgType::kInput),                           // append all inputs from dq1 to new node
-              MoveAll(dq2, ArgType::kInput),                           // append all inputs from dq2
-              MoveAndAppend(q, ArgType::kInput, 1, ArgType::kInput),   // append scale (input 1) from q
-              MoveAndAppend(q, ArgType::kInput, 2, ArgType ::kInput),  // append zp (input 2) from q
-              MoveAll(q, ArgType::kOutput)});                          // and use the outputs from q
+  std::vector<NodeAndMoveInfo> moves{
+      MoveAll(dq1, ArgType::kInput),                           // append all inputs from dq1 to new node
+      MoveAll(dq2, ArgType::kInput),                           // append all inputs from dq2
+      MoveAndAppend(q, ArgType::kInput, 1, ArgType::kInput),   // append scale (input 1) from q
+      MoveAndAppend(q, ArgType::kInput, 2, ArgType ::kInput),  // append zp (input 2) from q
+      MoveAll(q, ArgType::kOutput)};                           // and use the outputs from q
+
+  ADD_ACTION(actions, QDQ::ReplaceWithQLinear,  // create new QLinear node to replace target
+             kMSDomain,                         // new operator is in MS domain
+             std::move(moves));
 
   std::unique_ptr<Action> all_actions{new MultiAction{std::move(actions)}};
 
@@ -143,12 +146,15 @@ std::unique_ptr<SelectorAndAction> VariadicOpQDQRules() {
   // set the version point on the DQ input nodes and the Q output node
   ADD_ACTION(actions, QDQ::SetOptionalZeroPoint, {variadic_dq, q});
 
+  std::vector<NodeAndMoveInfo> moves{
+      MoveAndAppend(q, ArgType::kInput, 1, ArgType::kInput),   // append scale (input 1) from q
+      MoveAndAppend(q, ArgType::kInput, 2, ArgType ::kInput),  // append zp (input 2) from q
+      MoveAll(variadic_dq, ArgType::kInput),                   // append all inputs from all dq nodes
+      MoveAll(q, ArgType::kOutput)};                           // and use the outputs from q
+
   ADD_ACTION(actions, QDQ::ReplaceWithQLinear,
              kMSDomain,
-             {MoveAndAppend(q, ArgType::kInput, 1, ArgType::kInput),   // append scale (input 1) from q
-              MoveAndAppend(q, ArgType::kInput, 2, ArgType ::kInput),  // append zp (input 2) from q
-              MoveAll(variadic_dq, ArgType::kInput),                   // append all inputs from all dq nodes
-              MoveAll(q, ArgType::kOutput)});                          // and use the outputs from q
+             std::move(moves));
 
   std::unique_ptr<Action> all_actions{new MultiAction{std::move(actions)}};
 
@@ -171,17 +177,18 @@ std::unique_ptr<SelectorAndAction> ConvQDQRules() {
   std::unique_ptr<NodeSelector> selector(new QDQConvSelector());
 
   std::vector<std::unique_ptr<Action>> actions;
-  ADD_ACTION(actions, QDQ::ReplaceWithQLinear,
-             kOnnxDomain,                                                   // QLinearConv is from ONNX
-             {MoveAll(dq_x, ArgType::kInput),                               // append all inputs from x
-              MoveAll(dq_w, ArgType::kInput),                               // append all inputs from w
-              MoveAndAppend(q, ArgType::kInput, 1, ArgType::kInput),        // append scale (input 1) from q
-              MoveAndAppend(q, ArgType::kInput, 2, ArgType ::kInput),       // append zp (input 2) from q
-              MoveAndAppend(dq_bias, ArgType::kInput, 0, ArgType::kInput),  // (optional) append bias
-              MoveAll(q, ArgType::kOutput)});                               // and use the outputs from q
 
-  // MoveInput(2, 0, -1),    // (optional) append input dq[2][0]
-  // MoveOutput(4, -1, -1)}  // and use the outputs from q[0]
+  std::vector<NodeAndMoveInfo> moves{
+      MoveAll(dq_x, ArgType::kInput),                               // append all inputs from x
+      MoveAll(dq_w, ArgType::kInput),                               // append all inputs from w
+      MoveAndAppend(q, ArgType::kInput, 1, ArgType::kInput),        // append scale (input 1) from q
+      MoveAndAppend(q, ArgType::kInput, 2, ArgType ::kInput),       // append zp (input 2) from q
+      MoveAndAppend(dq_bias, ArgType::kInput, 0, ArgType::kInput),  // (optional) append bias
+      MoveAll(q, ArgType::kOutput)};                                // and use the outputs from q
+
+  ADD_ACTION(actions, QDQ::ReplaceWithQLinear,
+             kOnnxDomain,  // QLinearConv is from ONNX
+             std::move(moves));
 
   std::unique_ptr<Action> all_actions{new MultiAction{std::move(actions)}};
 

@@ -8,9 +8,9 @@ namespace onnxruntime {
 namespace QDQ {
 
 ReplaceWithQLinear::ReplaceWithQLinear(const std::string& domain,
-                                       std::initializer_list<NodeAndMoveInfo> value_moves)
+                                       std::vector<NodeAndMoveInfo>&& value_moves)
     : domain_{domain},
-      value_moves_{value_moves} {
+      value_moves_{std ::move(value_moves)} {
 }
 
 Status ReplaceWithQLinear::operator()(Graph& graph, const NodesToOptimize& selected_nodes) const {
@@ -41,7 +41,7 @@ Status ReplaceWithQLinear::operator()(Graph& graph, const NodesToOptimize& selec
     }
   }
 
-  auto status = RemoveAllNodes()(graph, selected_nodes);
+  auto status = RemoveNodes()(graph, selected_nodes);
 
   return status;
 }

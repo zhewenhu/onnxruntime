@@ -31,7 +31,8 @@ struct SetOptionalZeroPoint : public Action {
 struct ReplaceWithQLinear : public Action {
   // provide NodeLocation for source node, and ValueMoveInfo for the value to move to the replacement node
   ReplaceWithQLinear(const std::string& domain,
-                     std::initializer_list<NodeAndMoveInfo> value_moves);
+                     // std::initializer_list<NodeAndMoveInfo> value_moves);
+                     std::vector<NodeAndMoveInfo>&& value_moves);
 
  private:
   Status operator()(Graph&, const NodesToOptimize& selected_nodes) const override;
