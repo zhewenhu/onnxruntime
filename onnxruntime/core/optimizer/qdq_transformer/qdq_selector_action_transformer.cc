@@ -50,18 +50,16 @@ NodeAndMoveInfo MoveAll(const NTO::NodeLocation& src_node,
 
 // create rules for ops that don't change the data
 std::unique_ptr<SelectorAndAction> DropQDQNodesRules() {
-  // 3 nodes. 0=DQ, 1=target, 2=Q. Merge into target and remove DQ and Q.
+  // 3 nodes. DQ, target, Q. Merge into target and remove DQ and Q.
   NTO::NodeLocation dq{NTO::NodeType::kInput, 0};
   NTO::NodeLocation q{NTO::NodeType::kOutput, 0};
 
   std::unique_ptr<NodeSelector> selector(new QDQDropDQDNodesSelector());
 
   // Move DQ input 0 to target input 0.
-  // Move Q output 0 to other output 0.
+  // Move Q output 0 to target output 0.
   std::initializer_list<NodeAndMoveInfo> moves{
-      // from input node 0 (DQ) move input value 0 to input 0 of the target node
       MoveToSlot(dq, ArgType::kInput, 0, ArgType::kInput, 0),
-      // from output node 0 (Q) move output value 0 to output 0 of the target node
       MoveToSlot(q, ArgType::kOutput, 0, ArgType::kOutput, 0)};
 
   // Delete DQ and Q but not the target node
@@ -77,8 +75,33 @@ std::unique_ptr<SelectorAndAction> DropQDQNodesRules() {
                                              std::move(action));
 }
 
+std::unique_ptr<SelectorAndAction> UnaryOpQDQRules() {
+  // 3 nodes. DQ, target, Q
+  // Replace with QLinear version of operator. Delete all original nodes.
+  NTO::NodeLocation dq{NTO::NodeType::kInput, 0};
+  NTO::NodeLocation q{NTO::NodeType::kOutput, 0};
+
+  std::unique_ptr<NodeSelector> selector(new QDQUnarySelector());
+
+  std::vector<std::unique_ptr<Action>> actions;
+  ADD_ACTION(actions, QDQ::SetOptionalZeroPoint, {dq, q});  // update the DQ and Q nodes
+
+  ADD_ACTION(actions, QDQ::ReplaceWithQLinear,                         // create new QLinear node to replace target
+             kMSDomain,                                                // new operator is in MS domain
+             {MoveAll(dq, ArgType::kInput),                            // append all inputs from dq to new node
+              MoveAndAppend(q, ArgType::kInput, 1, ArgType::kInput),   // append scale (input 1) from q
+              MoveAndAppend(q, ArgType::kInput, 2, ArgType ::kInput),  // append zp (input 2) from q
+              MoveAll(q, ArgType::kOutput)});                          // and use the outputs from q
+
+  std::unique_ptr<Action> all_actions{new MultiAction{std::move(actions)}};
+
+  return std::make_unique<SelectorAndAction>(SelectorAndAction::OpVersionsMap{{"AveragePool", {}}},
+                                             std::move(selector),
+                                             std::move(all_actions));
+}
+
 std::unique_ptr<SelectorAndAction> BinaryOpQDQRules() {
-  // 4 nodes. 0=DQ for inputA, 1=DQ for inputB, 2=target, 3=Q
+  // 4 nodes. 2 x DQ for inputs, target, Q
   // Replace with QLinear version of operator. Delete all original nodes.
   NTO::NodeLocation dq1{NTO::NodeType::kInput, 0};
   NTO::NodeLocation dq2{NTO::NodeType::kInput, 1};
@@ -90,9 +113,10 @@ std::unique_ptr<SelectorAndAction> BinaryOpQDQRules() {
 
   // set the version point on the two DQ input nodes and the Q output node
   ADD_ACTION(actions, QDQ::SetOptionalZeroPoint, {dq1, dq2, q});
-  ADD_ACTION(actions, QDQ::ReplaceWithQLinear,
-             kMSDomain,
-             {MoveAll(dq1, ArgType::kInput),                           // append all inputs from dq1
+
+  ADD_ACTION(actions, QDQ::ReplaceWithQLinear,                         // create new QLinear node to replace target
+             kMSDomain,                                                // new operator is in MS domain
+             {MoveAll(dq1, ArgType::kInput),                           // append all inputs from dq1 to new node
               MoveAll(dq2, ArgType::kInput),                           // append all inputs from dq2
               MoveAndAppend(q, ArgType::kInput, 1, ArgType::kInput),   // append scale (input 1) from q
               MoveAndAppend(q, ArgType::kInput, 2, ArgType ::kInput),  // append zp (input 2) from q
@@ -106,26 +130,29 @@ std::unique_ptr<SelectorAndAction> BinaryOpQDQRules() {
                                              std::move(all_actions));
 }
 
-std::unique_ptr<SelectorAndAction> UnaryOpQDQRules() {
-  // 3 nodes. 0=DQ, 1=target, 2=Q
+std::unique_ptr<SelectorAndAction> VariadicOpQDQRules() {
+  // 0=variadic DQ nodes 2=target, 3=Q
   // Replace with QLinear version of operator. Delete all original nodes.
-  NTO::NodeLocation dq{NTO::NodeType::kInput, 0};
+  NTO::NodeLocation variadic_dq{NTO::NodeType::kInput, 0};
   NTO::NodeLocation q{NTO::NodeType::kOutput, 0};
 
-  std::unique_ptr<NodeSelector> selector(new QDQUnarySelector());
+  std::unique_ptr<NodeSelector> selector(new QDQVariadicSelector());
 
   std::vector<std::unique_ptr<Action>> actions;
-  ADD_ACTION(actions, QDQ::SetOptionalZeroPoint, {dq, q});  // update the DQ and Q nodes
+
+  // set the version point on the DQ input nodes and the Q output node
+  ADD_ACTION(actions, QDQ::SetOptionalZeroPoint, {variadic_dq, q});
+
   ADD_ACTION(actions, QDQ::ReplaceWithQLinear,
              kMSDomain,
-             {MoveAll(dq, ArgType::kInput),                            // append all inputs from dq
-              MoveAndAppend(q, ArgType::kInput, 1, ArgType::kInput),   // append scale (input 1) from q
+             {MoveAndAppend(q, ArgType::kInput, 1, ArgType::kInput),   // append scale (input 1) from q
               MoveAndAppend(q, ArgType::kInput, 2, ArgType ::kInput),  // append zp (input 2) from q
+              MoveAll(variadic_dq, ArgType::kInput),                   // append all inputs from all dq nodes
               MoveAll(q, ArgType::kOutput)});                          // and use the outputs from q
 
   std::unique_ptr<Action> all_actions{new MultiAction{std::move(actions)}};
 
-  return std::make_unique<SelectorAndAction>(SelectorAndAction::OpVersionsMap{{"AveragePool", {}}},
+  return std::make_unique<SelectorAndAction>(SelectorAndAction::OpVersionsMap{{"Concat", {}}},
                                              std::move(selector),
                                              std::move(all_actions));
 }
@@ -172,6 +199,7 @@ static std::vector<std::unique_ptr<SelectorAndAction>> CreateQDQSelectorActionEn
   qdq_selector_action_entries.push_back(std::move(DropQDQNodesRules()));
   qdq_selector_action_entries.push_back(std::move(UnaryOpQDQRules()));
   qdq_selector_action_entries.push_back(std::move(BinaryOpQDQRules()));
+  qdq_selector_action_entries.push_back(std::move(VariadicOpQDQRules()));
   qdq_selector_action_entries.push_back(std::move(ConvQDQRules()));
 
   return qdq_selector_action_entries;

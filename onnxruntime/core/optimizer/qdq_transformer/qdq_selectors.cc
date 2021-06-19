@@ -36,8 +36,6 @@ bool QDQSelector::operator()(Graph& graph, const Node& node, std::unique_ptr<Nod
     return false;
   }
 
-  AdjustDQNodes(dq_nodes);
-
   auto get_mutable_node = [&graph](const Node* node) {
     // we use the non-const GetNode to convert the const Node* to Node*
     return graph.GetNode(node->Index());
@@ -57,6 +55,8 @@ bool QDQSelector::operator()(Graph& graph, const Node& node, std::unique_ptr<Nod
   for (const Node* q_node : q_nodes) {
     builder.output_nodes.push_back(get_mutable_node(q_node));
   }
+
+  UpdateBuilder(builder);
 
   selection = builder.Build();
 
@@ -141,6 +141,30 @@ bool QDQBinarySelector::Check(const Graph& graph,
          dt_input_1 == dt_output;
 }
 
+bool QDQVariadicSelector::Check(const Graph& graph,
+                                const Node& node,
+                                const std::vector<const Node*>& dq_nodes,
+                                const std::vector<const Node*>& q_nodes) const {
+  if (!CheckQDQNodes(graph, node, dq_nodes, q_nodes)) {
+    return false;
+  }
+
+  // All DQs' inputs and Q's output should have same data type
+  int32_t dt_input = dq_nodes[0]->InputDefs()[0]->TypeAsProto()->tensor_type().elem_type();
+  for (size_t dq_idx = 1; dq_idx < dq_nodes.size(); dq_idx++) {
+    if (dt_input != dq_nodes[dq_idx]->InputDefs()[0]->TypeAsProto()->tensor_type().elem_type()) {
+      return false;
+    }
+  }
+
+  int32_t dt_output = q_nodes[0]->OutputDefs()[0]->TypeAsProto()->tensor_type().elem_type();
+  return dt_input == dt_output;
+}
+
+void QDQVariadicSelector::UpdateBuilder(NodesToOptimizeBuilder& builder) const {
+  builder.num_input_defs = 1;  // set to 1 as the first input is variadic
+}
+
 bool QDQConvSelector::Check(const Graph& graph,
                             const Node& node,
                             const std::vector<const Node*>& dq_nodes,
@@ -175,8 +199,8 @@ bool QDQConvSelector::Check(const Graph& graph,
   return dt_bias == ONNX_NAMESPACE::TensorProto_DataType::TensorProto_DataType_INT32;
 }
 
-void QDQConvSelector::AdjustDQNodes(std::vector<const Node*>& dq_nodes) const {
-  dq_nodes.resize(3);  // add nullptr for bias if missing
+void QDQConvSelector::UpdateBuilder(NodesToOptimizeBuilder& builder) const {
+  builder.input_nodes.resize(3);  // add nullptr for bias if missing
 }
 
 }  // namespace onnxruntime

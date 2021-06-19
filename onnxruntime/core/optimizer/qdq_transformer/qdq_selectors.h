@@ -18,10 +18,6 @@ class QDQSelector : public NodeSelector {
  protected:
   QDQSelector() = default;
 
-  // override if you need to add entries for missing optional DQ inputs
-  // Called post-Check if Check returned `true`
-  virtual void AdjustDQNodes(std::vector<const Node*>& /*dq_nodes*/) const {}
-
   // base check that we have the expected number of QDQ inputs/outputs, and `node` isn't producing a graph output.
   // num_dq_inputs defaults to the number of inputs `node` has if not explicitly specified
   bool CheckQDQNodes(const Graph& graph, const Node& node,
@@ -33,6 +29,11 @@ class QDQSelector : public NodeSelector {
   bool virtual Check(const Graph& graph, const Node& node,
                      const std::vector<const Node*>& dq_nodes,
                      const std::vector<const Node*>& q_nodes) const = 0;
+
+  // override if you need to adjust the values in NodesToOptimize.
+  // e.g. add entries for missing optional DQ inputs or set num_inputs to handle variadic inputs
+  // Called post-Check if Check returned `true`
+  virtual void UpdateBuilder(NodesToOptimizeBuilder&) const {}
 };
 
 // Single DQ -> node that does not change data -> Q.
@@ -72,13 +73,20 @@ class QDQBinarySelector : public QDQSelector {
              const std::vector<const Node*>& q_nodes) const override;
 };
 
-//
+// Variadic DQ nodes -> node -> Q
+class QDQVariadicSelector : public QDQSelector {
+  bool Check(const Graph& graph, const Node& node,
+             const std::vector<const Node*>& dq_nodes,
+             const std::vector<const Node*>& q_nodes) const override;
+  void UpdateBuilder(NodesToOptimizeBuilder&) const override;
+};
+
+// DQ nodes for X, W and optionally B -> node -> Q
 class QDQConvSelector : public QDQSelector {
   bool Check(const Graph& graph, const Node& node,
              const std::vector<const Node*>& dq_nodes,
              const std::vector<const Node*>& q_nodes) const override;
 
-  void AdjustDQNodes(std::vector<const Node*>& dq_nodes) const override;
+  void UpdateBuilder(NodesToOptimizeBuilder&) const override;
 };
-
 }  // namespace onnxruntime

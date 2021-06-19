@@ -171,7 +171,7 @@ Status MoveInputOutputHelper::MoveImpl(Graph& graph, Node& src, Node& dest) cons
                         : dest.MutableOutputDefs();
 
   auto process = [&](int src_idx) {
-    ORT_ENFORCE((move_info_.copy_all || static_cast<size_t>(src_idx) < src_defs.size()) &&
+    ORT_ENFORCE(static_cast<size_t>(src_idx) < src_defs.size() &&
                     (move_info_.append || static_cast<size_t>(move_info_.dest_slot.idx) < dest_defs.size()),
                 "Index out of range");
 
