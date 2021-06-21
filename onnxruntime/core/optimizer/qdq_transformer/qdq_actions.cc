@@ -7,40 +7,55 @@
 namespace onnxruntime {
 namespace QDQ {
 
-Status MatMulAction ::operator()(Graph& graph, const NodesToOptimize& selected_nodes) const {
-  using NTO = NodesToOptimize;
+namespace {
+using NTO = NodesToOptimize;
 
+ReplaceWithNew MatMulIntToFloatReplacer() {
+  NTO::NodeLocation dq1{NTO::NodeType::kInput, 0};
+  NTO::NodeLocation dq2{NTO::NodeType::kInput, 1};
+  NTO::NodeLocation target{NTO::NodeType::kTarget, 0};
+
+  std::vector<NodeAndMoveInfo> moves{
+      MoveAndAppend(dq1, ArgType::kInput, 0, ArgType::kInput),
+      MoveAndAppend(dq2, ArgType::kInput, 0, ArgType::kInput),
+      MoveAndAppend(dq1, ArgType::kInput, 1, ArgType::kInput),
+      MoveAndAppend(dq2, ArgType::kInput, 1, ArgType::kInput),
+      MoveAndAppend(dq1, ArgType::kInput, 2, ArgType::kInput),
+      MoveAndAppend(dq2, ArgType::kInput, 2, ArgType::kInput),
+      MoveAll(target, ArgType::kOutput)};
+
+  return ReplaceWithNew(kMSDomain, "MatMulIntegerToFloat", std::move(moves));
+}
+
+ReplaceWithQLinear MatMulQLinearReplacer() {
+  NTO::NodeLocation dq1{NTO::NodeType::kInput, 0};
+  NTO::NodeLocation dq2{NTO::NodeType::kInput, 1};
+  NTO::NodeLocation q{NTO::NodeType::kOutput, 0};
+
+  std::vector<NodeAndMoveInfo> moves{
+      MoveAll(dq1, ArgType::kInput),                           // append all inputs from dq to new node
+      MoveAll(dq2, ArgType::kInput),                           // append all inputs from dq to new node
+      MoveAndAppend(q, ArgType::kInput, 1, ArgType::kInput),   // append scale (input 1) from q
+      MoveAndAppend(q, ArgType::kInput, 2, ArgType ::kInput),  // append zp (input 2) from q
+      MoveAll(q, ArgType::kOutput)};
+
+  return ReplaceWithQLinear(kOnnxDomain, std::move(moves));
+}
+}  // namespace
+
+MatMulAction::MatMulAction()
+    : matmul_int_to_float_replacer_{MatMulIntToFloatReplacer()},
+      qlinear_matmul_replacer_{MatMulQLinearReplacer()} {
+}
+
+Status MatMulAction ::operator()(Graph& graph, const NodesToOptimize& selected_nodes) const {
   // if the output is empty there were no Q nodes selected, so replace with MatMulIntegerToFloat
   // otherwise replace with QLinearMatMul
   bool matmul_integer_to_float = selected_nodes.num_outputs == 0;
   if (matmul_integer_to_float) {
-    NTO::NodeLocation dq1{NTO::NodeType::kInput, 0};
-    NTO::NodeLocation dq2{NTO::NodeType::kInput, 1};
-    NTO::NodeLocation target{NTO::NodeType::kTarget, 0};
-
-    std::vector<NodeAndMoveInfo> moves{
-        MoveAndAppend(dq1, ArgType::kInput, 0, ArgType::kInput),
-        MoveAndAppend(dq2, ArgType::kInput, 0, ArgType::kInput),
-        MoveAndAppend(dq1, ArgType::kInput, 1, ArgType::kInput),
-        MoveAndAppend(dq2, ArgType::kInput, 1, ArgType::kInput),
-        MoveAndAppend(dq1, ArgType::kInput, 2, ArgType::kInput),
-        MoveAndAppend(dq2, ArgType::kInput, 2, ArgType::kInput),
-        MoveAll(target, ArgType::kOutput)};
-
-    return ReplaceWithNew(kMSDomain, "MatMulIntegerToFloat", std::move(moves))(graph, selected_nodes);
+    return matmul_int_to_float_replacer_(graph, selected_nodes);
   } else {
-    NTO::NodeLocation dq1{NTO::NodeType::kInput, 0};
-    NTO::NodeLocation dq2{NTO::NodeType::kInput, 1};
-    NTO::NodeLocation q{NTO::NodeType::kOutput, 0};
-
-    std::vector<NodeAndMoveInfo> moves{
-        MoveAll(dq1, ArgType::kInput),                           // append all inputs from dq to new node
-        MoveAll(dq2, ArgType::kInput),                           // append all inputs from dq to new node
-        MoveAndAppend(q, ArgType::kInput, 1, ArgType::kInput),   // append scale (input 1) from q
-        MoveAndAppend(q, ArgType::kInput, 2, ArgType ::kInput),  // append zp (input 2) from q
-        MoveAll(q, ArgType::kOutput)};
-
-    return ReplaceWithQLinear(kOnnxDomain, std::move(moves))(graph, selected_nodes);
+    return qlinear_matmul_replacer_(graph, selected_nodes);
   }
 }
 

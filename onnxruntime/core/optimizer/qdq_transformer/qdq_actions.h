@@ -36,7 +36,13 @@ struct ReplaceWithQLinear : public ReplaceWithNew {
 };
 
 struct MatMulAction : public Action {
+  MatMulAction();
+
   Status operator()(Graph&, const NodesToOptimize& selected_nodes) const override;
+
+ private:
+  ReplaceWithNew matmul_int_to_float_replacer_;
+  ReplaceWithQLinear qlinear_matmul_replacer_;
 };
 
 }  // namespace QDQ
