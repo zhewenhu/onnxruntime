@@ -1,0 +1,10 @@
+steps:
+  - task: Bash@3
+    displayName: 'Install AnyBuild'
+    inputs:
+      targetType: filePath
+      filePath: $(Build.SourcesDirectory)/tools/ci_build/github/linux/install_any_build.sh
+      noProfile: false
+      noRc: false
+
+   
