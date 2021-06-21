@@ -29,7 +29,7 @@ std::unique_ptr<SelectorAndAction> DropQDQNodesRules() {
       MoveToSlot(dq, ArgType::kInput, 0, ArgType::kInput, 0),
       MoveToSlot(q, ArgType::kOutput, 0, ArgType::kOutput, 0)};
 
-  std::unique_ptr<Action> action(new MergeIntoExisting(moves));
+  std::unique_ptr<Action> action(new MergeIntoExisting(std::move(moves)));
 
   return std::make_unique<SelectorAndAction>(SelectorAndAction::OpVersionsMap{{"Gather", {}},
                                                                               {"Reshape", {}},
@@ -146,12 +146,12 @@ std::unique_ptr<SelectorAndAction> ConvQDQRules() {
   std::vector<std::unique_ptr<Action>> actions;
 
   std::vector<NodeAndMoveInfo> moves{
-      MoveAll(dq_x, ArgType::kInput),                               // append all inputs from x
-      MoveAll(dq_w, ArgType::kInput),                               // append all inputs from w
-      MoveAndAppend(q, ArgType::kInput, 1, ArgType::kInput),        // append scale (input 1) from q
-      MoveAndAppend(q, ArgType::kInput, 2, ArgType ::kInput),       // append zp (input 2) from q
-      MoveAndAppend(dq_bias, ArgType::kInput, 0, ArgType::kInput),  // (optional) append bias
-      MoveAll(q, ArgType::kOutput)};                                // and use the outputs from q
+      MoveAll(dq_x, ArgType::kInput),                                     // append all inputs from x
+      MoveAll(dq_w, ArgType::kInput),                                     // append all inputs from w
+      MoveAndAppend(q, ArgType::kInput, 1, ArgType::kInput),              // append scale (input 1) from q
+      MoveAndAppend(q, ArgType::kInput, 2, ArgType ::kInput),             // append zp (input 2) from q
+      MoveAndAppend(dq_bias, ArgType::kInput, 0, ArgType::kInput, true),  // (optional) append bias
+      MoveAll(q, ArgType::kOutput)};                                      // and use the outputs from q
 
   ADD_ACTION(actions, QDQ::ReplaceWithQLinear,
              kOnnxDomain,  // QLinearConv is from ONNX

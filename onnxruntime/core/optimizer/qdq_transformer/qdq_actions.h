@@ -31,7 +31,7 @@ struct ReplaceWithQLinear : public ReplaceWithNew {
 
  private:
   std::string ReplaceWithQLinear::OpType(const NodesToOptimize& selected_nodes) const override {
-    return "QLinear" + selected_nodes.Target()->OpType();
+    return "QLinear" + selected_nodes.Target().OpType();
   }
 };
 

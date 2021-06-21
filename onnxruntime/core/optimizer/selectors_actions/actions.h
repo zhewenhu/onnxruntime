@@ -42,30 +42,9 @@ struct MultiAction : public Action {
   std::vector<std::unique_ptr<Action>> actions_;
 };
 
-// Move a value from one node to another and adjusts edges accordingly
-struct MoveInputOutput : public Action {
-  MoveInputOutput(const NodeAndMoveInfo& move_info) : move_info_(move_info) {
-  }
-
-  Status operator()(Graph& graph, const NodesToOptimize& selected_nodes) const override;
-
- private:
-  const NodeAndMoveInfo move_info_;
-};
-
-//// Remove selected nodes that the Action applies to based on index.
-//struct RemoveNodes : public Action {
-//  RemoveNodes(const NodesToOptimize::NodeIndexes& nodes_to_remove)
-//      : nodes_to_remove_{nodes_to_remove} {}
-//
-//  Status operator()(Graph& graph, const NodesToOptimize& node_group) const override;
-//
-// private:
-//  NodesToOptimize::NodeIndexes nodes_to_remove_;
-//};
-
-// Remove all nodes that the Action applies to which no longer produce consumed outputs.
-// NOTE: This requires any output edges to have been removed previously.
+// Safely remove nodes that the Action applies to which no longer produce consumed outputs.
+// Output edges to nodes in selected_nodes are ignored when determining if it's safe to remove a node.
+// Set `preserve_target_node` for the NodesToOptimize::Target node to not be removed.
 struct RemoveNodes : public Action {
   RemoveNodes(bool preserve_target_node = false) : preserve_target_node_{preserve_target_node} {
   }
@@ -81,17 +60,15 @@ struct RemoveNodes : public Action {
 // Edge moves/removal will be automatically handled.
 // nodes_to_remove defines the nodes that are no longer needed after the merge.
 struct MergeIntoExisting : public Action {
-  MergeIntoExisting(const std::vector<NodeAndMoveInfo>& value_moves) {
-    for (const auto& value : value_moves) {
-      value_movers_.push_back(MoveInputOutput(value));
-    }
+  MergeIntoExisting(std::vector<NodeAndMoveInfo>&& value_moves)
+      : value_moves_{std::move(value_moves)} {
   }
 
  private:
   Status operator()(Graph&, const NodesToOptimize& selected_nodes) const override;
 
-  std::vector<MoveInputOutput> value_movers_;
-  RemoveNodes node_remover_{true};  // preserve target node
+  std::vector<NodeAndMoveInfo> value_moves_;
+  RemoveNodes node_remover_{true};  // preserve target node when removing selected_nodes
 };
 
 struct ReplaceWithNew : public Action {
@@ -113,6 +90,7 @@ struct ReplaceWithNew : public Action {
   const std::string domain_;
   const std::string op_;
   std::vector<NodeAndMoveInfo> value_moves_;
+  RemoveNodes node_remover_;
 };
 
 }  // namespace onnxruntime

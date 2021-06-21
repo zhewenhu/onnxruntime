@@ -42,6 +42,58 @@ static void ProcessEdge(Graph& graph, Node& src, const InOutDefSlot& src_slot,
   }
 }
 
+Status MoveInputOutputImpl(Graph& graph, const ValueMoveInfo& move_info, Node& src, Node& dest) {
+  auto& src_defs = (move_info.src_slot.in_out == ArgType::kInput)
+                       ? src.MutableInputDefs()
+                       : src.MutableOutputDefs();
+
+  auto& dest_defs = (move_info.dest_slot.in_out == ArgType::kInput)
+                        ? dest.MutableInputDefs()
+                        : dest.MutableOutputDefs();
+
+  auto process = [&](int src_idx) {
+    bool valid_index = static_cast<size_t>(src_idx) < src_defs.size() &&
+                       (move_info.append || static_cast<size_t>(move_info.dest_slot.idx) < dest_defs.size());
+    if (!valid_index) {
+      return ORT_MAKE_STATUS(ONNXRUNTIME, FAIL, "Index out of range");
+    }
+
+    if (move_info.append) {
+      dest_defs.push_back(src_defs[src_idx]);
+
+      // now that we have a dest index we can move edges
+      InOutDefSlot src_slot{move_info.src_slot.in_out, src_idx};
+      InOutDefSlot dest_slot{move_info.dest_slot.in_out, gsl::narrow_cast<int>(dest_defs.size()) - 1};
+      ProcessEdge(graph, src, {move_info.src_slot.in_out, src_idx}, &dest, &dest_slot);
+
+      // also need to set the arg count
+      if (move_info.dest_slot.in_out == ArgType::kInput) {
+        // TODO: need flag if this is a variadic input/output to do a +1 on back() if not the first one
+        dest.MutableInputArgsCount().push_back(1);
+      }
+    } else {
+      // remove any edge to the slot we're replacing
+      ProcessEdge(graph, dest, move_info.dest_slot, nullptr, nullptr);
+
+      dest_defs[move_info.dest_slot.idx] = src_defs[move_info.src_slot.idx];
+
+      ProcessEdge(graph, src, move_info.src_slot, &dest, &move_info.dest_slot);
+    }
+
+    return Status::OK();
+  };
+
+  if (move_info.copy_all) {
+    for (int i = 0, end = gsl::narrow<int>(src_defs.size()); i < end; ++i) {
+      ORT_RETURN_IF_ERROR(process(i));
+    }
+  } else {
+    ORT_RETURN_IF_ERROR(process(move_info.src_slot.idx));
+  }
+
+  return Status::OK();
+}
+
 Node* GetNodeByNodeIndex(Graph& graph, NodeIndex idx, bool required = true) {
   if (idx == NodesToOptimize::EmptyNodeIndex) {
     return nullptr;
@@ -139,14 +191,14 @@ std::vector<Node*> NodesToOptimize::Outputs(const std::vector<int>& indexes, boo
   return results;
 }
 
-Node* NodesToOptimize::GetNodeAtLocation(const NodeLocation& location, bool required) const {
-  if (location.type == NodeType::kInput) {
-    return Input({location.index}, required);
-  } else if (location.type == NodeType::kOutput) {
-    return Output({location.index}, required);
-  } else
-    return {Target()};
-};
+//Node* NodesToOptimize::GetNodeAtLocation(const NodeLocation& location, bool required) const {
+//  if (location.type == NodeType::kInput) {
+//    return Input({location.index}, required);
+//  } else if (location.type == NodeType::kOutput) {
+//    return Output({location.index}, required);
+//  } else
+//    return {Target()};
+//};
 
 std::vector<Node*> NodesToOptimize::GetNodesAtLocation(const NodeLocation& location, bool required) const {
   if (location.type == NodeType::kInput) {
@@ -154,59 +206,30 @@ std::vector<Node*> NodesToOptimize::GetNodesAtLocation(const NodeLocation& locat
   } else if (location.type == NodeType::kOutput) {
     return Outputs({location.index}, required);
   } else
-    return {Target()};
+    return {&Target()};
 };
 
 //
 //
 // Actions
 //
-Status MoveInputOutputHelper::MoveImpl(Graph& graph, Node& src, Node& dest) const {
-  auto& src_defs = (move_info_.src_slot.in_out == ArgType::kInput)
-                       ? src.MutableInputDefs()
-                       : src.MutableOutputDefs();
 
-  auto& dest_defs = (move_info_.dest_slot.in_out == ArgType::kInput)
-                        ? dest.MutableInputDefs()
-                        : dest.MutableOutputDefs();
+Status MoveInputOutput(Graph& graph, Node& src, Node& dest, const ValueMoveInfo& move_info) {
+  return MoveInputOutputImpl(graph, move_info, src, dest);
+}
 
-  auto process = [&](int src_idx) {
-    ORT_ENFORCE(static_cast<size_t>(src_idx) < src_defs.size() &&
-                    (move_info_.append || static_cast<size_t>(move_info_.dest_slot.idx) < dest_defs.size()),
-                "Index out of range");
+Status MoveInputOutput(Graph& graph, const NodesToOptimize& selected_nodes, Node& dest,
+                       const std::vector<NodeAndMoveInfo>& moves) {
+  for (const auto& move : moves) {
+    auto src_nodes = selected_nodes.GetNodesAtLocation(move.src_node, !move.value_move_info.optional);
 
-    if (move_info_.append) {
-      dest_defs.push_back(src_defs[src_idx]);
-
-      // now that we have a dest index we can move edges
-      InOutDefSlot src_slot{move_info_.src_slot.in_out, src_idx};
-      InOutDefSlot dest_slot{move_info_.dest_slot.in_out, gsl::narrow_cast<int>(dest_defs.size()) - 1};
-      ProcessEdge(graph, src, {move_info_.src_slot.in_out, src_idx}, &dest, &dest_slot);
-
-      // also need to set the arg count
-      if (move_info_.dest_slot.in_out == ArgType::kInput) {
-        // TODO: need flag if this is a variadic input/output to do a +1 on back() if not the first one
-        dest.MutableInputArgsCount().push_back(1);
+    for (Node* src : src_nodes) {
+      if (src != nullptr) {
+        ORT_RETURN_IF_ERROR(MoveInputOutputImpl(graph, move.value_move_info, *src, dest));
       }
-    } else {
-      // remove any edge to the slot we're replacing
-      ProcessEdge(graph, dest, move_info_.dest_slot, nullptr, nullptr);
-
-      dest_defs[move_info_.dest_slot.idx] = src_defs[move_info_.src_slot.idx];
-
-      ProcessEdge(graph, src, move_info_.src_slot, &dest, &move_info_.dest_slot);
     }
-  };
-
-  if (move_info_.copy_all) {
-    for (int i = 0, end = gsl::narrow<int>(src_defs.size()); i < end; ++i) {
-      process(i);
-    }
-  } else {
-    process(move_info_.src_slot.idx);
   }
 
   return Status::OK();
 }
-
 }  // namespace onnxruntime

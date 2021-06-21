@@ -73,8 +73,8 @@ class NodesToOptimize {
   // inputs filtered by index. includes all variadic.
   std::vector<Node*> Inputs(const std::vector<int>& indexes, bool required = true) const;
 
-  Node* Target(bool required = true) const {
-    return GetNode(0 + num_inputs + num_extra_variadic_inputs_, required);
+  Node& Target() const {
+    return *GetNode(0 + num_inputs + num_extra_variadic_inputs_, /*required*/ true);
   }
 
   Node* Output(int idx, bool required = true) const {
@@ -83,10 +83,6 @@ class NodesToOptimize {
 
   // outputs filtered by index. includes all variadic.
   std::vector<Node*> Outputs(const std::vector<int>& indexes, bool required = true) const;
-
-  // Get a single Node at a specific location.
-  // Provided for efficiency over GetNodesAtLocation if you know that the input/output is not variadic.
-  Node* GetNodeAtLocation(const NodeLocation& location, bool required = true) const;
 
   // Get the Node or Nodes at a specific index.
   // Enables generic Action implementations that support both single and variadic inputs/outputs.
@@ -151,27 +147,27 @@ struct ValueMoveInfo {
       : src_slot(src_slot_in), dest_slot(dest_slot_in) {}
 
   // copy all from source to destination
-  ValueMoveInfo(ArgType src_slot_type, ArgType dest_slot_type, bool variadic = false)
+  ValueMoveInfo(ArgType src_slot_type, ArgType dest_slot_type, bool is_optional = false)
       : src_slot{src_slot_type, -1},
         dest_slot{dest_slot_type, -1},
         copy_all{true},
         append{true},
-        is_variadic{variadic} {
+        optional{is_optional} {
   }
 
   // append single value (may be variadic) from source to destination
-  ValueMoveInfo(InOutDefSlot src_slot_in, ArgType dest_slot_type, bool variadic = false)
+  ValueMoveInfo(InOutDefSlot src_slot_in, ArgType dest_slot_type, bool is_optional = false)
       : src_slot(src_slot_in),
         dest_slot{dest_slot_type, -1},
         copy_all{false},
         append{true},
-        is_variadic{variadic} {}
+        optional{is_optional} {}
 
   InOutDefSlot src_slot;
   InOutDefSlot dest_slot;
-  bool copy_all{false};     // ignore src_slot.idx and copy all values
-  bool append{false};       // ignore dest_slot.idx and append to existing values
-  bool is_variadic{false};  // set if the copy involves a variadic
+  bool copy_all{false};  // ignore src_slot.idx and copy all values
+  bool append{false};    // ignore dest_slot.idx and append to existing values
+  bool optional{false};  // optional copy that can be skipped if source node is missing
 
  private:
   ValueMoveInfo() = default;
@@ -183,21 +179,12 @@ struct NodeAndMoveInfo {
   ValueMoveInfo value_move_info;
 };
 
-// helper for moving inputs/outputs and their edges between nodes
-struct MoveInputOutputHelper {
-  static Status Move(Graph& graph, Node& src, Node& dest, const ValueMoveInfo& move_info) {
-    return MoveInputOutputHelper(move_info).MoveImpl(graph, src, dest);
-  }
+// helpers for moving inputs/outputs and their edges between nodes
+// if there are optional nodes (e.g. bias input to Conv), `required` can be set to false to ignore missing nodes.
+Status MoveInputOutput(Graph& graph, const NodesToOptimize& selected_nodes, Node& dest,
+                       const std::vector<NodeAndMoveInfo>& moves);
 
- private:
-  MoveInputOutputHelper(const ValueMoveInfo& move_info)
-      : move_info_{move_info} {}
-
-  Status MoveImpl(Graph& graph, Node& src, Node& dest) const;
-
- private:
-  const ValueMoveInfo& move_info_;
-};
+Status MoveInputOutput(Graph& graph, Node& src, Node& dest, const ValueMoveInfo& move_info);
 
 //
 // Helpers to make the 'move' configuration more easily read
@@ -214,23 +201,20 @@ inline NodeAndMoveInfo MoveToSlot(const NodesToOptimize::NodeLocation& src_node,
 }
 
 // move specific input/output and append to target node
-// is the source input/output is variadic (i.e. multiple values may need to be moved) set `variadic` to true
-
 inline NodeAndMoveInfo MoveAndAppend(const NodesToOptimize::NodeLocation& src_node,
                                      ArgType src_direction, int src_slot,
                                      ArgType dest_direction,
-                                     bool variadic = false) {
-  return NodeAndMoveInfo{src_node, ValueMoveInfo{InOutDefSlot{src_direction, src_slot},  // move from this slot
-                                                 dest_direction,                         // append here
-                                                 variadic}};
+                                     bool optional = false) {
+  return NodeAndMoveInfo{src_node, ValueMoveInfo{
+                                       InOutDefSlot{src_direction, src_slot},  // move from this slot
+                                       dest_direction, optional}};             // append here
 }
 
 // move all inputs/outputs from the source node to the target node
-// if the last source input is variadic set `variadic` to true
 inline NodeAndMoveInfo MoveAll(const NodesToOptimize::NodeLocation& src_node,
-                               ArgType direction,  // moving inputs or outputs
-                               bool variadic = false) {
-  return NodeAndMoveInfo{src_node, ValueMoveInfo{direction, direction, variadic}};
+                               ArgType arg_type,  // moving inputs or outputs
+                               bool optional = false) {
+  return NodeAndMoveInfo{src_node, ValueMoveInfo{arg_type, arg_type, optional}};
 }
 
 }  // namespace onnxruntime
