@@ -46,6 +46,9 @@ jobs:
       
   steps:
 
+    - script: 'docker run -it ort-master'
+      displayName: 'testing docker permissions'
+
     - ${{ if eq(parameters.BuildORT, true) }}:
 
       - ${{ if eq(parameters.RunDocker, true) }}:
