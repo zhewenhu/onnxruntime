@@ -94,4 +94,25 @@ struct MergeIntoExisting : public Action {
   RemoveNodes node_remover_{true};  // preserve target node
 };
 
+struct ReplaceWithNew : public Action {
+  // provide NodeLocation for source node, and ValueMoveInfo for the value to move to the replacement node
+  ReplaceWithNew(const std::string& domain,
+                 const std::string& op_name,
+                 std::vector<NodeAndMoveInfo>&& value_moves);
+
+  Status operator()(Graph&, const NodesToOptimize& selected_nodes) const override;
+
+ private:
+  // support usage where operator name is determined at runtime from the selected nodes
+  virtual std::string OpType(const NodesToOptimize&) const { return op_; }
+
+  // TODO: setup mechanism to create a new NodeArg
+  // If we use resize on the input defs we can do the moves and directly populate the slot with a new NodeArg
+  // but this may not be needed for QDQ.
+
+  const std::string domain_;
+  const std::string op_;
+  std::vector<NodeAndMoveInfo> value_moves_;
+};
+
 }  // namespace onnxruntime

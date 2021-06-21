@@ -10,18 +10,25 @@
 
 namespace onnxruntime {
 
+namespace {
+
+// adjust for an optional input that has an entry but does not exist
+int NumExistingInputs(const Node& node) {
+  const auto& input_defs = node.InputDefs();
+  return gsl::narrow_cast<int>(std::count_if(input_defs.cbegin(), input_defs.cend(),
+                                             [](const NodeArg* def) { return def && def->Exists(); }));
+}
+}  // namespace
+
 bool QDQSelector::CheckQDQNodes(const Graph& graph, const Node& node,
                                 const std::vector<const Node*>& dq_nodes,
                                 const std::vector<const Node*>& q_nodes,
-                                size_t num_dq_inputs) const {
-  if (num_dq_inputs == std::numeric_limits<size_t>::max()) {
-    const auto& input_defs = node.InputDefs();
-    // adjust for an optional input that has an entry but does not exist
-    num_dq_inputs = std::count_if(input_defs.cbegin(), input_defs.cend(),
-                                  [](const NodeArg* def) { return def && def->Exists(); });
+                                int num_dq_inputs) const {
+  if (num_dq_inputs == -1) {
+    num_dq_inputs = NumExistingInputs(node);
   }
 
-  return num_dq_inputs == dq_nodes.size() &&
+  return num_dq_inputs == gsl::narrow_cast<int>(dq_nodes.size()) &&
          node.OutputDefs().size() == q_nodes.size() &&
          optimizer_utils::CheckOutputEdges(graph, node, q_nodes.size());
 }
@@ -201,6 +208,36 @@ bool QDQConvSelector::Check(const Graph& graph,
 
 void QDQConvSelector::UpdateBuilder(NodesToOptimizeBuilder& builder) const {
   builder.input_nodes.resize(3);  // add nullptr for bias if missing
+}
+
+bool QDQMatMulSelector ::Check(const Graph& graph,
+                               const Node& node,
+                               const std::vector<const Node*>& dq_nodes,
+                               const std::vector<const Node*>& q_nodes) const {
+  if (dq_nodes.size() != 2) {
+    return false;
+  }
+
+  // potential match for QLinearMatMul or MatMulIntegerToFloat
+  bool qlinear = !q_nodes.empty();
+
+  if (qlinear) {
+    // check for QLinearMatMul
+    if (!CheckQDQNodes(graph, node, dq_nodes, q_nodes)) {
+      return false;
+    }
+
+    int32_t dt_output = q_nodes[0]->OutputDefs()[0]->TypeAsProto()->tensor_type().elem_type();
+    if (dt_output != ONNX_NAMESPACE::TensorProto_DataType::TensorProto_DataType_UINT8) {
+      return false;
+    }
+  } else {
+    // MatMulIntegerToFloat
+  }
+
+  // Currently Quant MatMul only support activation type uint8_t
+  int32_t dt_input = dq_nodes[0]->InputDefs()[0]->TypeAsProto()->tensor_type().elem_type();
+  return (dt_input == ONNX_NAMESPACE::TensorProto_DataType::TensorProto_DataType_UINT8);
 }
 
 }  // namespace onnxruntime

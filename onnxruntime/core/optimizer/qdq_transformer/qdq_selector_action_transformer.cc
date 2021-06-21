@@ -8,42 +8,9 @@
 
 namespace onnxruntime {
 
-using NTO = onnxruntime::NodesToOptimize;
-
 namespace {
 
-//
-// Helpers to make the 'move' configuration more easily read
-//
-
-// move specific input/output to slot on target node
-NodeAndMoveInfo MoveToSlot(const NTO::NodeLocation& src_node,
-                           ArgType src_direction, int src_slot,
-                           ArgType dest_direction, int dest_slot) {
-  return NodeAndMoveInfo{src_node,
-                         ValueMoveInfo{
-                             InOutDefSlot{src_direction, src_slot},      // move from this slot
-                             InOutDefSlot{dest_direction, dest_slot}}};  // to this one
-}
-
-// move specific input/output and append to target node
-// is the source input/output is variadic (i.e. multiple values may need to be moved) set `variadic` to true
-NodeAndMoveInfo MoveAndAppend(const NTO::NodeLocation& src_node,
-                              ArgType src_direction, int src_slot,
-                              ArgType dest_direction,
-                              bool variadic = false) {
-  return NodeAndMoveInfo{src_node, ValueMoveInfo{InOutDefSlot{src_direction, src_slot},  // move from this slot
-                                                 dest_direction,                         // append here
-                                                 variadic}};
-}
-
-// move all inputs/outputs from the source node to the target node
-// if the last source input is variadic set `variadic` to true
-NodeAndMoveInfo MoveAll(const NTO::NodeLocation& src_node,
-                        ArgType direction,  // moving inputs or outputs
-                        bool variadic = false) {
-  return NodeAndMoveInfo{src_node, ValueMoveInfo{direction, direction, variadic}};
-}
+using NTO = onnxruntime::NodesToOptimize;
 
 #define ADD_ACTION(container, action, ...) \
   container.push_back(std::unique_ptr<Action>(new action(__VA_ARGS__)))
@@ -81,7 +48,7 @@ std::unique_ptr<SelectorAndAction> UnaryOpQDQRules() {
   std::unique_ptr<NodeSelector> selector(new QDQUnarySelector());
 
   std::vector<std::unique_ptr<Action>> actions;
-  ADD_ACTION(actions, QDQ::SetOptionalZeroPoint, {dq, q});  // update the DQ and Q nodes
+  ADD_ACTION(actions, QDQ::SetOptionalZeroPoint);  // update the DQ and Q nodes
 
   std::vector<NodeAndMoveInfo> moves{
       MoveAll(dq, ArgType::kInput),                            // append all inputs from dq to new node
@@ -112,7 +79,7 @@ std::unique_ptr<SelectorAndAction> BinaryOpQDQRules() {
   std::vector<std::unique_ptr<Action>> actions;
 
   // set the version point on the two DQ input nodes and the Q output node
-  ADD_ACTION(actions, QDQ::SetOptionalZeroPoint, {dq1, dq2, q});
+  ADD_ACTION(actions, QDQ::SetOptionalZeroPoint);
 
   std::vector<NodeAndMoveInfo> moves{
       MoveAll(dq1, ArgType::kInput),                           // append all inputs from dq1 to new node
@@ -144,7 +111,7 @@ std::unique_ptr<SelectorAndAction> VariadicOpQDQRules() {
   std::vector<std::unique_ptr<Action>> actions;
 
   // set the version point on the DQ input nodes and the Q output node
-  ADD_ACTION(actions, QDQ::SetOptionalZeroPoint, {variadic_dq, q});
+  ADD_ACTION(actions, QDQ::SetOptionalZeroPoint);
 
   std::vector<NodeAndMoveInfo> moves{
       MoveAndAppend(q, ArgType::kInput, 1, ArgType::kInput),   // append scale (input 1) from q
@@ -197,6 +164,25 @@ std::unique_ptr<SelectorAndAction> ConvQDQRules() {
                                              std::move(all_actions));
 }
 
+std::unique_ptr<SelectorAndAction> MatMulQDQRules() {
+  // 3 or 4 nodes. 2 x DQ for inputs, target, optional Q
+  // Replace with QLinearMatMul if Q found, or MatMulIntegerToFloat if not.
+  // Delete all original nodes.
+
+  std::unique_ptr<NodeSelector> selector(new QDQMatMulSelector());
+
+  std::vector<std::unique_ptr<Action>> actions;
+
+  // set the version point on the two DQ input nodes and the Q output node
+  ADD_ACTION(actions, QDQ::SetOptionalZeroPoint);
+  ADD_ACTION(actions, QDQ::MatMulAction);
+  std::unique_ptr<Action> all_actions{new MultiAction{std::move(actions)}};
+
+  return std::make_unique<SelectorAndAction>(SelectorAndAction::OpVersionsMap{{"MatMul", {}}},
+                                             std::move(selector),
+                                             std::move(all_actions));
+}
+
 static std::vector<std::unique_ptr<SelectorAndAction>> CreateQDQSelectorActionEntries() {
   std::vector<std::unique_ptr<SelectorAndAction>> qdq_selector_action_entries;
 
@@ -208,6 +194,7 @@ static std::vector<std::unique_ptr<SelectorAndAction>> CreateQDQSelectorActionEn
   qdq_selector_action_entries.push_back(std::move(BinaryOpQDQRules()));
   qdq_selector_action_entries.push_back(std::move(VariadicOpQDQRules()));
   qdq_selector_action_entries.push_back(std::move(ConvQDQRules()));
+  qdq_selector_action_entries.push_back(std::move(MatMulQDQRules()));
 
   return qdq_selector_action_entries;
 }

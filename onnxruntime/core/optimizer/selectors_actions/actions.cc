@@ -103,4 +103,47 @@ Status MergeIntoExisting::operator()(Graph& graph, const NodesToOptimize& select
   return node_remover_(graph, selected_nodes);
 }
 
+ReplaceWithNew::ReplaceWithNew(const std::string& domain,
+                               const std::string& op_name,
+                               std::vector<NodeAndMoveInfo>&& value_moves)
+    : domain_{domain},
+      op_{op_name},
+      value_moves_{std ::move(value_moves)} {
+}
+
+Status ReplaceWithNew::operator()(Graph& graph, const NodesToOptimize& selected_nodes) const {
+  auto& target = *selected_nodes.Target();
+
+  std::string op_type = OpType(selected_nodes);
+
+  // create node. we'll populate the input and output defs via moves
+  auto& replacement = graph.AddNode(target.Name(),
+                                    op_type,
+                                    target.Description(),
+                                    {},  // input defs
+                                    {},  // output defs
+                                    &target.GetAttributes(),
+                                    domain_);
+
+  replacement.SetExecutionProviderType(kCpuExecutionProvider);
+
+  for (const auto& move : value_moves_) {
+    // get the nodes to copy from. allow for an optional input node (e.g. bias input to Conv)
+    auto src_nodes = selected_nodes.GetNodesAtLocation(move.src_node, /*required*/ false);
+
+    ORT_ENFORCE(src_nodes.size() == 1 || move.value_move_info.append == true,
+                "Move of variadic values requires 'append' to be specific.");
+
+    for (Node* src : src_nodes) {
+      if (src != nullptr) {
+        ORT_RETURN_IF_ERROR(MoveInputOutputHelper::Move(graph, *src, replacement, move.value_move_info));
+      }
+    }
+  }
+
+  auto status = RemoveNodes()(graph, selected_nodes);
+
+  return status;
+}
+
 }  // namespace onnxruntime

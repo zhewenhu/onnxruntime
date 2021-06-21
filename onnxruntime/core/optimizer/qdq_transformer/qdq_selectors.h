@@ -23,7 +23,7 @@ class QDQSelector : public NodeSelector {
   bool CheckQDQNodes(const Graph& graph, const Node& node,
                      const std::vector<const Node*>& dq_nodes,
                      const std::vector<const Node*>& q_nodes,
-                     size_t num_dq_inputs = std::numeric_limits<size_t>::max()) const;
+                     int num_dq_inputs = -1) const;
 
  private:
   bool virtual Check(const Graph& graph, const Node& node,
@@ -89,4 +89,12 @@ class QDQConvSelector : public QDQSelector {
 
   void UpdateBuilder(NodesToOptimizeBuilder&) const override;
 };
+
+// 2 DQ nodes for input -> node -> optional Q if QLinearMatMul, MatMulIntegerToFloat if not
+class QDQMatMulSelector : public QDQSelector {
+  bool Check(const Graph& graph, const Node& node,
+             const std::vector<const Node*>& dq_nodes,
+             const std::vector<const Node*>& q_nodes) const override;
+};
+
 }  // namespace onnxruntime
