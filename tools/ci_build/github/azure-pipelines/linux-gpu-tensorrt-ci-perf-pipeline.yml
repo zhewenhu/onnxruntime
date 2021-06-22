@@ -59,7 +59,7 @@ jobs:
           workingDirectory: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/build'
       
     - ${{ each option in parameters.ModelGroups }}:
-      - script: 'echo $(whoami) && $(run_conda) && $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/run_perf_$(with_arguments) -o ${{option}} -m $(${{option}})'
+      - script: 'usermod -aG docker $USER && $(run_conda) && $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/run_perf_$(with_arguments) -o ${{option}} -m $(${{option}})'
         displayName: '${{option}} perf'
         workingDirectory: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/'
         env:
@@ -81,7 +81,7 @@ jobs:
         env:
           DASHBOARD_MYSQL_ORT_PASSWORD: $(dashboard-mysql-ort-password)
 
-    # - script: sudo rm -rf $(Agent.BuildDirectory)
-    #   displayName: Clean build files (POSIX)
-    #   condition: not(eq(variables['Agent.OS'], 'Windows_NT')) # and always()
-    #   continueOnError: true  # continuing on error for this step, since linux build folder is somehow getting permission issue
+    - script: sudo rm -rf $(Agent.BuildDirectory)
+      displayName: Clean build files (POSIX)
+      condition: not(eq(variables['Agent.OS'], 'Windows_NT')) # and always()
+      continueOnError: true  # continuing on error for this step, since linux build folder is somehow getting permission issue
