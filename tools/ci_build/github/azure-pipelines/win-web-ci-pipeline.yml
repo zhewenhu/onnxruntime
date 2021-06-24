@@ -268,7 +268,7 @@ jobs:
     workingDirectory: '$(Build.SourcesDirectory)\js\web'
     displayName: 'Run ort-web tests - packed mode with Android Chrome browser'
     condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
-  -script: |
+  - script: |
       python3 tools/python/run_appium.py --stop
     displayName: 'Stop Appium'
     condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
