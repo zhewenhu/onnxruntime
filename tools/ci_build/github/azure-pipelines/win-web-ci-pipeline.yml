@@ -123,7 +123,8 @@ jobs:
 
 - job: build_onnxruntime_web
   dependsOn: build_WASM
-  pool: 'Win-CPU-2019'
+  pool:
+    vmImage: 'windows-latest'
   strategy:
     maxParallel: 2
     matrix:
@@ -276,7 +277,7 @@ jobs:
         --stop \
         --emulator-pid-file $(Build.BinariesDirectory)/emulator.pid
     displayName: 'Stop Android emulator'
-    condition: always()
+    condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
   - script: |
       npm pack
     workingDirectory: '$(Build.SourcesDirectory)\js\common'
