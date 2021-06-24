@@ -42,6 +42,7 @@ Options:
                                  safari     (MacOS only)
                                  node
                                  bs         (for BrowserStack tests)
+                                 android    (for Appium Android tests)
  -p, --profile                 Enable profiler.
                                  Profiler will generate extra logs which include the information of events time consumption
  -P[=<...>], --perf[=<...>]    Generate performance number. Cannot be used with flag --debug.
@@ -96,7 +97,7 @@ Examples:
 export declare namespace TestRunnerCliArgs {
   type Mode = 'suite0'|'model'|'unittest'|'op';
   type Backend = 'cpu'|'webgl'|'wasm'|'onnxruntime';
-  type Environment = 'chrome'|'edge'|'firefox'|'electron'|'safari'|'node'|'bs';
+  type Environment = 'chrome'|'edge'|'firefox'|'electron'|'safari'|'node'|'bs'|'android';
   type BundleMode = 'prod'|'dev'|'perf';
 }
 
@@ -311,7 +312,7 @@ export function parseTestRunnerCliArgs(cmdlineArgs: string[]): TestRunnerCliArgs
   // Option: -e=<...>, --env=<...>
   const envArg = args.env || args.e;
   const env = (typeof envArg !== 'string') ? 'chrome' : envArg;
-  if (['chrome', 'edge', 'firefox', 'electron', 'safari', 'node', 'bs'].indexOf(env) === -1) {
+  if (['chrome', 'edge', 'firefox', 'electron', 'safari', 'node', 'bs', 'android'].indexOf(env) === -1) {
     throw new Error(`not supported env ${env}`);
   }
 

@@ -76,6 +76,20 @@ module.exports = function (config) {
     customLaunchers: {
       ChromeTest: { base: 'Chrome', flags: ['--window-size=1,1'] },
       ChromeDebug: { debug: true, base: 'Chrome', flags: ['--remote-debugging-port=9333'] },
+
+      AndroidTest: {
+        base: 'WebDriver',
+        platformName: 'Android',
+        platformVersion: '11',
+        deviceName: 'Android Emulator',
+        config: {
+          hostname: 'localhost',
+          port: 4723
+        },
+        browserName: 'Chrome',
+        newCommandTimeout: 0
+      },
+
       //
       // ==== BrowserStack browsers ====
       //

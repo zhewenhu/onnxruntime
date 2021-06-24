@@ -561,6 +561,8 @@ function getBrowserNameFromEnv(env: TestRunnerCliArgs['env'], debug?: boolean) {
       return 'Electron';
     case 'safari':
       return 'Safari';
+    case 'android':
+      return 'AndroidTest';
     case 'bs':
       return process.env.ONNXJS_TEST_BS_BROWSERS!;
     default:
