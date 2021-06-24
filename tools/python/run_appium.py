@@ -53,10 +53,10 @@ def main():
 
     if args.start:
         log.debug("Starting an Appium process")
-        subprocess.Popen(os.path.join(args.appium_path, "appium"), creationflags=subprocess.CREATE_NEW_CONSOLE);
+        subprocess.Popen(os.path.join(args.appium_path, "appium"), creationflags=subprocess.CREATE_NEW_CONSOLE)
     elif args.stop:
         log.debug("Stopping an Appium process")
-        pid = get_appium_pid();
+        pid = get_appium_pid()
         if pid != -1:
             psutil.Process(pid).kill()
 
