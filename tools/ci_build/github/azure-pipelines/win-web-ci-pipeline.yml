@@ -125,7 +125,8 @@ jobs:
 
 - job: build_onnxruntime_web
   dependsOn: build_WASM
-  pool: 'windows-2019'
+  pool:
+    vmImage: 'windows-latest'
   strategy:
     maxParallel: 2
     matrix:
