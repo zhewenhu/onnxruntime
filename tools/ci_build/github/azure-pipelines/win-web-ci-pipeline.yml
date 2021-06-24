@@ -133,7 +133,7 @@ jobs:
       'release':
         BuildConfig: 'Release'
 
-  timeoutInMinutes: 30
+  timeoutInMinutes: 60
   workspace:
     clean: all
   steps:
