@@ -75,9 +75,6 @@ def main():
 
     if args.create_avd:
         android.create_virtual_device(sdk_tool_paths, args.system_image, args.avd_name)
-        # when VM doesn't have an emulator, sdkmanger installs it, so resolve emulator path again
-        if sdk_tool_paths.emulator is None:
-            sdk_tool_paths = android.get_sdk_tool_paths(args.android_sdk_root)
 
     if args.start and args.stop:
         with contextlib.ExitStack() as context_stack:
