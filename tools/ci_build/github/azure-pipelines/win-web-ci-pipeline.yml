@@ -138,7 +138,7 @@ jobs:
     displayName: 'npm ci /js/web/'
   - script: |
      npm run pull:wasm
-    workingDirectory: '$(Build.SourcesDirectory)\js\web'
+    workingDirectory: '$(Build.SourcesDirectory)/js/web'
     displayName: 'npm run pull:wasm'
   - script: |
       npm run build
