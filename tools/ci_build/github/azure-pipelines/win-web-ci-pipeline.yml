@@ -13,28 +13,27 @@ jobs:
       python3 tools/python/run_android_emulator.py --android-sdk-root $(ANDROID_SDK_ROOT) --create-avd --system-image "system-images;android-29;google_apis;x86_64" --start --emulator-extra-args="-partition-size 1024" --window --emulator-pid-file $(Build.BinariesDirectory)/emulator.pid
     workingDirectory: '$(Build.SourcesDirectory)'
     displayName: 'Start Android emulator'
-    condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
   - script: |
       npm install --prefix $(Build.SourcesDirectory)\build\appium appium
       python3 tools/python/run_appium.py --start --appium-path $(Build.SourcesDirectory)\build\appium
     workingDirectory: '$(Build.SourcesDirectory)'
     displayName: 'Install and run appium'
-    condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
+    condition: succeeded()
   - script: |
       npm test -- --env=android
     workingDirectory: '$(Build.SourcesDirectory)\js\web'
     displayName: 'Run ort-web tests - Android Chrome browser'
-    condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
+    condition: succeeded()
   - script: |
       npm test -- --env=android --webgl-texture-pack-mode -b=webgl
     workingDirectory: '$(Build.SourcesDirectory)\js\web'
     displayName: 'Run ort-web tests - packed mode with Android Chrome browser'
-    condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
+    condition: succeeded()
   - script: |
       python3 tools/python/run_appium.py --stop
     workingDirectory: '$(Build.SourcesDirectory)'
     displayName: 'Stop Appium'
-    condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
+    condition: succeeded()
   - script: |
       python3 tools/python/run_android_emulator.py \
         --android-sdk-root $(ANDROID_SDK_ROOT) \
@@ -42,7 +41,7 @@ jobs:
         --emulator-pid-file $(Build.BinariesDirectory)/emulator.pid
     workingDirectory: '$(Build.SourcesDirectory)'
     displayName: 'Stop Android emulator'
-    condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
+    condition: succeeded()
   - task: mspremier.PostBuildCleanup.PostBuildCleanup-task.PostBuildCleanup@3
     displayName: 'Clean Agent Directories'
     condition: always()
