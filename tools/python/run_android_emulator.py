@@ -44,6 +44,10 @@ def parse_args():
         "--emulator-pid-file",
         help="Output/input file containing the PID of the emulator process. "
         "This is only required if exactly one of --start or --stop is given.")
+    parser.add_argument(
+        "--window",
+        action="store_true",
+        help="Run the Android emulator with window")
 
     args = parser.parse_args()
 
@@ -66,10 +70,14 @@ def main():
         "sdk_tool_paths": sdk_tool_paths,
         "avd_name": args.avd_name,
         "extra_args": shlex.split(args.emulator_extra_args),
+        "headless": not args.window
     }
 
     if args.create_avd:
         android.create_virtual_device(sdk_tool_paths, args.system_image, args.avd_name)
+        # when VM doesn't have an emulator, sdkmanger installs it, so resolve emulator path again
+        if sdk_tool_paths.emulator is None:
+            sdk_tool_paths = android.get_sdk_tool_paths(args.android_sdk_root)
 
     if args.start and args.stop:
         with contextlib.ExitStack() as context_stack:

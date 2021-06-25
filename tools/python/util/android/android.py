@@ -48,12 +48,14 @@ def get_sdk_tool_paths(sdk_root: str):
             [os.path.join(sdk_root, "platform-tools")],
             filename("adb", "exe")),
         sdkmanager=resolve_path(
-            [os.path.join(sdk_root, "tools", "bin"),
-             os.path.join(sdk_root, "cmdline-tools", "tools", "bin")],
+            [os.path.join(sdk_root, "cmdline-tools", "tools", "bin"),
+             os.path.join(sdk_root, "cmdline-tools", "latest", "bin"),
+             os.path.join(sdk_root, "tools", "bin")],
             filename("sdkmanager", "bat")),
         avdmanager=resolve_path(
-            [os.path.join(sdk_root, "tools", "bin"),
-             os.path.join(sdk_root, "cmdline-tools", "tools", "bin")],
+            [os.path.join(sdk_root, "cmdline-tools", "tools", "bin"),
+             os.path.join(sdk_root, "cmdline-tools", "latest", "bin"),
+             os.path.join(sdk_root, "tools", "bin")],
             filename("avdmanager", "bat")))
 
 
@@ -102,7 +104,8 @@ def _stop_process_with_pid(pid: int):
 def start_emulator(
         sdk_tool_paths: SdkToolPaths,
         avd_name: str,
-        extra_args: typing.Optional[typing.Sequence[str]] = None) -> subprocess.Popen:
+        extra_args: typing.Optional[typing.Sequence[str]] = None,
+        headless: bool = True) -> subprocess.Popen:
     with contextlib.ExitStack() as emulator_stack, \
          contextlib.ExitStack() as waiter_stack:
         emulator_args = [
@@ -111,10 +114,11 @@ def start_emulator(
             "-timezone", "America/Los_Angeles",
             "-no-snapshot",
             "-no-audio",
-            "-no-boot-anim",
-            "-no-window"]
+            "-no-boot-anim"]
         if extra_args is not None:
             emulator_args += extra_args
+        if headless:
+            emulator_args += ["-no-window"]
 
         emulator_process = emulator_stack.enter_context(
             _start_process(*emulator_args))
