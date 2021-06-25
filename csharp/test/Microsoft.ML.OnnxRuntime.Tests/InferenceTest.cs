@@ -186,10 +186,10 @@ namespace Microsoft.ML.OnnxRuntime.Tests
             Assert.Equal("CPUExecutionProvider", providers[providers.Length - 1]);
 
 # if USE_CUDA
-            Assert.True(Array.Exists(providers, provider => provider == "CUDAExecutionProvider"););
+            Assert.True(Array.Exists(providers, provider => provider == "CUDAExecutionProvider"));
 #endif
 # if USE_ROCM
-            Assert.True(Array.Exists(providers, provider => provider == "ROCMExecutionProvider"););
+            Assert.True(Array.Exists(providers, provider => provider == "ROCMExecutionProvider"));
 #endif
 
         }
@@ -836,6 +836,9 @@ namespace Microsoft.ML.OnnxRuntime.Tests
                 { "test_batchnorm_epsilon_training_mode", "opset14 version not implemented yet"},
                 { "test_batchnorm_example", "opset14 version not implemented yet"},
                 { "test_batchnorm_example_training_mode", "opset14 version not implemented yet"},
+                { "test_bernoulli", "random generator"},
+                { "test_bernoulli_seed", "random generator"},
+                { "test_bernoulli_double", "random generator"},
             };
 
             // The following models fails on nocontribops win CI
