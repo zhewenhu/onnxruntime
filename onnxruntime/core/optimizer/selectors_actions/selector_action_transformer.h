@@ -47,8 +47,6 @@ struct SelectorAndAction {
 */
 class SelectorActionTransformer : public GraphTransformer {
  protected:
-  // TODO: We could make it 1:1 between transformer and SelectorAndAction instead, but that can also be
-  // achieved by passing a single entry in selector_and_actions, so this setup is more flexible.
   SelectorActionTransformer(const std::string& name,
                             std::vector<std::unique_ptr<SelectorAndAction>>&& selectors_and_actions);
 

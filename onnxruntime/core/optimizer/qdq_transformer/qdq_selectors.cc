@@ -9,9 +9,8 @@
 #include "core/optimizer/utils.h"
 
 namespace onnxruntime {
-
+namespace QDQ {
 namespace {
-
 // adjust for an optional input that has an entry but does not exist
 int NumExistingInputs(const Node& node) {
   const auto& input_defs = node.InputDefs();
@@ -20,10 +19,10 @@ int NumExistingInputs(const Node& node) {
 }
 }  // namespace
 
-bool QDQSelector::CheckQDQNodes(const Graph& graph, const Node& node,
-                                const std::vector<const Node*>& dq_nodes,
-                                const std::vector<const Node*>& q_nodes,
-                                int num_dq_inputs) const {
+bool BaseSelector::CheckQDQNodes(const Graph& graph, const Node& node,
+                                 const std::vector<const Node*>& dq_nodes,
+                                 const std::vector<const Node*>& q_nodes,
+                                 int num_dq_inputs) const {
   if (num_dq_inputs == -1) {
     num_dq_inputs = NumExistingInputs(node);
   }
@@ -33,7 +32,7 @@ bool QDQSelector::CheckQDQNodes(const Graph& graph, const Node& node,
          optimizer_utils::CheckOutputEdges(graph, node, q_nodes.size());
 }
 
-bool QDQSelector::operator()(Graph& graph, const Node& node, std::unique_ptr<NodesToOptimize>& selection) const {
+bool BaseSelector::operator()(Graph& graph, const Node& node, std::unique_ptr<NodesToOptimize>& selection) const {
   // GetDQNodes can be overridden so an op which has optional DQ inputs can insert nullptr in the correct
   // slots for those
   std::vector<const Node*> dq_nodes = graph_utils::FindParentsByType(node, QDQ::DQOpName);
@@ -70,18 +69,18 @@ bool QDQSelector::operator()(Graph& graph, const Node& node, std::unique_ptr<Nod
   return true;
 }
 
-QDQDropDQDNodesSelector::QDQDropDQDNodesSelector()
-    : QDQSelector{},
+DropDQDNodesSelector::DropDQDNodesSelector()
+    : BaseSelector{},
       dq_scale_is_constant_scalar_{InOutDefSlot{ArgType::kInput, QDQ::QDQInputIndex::SCALE_ID}},
       dq_zero_point_is_constant_scalar_{InOutDefSlot{ArgType::kInput, QDQ::QDQInputIndex::ZERO_POINT_ID}},
       q_scale_is_constant_scalar_{InOutDefSlot{ArgType::kInput, QDQ::QDQInputIndex::SCALE_ID}},
       q_zero_point_is_constant_scalar_{InOutDefSlot{ArgType::kInput, QDQ::QDQInputIndex::ZERO_POINT_ID}} {
 }
 
-bool QDQDropDQDNodesSelector::Check(const Graph& graph,
-                                    const Node& node,
-                                    const std::vector<const Node*>& dq_nodes,
-                                    const std::vector<const Node*>& q_nodes) const {
+bool DropDQDNodesSelector::Check(const Graph& graph,
+                                 const Node& node,
+                                 const std::vector<const Node*>& dq_nodes,
+                                 const std::vector<const Node*>& q_nodes) const {
   if (!CheckQDQNodes(graph, node, dq_nodes, q_nodes, 1)) {
     return false;
   }
@@ -116,9 +115,9 @@ bool QDQDropDQDNodesSelector::Check(const Graph& graph,
          *q_scale.data<float>() == *dq_scale.data<float>();
 }
 
-bool QDQUnarySelector::Check(const Graph& graph, const Node& node,
-                             const std::vector<const Node*>& dq_nodes,
-                             const std::vector<const Node*>& q_nodes) const {
+bool UnarySelector::Check(const Graph& graph, const Node& node,
+                          const std::vector<const Node*>& dq_nodes,
+                          const std::vector<const Node*>& q_nodes) const {
   if (!CheckQDQNodes(graph, node, dq_nodes, q_nodes, 1)) {
     return false;
   }
@@ -132,10 +131,10 @@ bool QDQUnarySelector::Check(const Graph& graph, const Node& node,
            (int8_allowed_ && dt_output == ONNX_NAMESPACE::TensorProto_DataType::TensorProto_DataType_INT8)));
 }
 
-bool QDQBinarySelector::Check(const Graph& graph,
-                              const Node& node,
-                              const std::vector<const Node*>& dq_nodes,
-                              const std::vector<const Node*>& q_nodes) const {
+bool BinarySelector::Check(const Graph& graph,
+                           const Node& node,
+                           const std::vector<const Node*>& dq_nodes,
+                           const std::vector<const Node*>& q_nodes) const {
   if (!CheckQDQNodes(graph, node, dq_nodes, q_nodes)) {
     return false;
   }
@@ -148,10 +147,10 @@ bool QDQBinarySelector::Check(const Graph& graph,
          dt_input_1 == dt_output;
 }
 
-bool QDQVariadicSelector::Check(const Graph& graph,
-                                const Node& node,
-                                const std::vector<const Node*>& dq_nodes,
-                                const std::vector<const Node*>& q_nodes) const {
+bool VariadicSelector::Check(const Graph& graph,
+                             const Node& node,
+                             const std::vector<const Node*>& dq_nodes,
+                             const std::vector<const Node*>& q_nodes) const {
   if (!CheckQDQNodes(graph, node, dq_nodes, q_nodes)) {
     return false;
   }
@@ -168,14 +167,14 @@ bool QDQVariadicSelector::Check(const Graph& graph,
   return dt_input == dt_output;
 }
 
-void QDQVariadicSelector::UpdateBuilder(NodesToOptimizeBuilder& builder) const {
+void VariadicSelector::UpdateBuilder(NodesToOptimizeBuilder& builder) const {
   builder.num_input_defs = 1;  // set to 1 as the first input is variadic
 }
 
-bool QDQConvSelector::Check(const Graph& graph,
-                            const Node& node,
-                            const std::vector<const Node*>& dq_nodes,
-                            const std::vector<const Node*>& q_nodes) const {
+bool ConvSelector::Check(const Graph& graph,
+                         const Node& node,
+                         const std::vector<const Node*>& dq_nodes,
+                         const std::vector<const Node*>& q_nodes) const {
   if (!CheckQDQNodes(graph, node, dq_nodes, q_nodes)) {
     return false;
   }
@@ -206,14 +205,14 @@ bool QDQConvSelector::Check(const Graph& graph,
   return dt_bias == ONNX_NAMESPACE::TensorProto_DataType::TensorProto_DataType_INT32;
 }
 
-void QDQConvSelector::UpdateBuilder(NodesToOptimizeBuilder& builder) const {
+void ConvSelector::UpdateBuilder(NodesToOptimizeBuilder& builder) const {
   builder.input_nodes.resize(3);  // add nullptr for bias if missing
 }
 
-bool QDQMatMulSelector ::Check(const Graph& graph,
-                               const Node& node,
-                               const std::vector<const Node*>& dq_nodes,
-                               const std::vector<const Node*>& q_nodes) const {
+bool MatMulSelector ::Check(const Graph& graph,
+                            const Node& node,
+                            const std::vector<const Node*>& dq_nodes,
+                            const std::vector<const Node*>& q_nodes) const {
   if (dq_nodes.size() != 2) {
     return false;
   }
@@ -240,4 +239,5 @@ bool QDQMatMulSelector ::Check(const Graph& graph,
   return (dt_input == ONNX_NAMESPACE::TensorProto_DataType::TensorProto_DataType_UINT8);
 }
 
+}  // namespace QDQ
 }  // namespace onnxruntime

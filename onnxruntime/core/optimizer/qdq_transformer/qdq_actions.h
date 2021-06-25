@@ -12,22 +12,22 @@ class Node;
 
 namespace QDQ {
 
-struct SetOptionalZeroPoint : public Action {
-  Status operator()(Graph&, const NodesToOptimize& selected_nodes) const override;
+// helper that sets optional zero point values before replacing a node
+struct QDQReplaceWithNew : public ReplaceWithNew {
+  QDQReplaceWithNew(const std::string& domain,
+                    std::vector<NodeAndMoveInfo>&& value_moves,
+                    const std::string& op_name)
+      : ReplaceWithNew{domain, op_name, std::move(value_moves)} {}
 
- private:
-  static const ONNX_NAMESPACE::TensorProto optional_zero_point_int8_;
-  static const ONNX_NAMESPACE::TensorProto optional_zero_point_uint8_;
+  Status operator()(Graph&, const NodesToOptimize& selected_nodes) const override;
 };
 
 // replace node with QLinear version
-// TODO: If we extend this setup to other optimizers this could be lifted into a more generic 'replace with new node'
-// implementation. Current version has some QDQ specific logic embedded in it.
-struct ReplaceWithQLinear : public ReplaceWithNew {
+struct ReplaceWithQLinear : public QDQReplaceWithNew {
   // provide NodeLocation for source node, and ValueMoveInfo for the value to move to the replacement node
   ReplaceWithQLinear(const std::string& domain,
                      std::vector<NodeAndMoveInfo>&& value_moves)
-      : ReplaceWithNew{domain, "unknown", std::move(value_moves)} {}
+      : QDQReplaceWithNew{domain, std::move(value_moves), "generated at runtime"} {}
 
  private:
   std::string ReplaceWithQLinear::OpType(const NodesToOptimize& selected_nodes) const override {
@@ -35,13 +35,29 @@ struct ReplaceWithQLinear : public ReplaceWithNew {
   }
 };
 
-struct MatMulAction : public Action {
-  MatMulAction();
+struct UnaryReplaceWithQLinear : ReplaceWithQLinear {
+  UnaryReplaceWithQLinear(const std::string& domain);
+};
+
+struct BinaryReplaceWithQLinear : ReplaceWithQLinear {
+  BinaryReplaceWithQLinear(const std::string& domain);
+};
+
+struct VariadicReplaceWithQLinear : ReplaceWithQLinear {
+  VariadicReplaceWithQLinear(const std::string& domain);
+};
+
+struct ConvReplaceWithQLinear : ReplaceWithQLinear {
+  ConvReplaceWithQLinear();
+};
+
+struct MatMulReplaceWithQLinear : public Action {
+  MatMulReplaceWithQLinear();
 
   Status operator()(Graph&, const NodesToOptimize& selected_nodes) const override;
 
  private:
-  ReplaceWithNew matmul_int_to_float_replacer_;
+  QDQReplaceWithNew matmul_int_to_float_replacer_;
   ReplaceWithQLinear qlinear_matmul_replacer_;
 };
 

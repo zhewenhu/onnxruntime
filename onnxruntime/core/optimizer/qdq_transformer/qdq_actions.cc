@@ -10,7 +10,69 @@ namespace QDQ {
 namespace {
 using NTO = NodesToOptimize;
 
-ReplaceWithNew MatMulIntToFloatReplacer() {
+// moves for replacing a node with a single DQ input with the qlinear version
+std::vector<NodeAndMoveInfo> UnaryMoves() {
+  NTO::NodeLocation dq{NTO::NodeType::kInput, 0};
+  NTO::NodeLocation q{NTO::NodeType::kOutput, 0};
+
+  std::vector<NodeAndMoveInfo> moves{
+      MoveAll(dq, ArgType::kInput),                            // append all inputs from dq to new node
+      MoveAndAppend(q, ArgType::kInput, 1, ArgType::kInput),   // append scale (input 1) from q
+      MoveAndAppend(q, ArgType::kInput, 2, ArgType ::kInput),  // append zp (input 2) from q
+      MoveAll(q, ArgType::kOutput)};
+
+  return moves;
+}
+
+// moves for replacing a node with two DQ inputs with the qlinear version
+std::vector<NodeAndMoveInfo> BinaryMoves() {
+  NTO::NodeLocation dq1{NTO::NodeType::kInput, 0};
+  NTO::NodeLocation dq2{NTO::NodeType::kInput, 1};
+  NTO::NodeLocation q{NTO::NodeType::kOutput, 0};
+
+  std::vector<NodeAndMoveInfo> moves{
+      MoveAll(dq1, ArgType::kInput),                           // append all inputs from dq1 to new node
+      MoveAll(dq2, ArgType::kInput),                           // append all inputs from dq2
+      MoveAndAppend(q, ArgType::kInput, 1, ArgType::kInput),   // append scale (input 1) from q
+      MoveAndAppend(q, ArgType::kInput, 2, ArgType ::kInput),  // append zp (input 2) from q
+      MoveAll(q, ArgType::kOutput)};                           // and use the outputs from q
+
+  return moves;
+}
+
+// moves for replacing a node with a single variadic DQ input with the qlinear version
+std::vector<NodeAndMoveInfo> VariadicMoves() {
+  NTO::NodeLocation variadic_dq{NTO::NodeType::kInput, 0};
+  NTO::NodeLocation q{NTO::NodeType::kOutput, 0};
+
+  std::vector<NodeAndMoveInfo> moves{
+      MoveAndAppend(q, ArgType::kInput, 1, ArgType::kInput),   // append scale (input 1) from q
+      MoveAndAppend(q, ArgType::kInput, 2, ArgType ::kInput),  // append zp (input 2) from q
+      MoveAll(variadic_dq, ArgType::kInput),                   // append all inputs from all dq nodes
+      MoveAll(q, ArgType::kOutput)};                           // and use the outputs from q
+
+  return moves;
+}
+
+// moves for replacing a node with a Conv node with DQ inputs with the qlinear version
+std::vector<NodeAndMoveInfo> ConvMoves() {
+  NTO::NodeLocation dq_x{NTO::NodeType::kInput, 0};
+  NTO::NodeLocation dq_w{NTO::NodeType::kInput, 1};
+  NTO::NodeLocation dq_bias{NTO::NodeType::kInput, 2};
+  NTO::NodeLocation q{NTO::NodeType::kOutput, 0};
+
+  std::vector<NodeAndMoveInfo> moves{
+      MoveAll(dq_x, ArgType::kInput),                                     // append all inputs from x
+      MoveAll(dq_w, ArgType::kInput),                                     // append all inputs from w
+      MoveAndAppend(q, ArgType::kInput, 1, ArgType::kInput),              // append scale (input 1) from q
+      MoveAndAppend(q, ArgType::kInput, 2, ArgType ::kInput),             // append zp (input 2) from q
+      MoveAndAppend(dq_bias, ArgType::kInput, 0, ArgType::kInput, true),  // (optional) append bias
+      MoveAll(q, ArgType::kOutput)};                                      // and use the outputs from q
+
+  return moves;
+}
+
+QDQReplaceWithNew MatMulIntToFloatReplacer() {
   NTO::NodeLocation dq1{NTO::NodeType::kInput, 0};
   NTO::NodeLocation dq2{NTO::NodeType::kInput, 1};
   NTO::NodeLocation target{NTO::NodeType::kTarget, 0};
@@ -24,7 +86,7 @@ ReplaceWithNew MatMulIntToFloatReplacer() {
       MoveAndAppend(dq2, ArgType::kInput, 2, ArgType::kInput),
       MoveAll(target, ArgType::kOutput)};
 
-  return ReplaceWithNew(kMSDomain, "MatMulIntegerToFloat", std::move(moves));
+  return QDQReplaceWithNew(kMSDomain, std::move(moves), "MatMulIntegerToFloat");
 }
 
 ReplaceWithQLinear MatMulQLinearReplacer() {
@@ -41,25 +103,16 @@ ReplaceWithQLinear MatMulQLinearReplacer() {
 
   return ReplaceWithQLinear(kOnnxDomain, std::move(moves));
 }
-}  // namespace
 
-MatMulAction::MatMulAction()
-    : matmul_int_to_float_replacer_{MatMulIntToFloatReplacer()},
-      qlinear_matmul_replacer_{MatMulQLinearReplacer()} {
-}
+struct SetOptionalZeroPoint {
+  static void UpdateNodes(Graph&, const NodesToOptimize& selected_nodes);
 
-Status MatMulAction ::operator()(Graph& graph, const NodesToOptimize& selected_nodes) const {
-  // if the output is empty there were no Q nodes selected, so replace with MatMulIntegerToFloat
-  // otherwise replace with QLinearMatMul
-  bool matmul_integer_to_float = selected_nodes.num_outputs == 0;
-  if (matmul_integer_to_float) {
-    return matmul_int_to_float_replacer_(graph, selected_nodes);
-  } else {
-    return qlinear_matmul_replacer_(graph, selected_nodes);
-  }
-}
+ private:
+  static const ONNX_NAMESPACE::TensorProto optional_zero_point_int8_;
+  static const ONNX_NAMESPACE::TensorProto optional_zero_point_uint8_;
+};
 
-Status SetOptionalZeroPoint::operator()(Graph& graph, const NodesToOptimize& selected_nodes) const {
+void SetOptionalZeroPoint::UpdateNodes(Graph& graph, const NodesToOptimize& selected_nodes) {
   std::vector<Node*> nodes = selected_nodes.AllNodes();
   for (Node* node_ptr : nodes) {
     if (node_ptr == nullptr) {
@@ -102,8 +155,6 @@ Status SetOptionalZeroPoint::operator()(Graph& graph, const NodesToOptimize& sel
       input_defs[QDQInputIndex::ZERO_POINT_ID] = &node_arg;
     }
   }
-
-  return Status::OK();
 }
 
 const ONNX_NAMESPACE::TensorProto SetOptionalZeroPoint::optional_zero_point_int8_ = []() {
@@ -125,6 +176,45 @@ const ONNX_NAMESPACE::TensorProto SetOptionalZeroPoint::optional_zero_point_uint
 
   return tensor_proto;
 }();
+
+}  // namespace
+
+Status QDQReplaceWithNew::operator()(Graph& graph, const NodesToOptimize& selected_nodes) const {
+  SetOptionalZeroPoint::UpdateNodes(graph, selected_nodes);
+  return ReplaceWithNew::operator()(graph, selected_nodes);
+}
+
+UnaryReplaceWithQLinear::UnaryReplaceWithQLinear(const std::string& domain)
+    : ReplaceWithQLinear(domain, std::move(UnaryMoves())) {
+}
+
+BinaryReplaceWithQLinear::BinaryReplaceWithQLinear(const std::string& domain)
+    : ReplaceWithQLinear(domain, std::move(BinaryMoves())) {
+}
+
+VariadicReplaceWithQLinear::VariadicReplaceWithQLinear(const std::string& domain)
+    : ReplaceWithQLinear(domain, std::move(VariadicMoves())) {
+}
+
+ConvReplaceWithQLinear::ConvReplaceWithQLinear()
+    : ReplaceWithQLinear(kOnnxDomain, std::move(ConvMoves())) {
+}
+
+MatMulReplaceWithQLinear::MatMulReplaceWithQLinear()
+    : matmul_int_to_float_replacer_{MatMulIntToFloatReplacer()},
+      qlinear_matmul_replacer_{MatMulQLinearReplacer()} {
+}
+
+Status MatMulReplaceWithQLinear ::operator()(Graph& graph, const NodesToOptimize& selected_nodes) const {
+  // if the output is empty there were no Q nodes selected, so replace with MatMulIntegerToFloat
+  // otherwise replace with QLinearMatMul
+  bool matmul_integer_to_float = selected_nodes.num_outputs == 0;
+  if (matmul_integer_to_float) {
+    return matmul_int_to_float_replacer_(graph, selected_nodes);
+  } else {
+    return qlinear_matmul_replacer_(graph, selected_nodes);
+  }
+}
 
 }  // namespace QDQ
 }  // namespace onnxruntime

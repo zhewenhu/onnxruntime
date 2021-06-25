@@ -55,19 +55,14 @@ struct RemoveNodes : public Action {
   bool preserve_target_node_;
 };
 
-// Merge multiple nodes into an existing nodes.
-// Input/output info in value_moves defines what moves to the target node.
-// Edge moves/removal will be automatically handled.
-// nodes_to_remove defines the nodes that are no longer needed after the merge.
-struct MergeIntoExisting : public Action {
-  MergeIntoExisting(std::vector<NodeAndMoveInfo>&& value_moves)
-      : value_moves_{std::move(value_moves)} {
-  }
-
+// Merge one input and/or one output node into the target node.
+//   - inputs from the input node, if present, will become the inputs of the target node
+//   - outputs from the output node, if present, will become the outputs of the target node
+// The input and/or output node will be removed after the merge. The target node will not.
+struct MergeIntoTarget : public Action {
  private:
   Status operator()(Graph&, const NodesToOptimize& selected_nodes) const override;
 
-  std::vector<NodeAndMoveInfo> value_moves_;
   RemoveNodes node_remover_{true};  // preserve target node when removing selected_nodes
 };
 

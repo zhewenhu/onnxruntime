@@ -50,8 +50,23 @@ Status RemoveNodes::operator()(Graph& graph, const NodesToOptimize& selected_nod
   return Status::OK();
 }
 
-Status MergeIntoExisting::operator()(Graph& graph, const NodesToOptimize& selected_nodes) const {
-  ORT_RETURN_IF_ERROR(MoveInputOutput(graph, selected_nodes, selected_nodes.Target(), value_moves_));
+Status MergeIntoTarget::operator()(Graph& graph, const NodesToOptimize& selected_nodes) const {
+  // sanity check. any incorrect usage would happen during development so no need to use ORT_ENFORCE
+  assert(selected_nodes.num_inputs <= 1 && selected_nodes.num_outputs <= 1 &&
+         !selected_nodes.HasVariadicInput() && !selected_nodes.HasVariadicOutput());
+
+  if (selected_nodes.num_inputs == 1) {
+    // move inputs from the input node to the target node as the input node will be deleted
+    ORT_RETURN_IF_ERROR(MoveInputOutput(graph, *selected_nodes.Input(0), selected_nodes.Target(),
+                                        {ArgType::kInput, ArgType::kInput}));
+  }
+
+  if (selected_nodes.num_outputs == 1) {
+    // move outputs from the output node to the target node as the output node will be deleted
+    ORT_RETURN_IF_ERROR(MoveInputOutput(graph, *selected_nodes.Output(0), selected_nodes.Target(),
+                                        {ArgType::kOutput, ArgType::kOutput}));
+  }
+
   return node_remover_(graph, selected_nodes);
 }
 

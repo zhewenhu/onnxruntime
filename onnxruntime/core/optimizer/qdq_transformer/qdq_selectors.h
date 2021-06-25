@@ -10,13 +10,14 @@ namespace onnxruntime {
 class Graph;
 class Node;
 
+namespace QDQ {
 // Base QDQ checker. Provides the DQ and Q nodes to the operator specific checkers
-class QDQSelector : public NodeSelector {
+class BaseSelector : public NodeSelector {
  public:
   bool operator()(Graph& graph, const Node& node, std::unique_ptr<NodesToOptimize>& selection) const override;
 
  protected:
-  QDQSelector() = default;
+  BaseSelector() = default;
 
   // base check that we have the expected number of QDQ inputs/outputs, and `node` isn't producing a graph output.
   // num_dq_inputs defaults to the number of inputs `node` has if not explicitly specified
@@ -38,9 +39,9 @@ class QDQSelector : public NodeSelector {
 
 // Single DQ -> node that does not change data -> Q.
 // Zero point and scale are constant scalars and must match
-class QDQDropDQDNodesSelector : public QDQSelector {
+class DropDQDNodesSelector : public BaseSelector {
  public:
-  QDQDropDQDNodesSelector();
+  DropDQDNodesSelector();
 
  private:
   bool Check(const Graph& graph, const Node& node,
@@ -54,9 +55,9 @@ class QDQDropDQDNodesSelector : public QDQSelector {
 };
 
 // single input. default is to only support uint8.
-class QDQUnarySelector : public QDQSelector {
+class UnarySelector : public BaseSelector {
  public:
-  QDQUnarySelector(bool int8_allowed = false) : int8_allowed_{int8_allowed} {}
+  UnarySelector(bool int8_allowed = false) : int8_allowed_{int8_allowed} {}
 
  private:
   bool Check(const Graph& graph, const Node& node,
@@ -67,14 +68,14 @@ class QDQUnarySelector : public QDQSelector {
 };
 
 // 2 DQ nodes providing input -> node -> Q
-class QDQBinarySelector : public QDQSelector {
+class BinarySelector : public BaseSelector {
   bool Check(const Graph& graph, const Node& node,
              const std::vector<const Node*>& dq_nodes,
              const std::vector<const Node*>& q_nodes) const override;
 };
 
 // Variadic DQ nodes -> node -> Q
-class QDQVariadicSelector : public QDQSelector {
+class VariadicSelector : public BaseSelector {
   bool Check(const Graph& graph, const Node& node,
              const std::vector<const Node*>& dq_nodes,
              const std::vector<const Node*>& q_nodes) const override;
@@ -82,7 +83,7 @@ class QDQVariadicSelector : public QDQSelector {
 };
 
 // DQ nodes for X, W and optionally B -> node -> Q
-class QDQConvSelector : public QDQSelector {
+class ConvSelector : public BaseSelector {
   bool Check(const Graph& graph, const Node& node,
              const std::vector<const Node*>& dq_nodes,
              const std::vector<const Node*>& q_nodes) const override;
@@ -91,10 +92,10 @@ class QDQConvSelector : public QDQSelector {
 };
 
 // 2 DQ nodes for input -> node -> optional Q if QLinearMatMul, MatMulIntegerToFloat if not
-class QDQMatMulSelector : public QDQSelector {
+class MatMulSelector : public BaseSelector {
   bool Check(const Graph& graph, const Node& node,
              const std::vector<const Node*>& dq_nodes,
              const std::vector<const Node*>& q_nodes) const override;
 };
-
+}  // namespace QDQ
 }  // namespace onnxruntime
