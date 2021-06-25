@@ -244,17 +244,14 @@ jobs:
     displayName: 'Run ort-web tests - packed mode with Edge browser'
     condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
   - script: |
-      python3 tools/python/run_android_emulator.py \
-        --android-sdk-root ${ANDROID_SDK_ROOT} \
-        --create-avd --system-image "system-images;android-29;google_apis;x86_64" \
-        --start --emulator-extra-args="-partition-size 4096" \
-        --emulator-pid-file $(Build.BinariesDirectory)/emulator.pid
+      python3 tools/python/run_android_emulator.py --android-sdk-root ${ANDROID_SDK_ROOT} --create-avd --system-image "system-images;android-29;google_apis;x86_64" --start --emulator-extra-args="-partition-size 4096" --emulator-pid-file $(Build.BinariesDirectory)/emulator.pid
+    workingDirectory: '$(Build.SourcesDirectory)'
     displayName: 'Start Android emulator'
     condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
   - script: |
       npm install --prefix $(Build.SourcesDirectory)\build\appium appium
-      python3 tools/python/run_appium.py \
-        --start --appium-path $(Build.SourcesDirectory)\build\appium
+      python3 tools/python/run_appium.py --start --appium-path $(Build.SourcesDirectory)\build\appium
+    workingDirectory: '$(Build.SourcesDirectory)'
     displayName: 'Install and run appium'
     condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
   - script: |
@@ -269,6 +266,7 @@ jobs:
     condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
   - script: |
       python3 tools/python/run_appium.py --stop
+    workingDirectory: '$(Build.SourcesDirectory)'
     displayName: 'Stop Appium'
     condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
   - script: |
@@ -276,6 +274,7 @@ jobs:
         --android-sdk-root ${ANDROID_SDK_ROOT} \
         --stop \
         --emulator-pid-file $(Build.BinariesDirectory)/emulator.pid
+    workingDirectory: '$(Build.SourcesDirectory)'
     displayName: 'Stop Android emulator'
     condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
   - script: |
