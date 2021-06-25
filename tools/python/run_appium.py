@@ -56,7 +56,7 @@ def main():
         subprocess.Popen(
             args=["node", os.path.join(args.appium_path, "node_modules", "appium", "build", "lib", "main.js"),
                   "--allow-insecure", "chromedriver_autodownload"],
-            creationflags=subprocess.CREATE_NEW_CONSOLE)
+            shell=True)
     elif args.stop:
         log.debug("Stopping an Appium process")
         pid = get_appium_pid()
