@@ -17,27 +17,15 @@ jobs:
       artifactName: '__commit'
       targetPath: '$(Build.ArtifactStagingDirectory)'
 
-- job: build_WASM
-  dependsOn: Extract_commit
-  pool: 'Win-CPU-2019'
-  strategy:
-    maxParallel: 4
-    matrix:
-      'debug':
-        BuildConfig: 'Debug'
-        CmdParams: ''
-      'release':
-        BuildConfig: 'Release'
-        CmdParams: '--skip_tests --disable_wasm_exception_catching --disable_rtti'
-
-  variables:
-    EnvSetupScript: setup_env.bat
-    buildArch: x64
-  timeoutInMinutes: 120
+- job: build_onnxruntime_web
+  pool:
+    vmImage: 'windows-latest'
+  timeoutInMinutes: 30
   workspace:
     clean: all
   steps:
   - checkout: self
+    submodules: false
   - task: DownloadPipelineArtifact@2
     inputs:
       artifact: '__commit'
@@ -50,70 +38,57 @@ jobs:
     workingDirectory: '$(Build.SourcesDirectory)'
     displayName: 'Read commit SHA and checkout'
   - script: |
-     git submodule sync --recursive
-     git submodule update --init --recursive
+     git submodule sync -- cmake\external\onnx
+     git submodule update --init -- cmake\external\onnx
     workingDirectory: '$(Build.SourcesDirectory)'
-    displayName: 'Checkout submodules'
-  - task: UsePythonVersion@0
-    inputs:
-      versionSpec: '3.7'
-      addToPath: true
-      architecture: $(buildArch)
+    displayName: 'Checkout submodule onnx'
   - task: NodeTool@0
     inputs:
       versionSpec: '14.x'
-  - task: BatchScript@1
-    displayName: 'setup env'
-    inputs:
-      filename: '$(Build.SourcesDirectory)\tools\ci_build\github\windows\$(EnvSetupScript)'
-      modifyEnvironment: true
-      workingFolder: '$(Build.BinariesDirectory)'
   - script: |
-     python -m pip install -q pyopenssl setuptools wheel numpy ninja flake8
-    workingDirectory: '$(Build.BinariesDirectory)'
-    displayName: 'Install python modules'
-  - task: PythonScript@0
-    displayName: 'Build and test'
-    inputs:
-      scriptPath: '$(Build.SourcesDirectory)\tools\ci_build\build.py'
-      arguments: '--config $(BuildConfig) --build_dir $(Build.BinariesDirectory)\wasm --skip_submodule_sync --build_wasm --emsdk_version releases-upstream-77b065ace39e6ab21446e13f92897f956c80476a-64bit --cmake_generator "Visual Studio 16 2019" $(CmdParams)'
-      workingDirectory: '$(Build.BinariesDirectory)'
-  - task: PythonScript@0
-    displayName: 'Build and test (threads)'
-    inputs:
-      scriptPath: '$(Build.SourcesDirectory)\tools\ci_build\build.py'
-      arguments: '--config $(BuildConfig) --build_dir $(Build.BinariesDirectory)\wasm_threads --skip_submodule_sync --build_wasm --emsdk_version releases-upstream-77b065ace39e6ab21446e13f92897f956c80476a-64bit --path_to_protoc_exe $(Build.BinariesDirectory)\wasm\host_protoc\Release\protoc.exe --cmake_generator "Visual Studio 16 2019" --enable_wasm_threads $(CmdParams)'
-      workingDirectory: '$(Build.BinariesDirectory)'
-  - task: PythonScript@0
-    displayName: 'Build and test (simd + threads)'
-    inputs:
-      scriptPath: '$(Build.SourcesDirectory)\tools\ci_build\build.py'
-      arguments: '--config $(BuildConfig) --build_dir $(Build.BinariesDirectory)\wasm_simd_threads --skip_submodule_sync --build_wasm --emsdk_version releases-upstream-77b065ace39e6ab21446e13f92897f956c80476a-64bit --path_to_protoc_exe $(Build.BinariesDirectory)\wasm\host_protoc\Release\protoc.exe --cmake_generator "Visual Studio 16 2019" --enable_wasm_simd --enable_wasm_threads $(CmdParams)'
-      workingDirectory: '$(Build.BinariesDirectory)'
-  - task: PythonScript@0
-    displayName: 'Build and test (simd)'
-    inputs:
-      scriptPath: '$(Build.SourcesDirectory)\tools\ci_build\build.py'
-      arguments: '--config $(BuildConfig) --build_dir $(Build.BinariesDirectory)\wasm_simd --skip_submodule_sync --build_wasm --emsdk_version releases-upstream-77b065ace39e6ab21446e13f92897f956c80476a-64bit --path_to_protoc_exe $(Build.BinariesDirectory)\wasm\host_protoc\Release\protoc.exe --cmake_generator "Visual Studio 16 2019" --enable_wasm_simd $(CmdParams)'
-      workingDirectory: '$(Build.BinariesDirectory)'
+     npm ci
+    workingDirectory: '$(Build.SourcesDirectory)\js'
+    displayName: 'npm ci /js/'
   - script: |
-      copy $(Build.BinariesDirectory)\wasm\$(BuildConfig)\ort-wasm*.* $(Build.ArtifactStagingDirectory)
-      copy $(Build.BinariesDirectory)\wasm_threads\$(BuildConfig)\ort-wasm*.* $(Build.ArtifactStagingDirectory)
-      copy $(Build.BinariesDirectory)\wasm_simd_threads\$(BuildConfig)\ort-wasm*.* $(Build.ArtifactStagingDirectory)
-      copy $(Build.BinariesDirectory)\wasm_simd\$(BuildConfig)\ort-wasm*.* $(Build.ArtifactStagingDirectory)
-    displayName: 'Create Artifacts'
-  - task: PublishPipelineArtifact@0
-    displayName: 'Publish Pipeline Artifact'
-    inputs:
-      artifactName: '$(BuildConfig)_wasm'
-      targetPath: '$(Build.ArtifactStagingDirectory)'
-  - task: PublishTestResults@2
-    displayName: 'Publish unit test results'
-    inputs:
-      testResultsFiles: '**/*.results.xml'
-      searchFolder: '$(Build.BinariesDirectory)'
-      testRunTitle: 'Unit Test Run'
-    condition: and(succeededOrFailed(), eq(variables['BuildConfig'], 'Debug'))
+     npm ci
+    workingDirectory: '$(Build.SourcesDirectory)\js\common'
+    displayName: 'npm ci /js/common/'
+  - script: |
+     npm ci
+    workingDirectory: '$(Build.SourcesDirectory)\js\web'
+    displayName: 'npm ci /js/web/'
+  - script: |
+     npm run pull:wasm
+    workingDirectory: '$(Build.SourcesDirectory)\js\web'
+    displayName: 'npm run pull:wasm'
+  - script: |
+     npm run build
+    workingDirectory: '$(Build.SourcesDirectory)\js\web'
+    displayName: 'Build ort-web'
+  - script: |
+     npm test
+    workingDirectory: '$(Build.SourcesDirectory)\js\web'
+    displayName: 'Run ort-web tests - unpacked mode'
+  - script: |
+     npm test --  --webgl-texture-pack-mode -b=webgl
+    workingDirectory: '$(Build.SourcesDirectory)\js\web'
+    displayName: 'Run ort-web tests - packed mode'
+  - script: |
+      npm test -- --env=firefox
+    workingDirectory: '$(Build.SourcesDirectory)/js/web'
+    displayName: 'Run ort-web tests - Firefox browser'
+  - script: |
+      npm test --  --env=firefox --webgl-texture-pack-mode -b=webgl
+    workingDirectory: '$(Build.SourcesDirectory)/js/web'
+    displayName: 'Run ort-web tests - packed mode with Firefox browser'
+  - script: |
+      npm test -- --env=edge
+    workingDirectory: '$(Build.SourcesDirectory)/js/web'
+    displayName: 'Run ort-web tests - Edge browser'
+  - script: |
+      npm test --  --env=edge --webgl-texture-pack-mode -b=webgl
+    workingDirectory: '$(Build.SourcesDirectory)/js/web'
+    displayName: 'Run ort-web tests - packed mode with Edge browser'
   - template: templates/component-governance-component-detection-steps.yml
     parameters :
       condition : 'succeeded'
@@ -121,18 +96,9 @@ jobs:
     displayName: 'Clean Agent Directories'
     condition: always()
 
-- job: build_onnxruntime_web
-  dependsOn: build_WASM
+- job: test_onnxruntime_web
   pool:
-    vmImage: 'windows-latest'
-  strategy:
-    maxParallel: 2
-    matrix:
-      'debug':
-        BuildConfig: 'Debug'
-      'release':
-        BuildConfig: 'Release'
-
+    vmImage: 'macOS-10.15'
   timeoutInMinutes: 60
   workspace:
     clean: all
@@ -145,176 +111,88 @@ jobs:
       path: $(Pipeline.Workspace)
     displayName: 'Get commit SHA'
   - script: |
-      set /p __commit__=<$(Pipeline.Workspace)\__commit.txt
-      git fetch origin +%__commit__%:refs/remotes/origin/%__commit__%
-      git checkout --force %__commit__%
+      export __commit__=<$(Pipeline.Workspace)/__commit.txt
+      git fetch origin +$__commit__:refs/remotes/origin/$__commit__
+      git checkout --force $__commit__
     workingDirectory: '$(Build.SourcesDirectory)'
     displayName: 'Read commit SHA and checkout'
   - script: |
-      git submodule sync -- cmake\external\onnx
-      git submodule update --init -- cmake\external\onnx
+      git submodule sync -- cmake/external/onnx
+      git submodule update --init -- cmake/external/onnx
     workingDirectory: '$(Build.SourcesDirectory)'
     displayName: 'Checkout submodule onnx'
   - task: NodeTool@0
     inputs:
       versionSpec: '14.x'
-  - task: DownloadPipelineArtifact@2
-    inputs:
-      patterns: '$(BuildConfig)_*/**/*'
-      path: $(Pipeline.Workspace)\artifacts
-    displayName: 'Download WebAssembly artifacts'
-  - task: CopyFiles@2
-    inputs:
-      sourceFolder: $(Pipeline.Workspace)\artifacts
-      contents: |
-        **\*.wasm
-      targetFolder: $(Build.SourcesDirectory)\js\web\dist
-      flattenFolders: true
-    displayName: 'Binplace dist files'
-  - task: CopyFiles@2
-    inputs:
-      sourceFolder: $(Pipeline.Workspace)\artifacts
-      contents: |
-        **\*.js
-      targetFolder: $(Build.SourcesDirectory)\js\web\lib\wasm\binding
-      flattenFolders: true
-    displayName: 'Binplace js files'
   - script: |
       npm ci
-    workingDirectory: '$(Build.SourcesDirectory)\js'
+    workingDirectory: '$(Build.SourcesDirectory)/js'
     displayName: 'npm ci /js/'
   - script: |
       npm ci
-    workingDirectory: '$(Build.SourcesDirectory)\js\common'
+    workingDirectory: '$(Build.SourcesDirectory)/js/common'
     displayName: 'npm ci /js/common/'
   - script: |
       npm ci
-    workingDirectory: '$(Build.SourcesDirectory)\js\web'
+    workingDirectory: '$(Build.SourcesDirectory)/js/web'
     displayName: 'npm ci /js/web/'
   - script: |
-      npm run lint
-    workingDirectory: '$(Build.SourcesDirectory)\js'
-    displayName: 'ESLint'
-  - script: |
-      npm run format
-    workingDirectory: '$(Build.SourcesDirectory)\js'
-    displayName: 'Clang-format'
-  - script: |
-      node -e "a=require('child_process').execSync('git ls-files -m').toString();if(a)throw new Error('Following source files are not formatted: (did you run \"npm run format\"?)\n'+a)"
-    workingDirectory: '$(Build.SourcesDirectory)\js'
-    displayName: 'Check unformatted files'
-  - script: |
-      npm run build:doc
+     npm run pull:wasm
     workingDirectory: '$(Build.SourcesDirectory)\js\web'
-    displayName: 'Generating documents'
-  - script: |
-      node -e "a=require('child_process').execSync('git ls-files -m').toString();if(a)throw new Error('Following documents are not up-to-date: (did you run \"npm run build:doc\"?)\n'+a)"
-    workingDirectory: '$(Build.SourcesDirectory)\js\web'
-    displayName: 'Check out of dated documents'
+    displayName: 'npm run pull:wasm'
   - script: |
       npm run build
-    workingDirectory: '$(Build.SourcesDirectory)\js\web'
+    workingDirectory: '$(Build.SourcesDirectory)/js/web'
     displayName: 'Build ort-web'
   - script: |
       npm test
-    workingDirectory: '$(Build.SourcesDirectory)\js\web'
+    workingDirectory: '$(Build.SourcesDirectory)/js/web'
     displayName: 'Run ort-web tests - unpacked mode'
   - script: |
       npm test --  --webgl-texture-pack-mode -b=webgl
-    workingDirectory: '$(Build.SourcesDirectory)\js\web'
+    workingDirectory: '$(Build.SourcesDirectory)/js/web'
     displayName: 'Run ort-web tests - packed mode'
   - script: |
       npm test -- --env=firefox
-    workingDirectory: '$(Build.SourcesDirectory)\js\web'
+    workingDirectory: '$(Build.SourcesDirectory)/js/web'
     displayName: 'Run ort-web tests - Firefox browser'
-    condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
   - script: |
       npm test --  --env=firefox --webgl-texture-pack-mode -b=webgl
-    workingDirectory: '$(Build.SourcesDirectory)\js\web'
+    workingDirectory: '$(Build.SourcesDirectory)/js/web'
     displayName: 'Run ort-web tests - packed mode with Firefox browser'
-    condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
   - script: |
       npm test -- --env=edge
-    workingDirectory: '$(Build.SourcesDirectory)\js\web'
+    workingDirectory: '$(Build.SourcesDirectory)/js/web'
     displayName: 'Run ort-web tests - Edge browser'
-    condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
   - script: |
       npm test --  --env=edge --webgl-texture-pack-mode -b=webgl
-    workingDirectory: '$(Build.SourcesDirectory)\js\web'
+    workingDirectory: '$(Build.SourcesDirectory)/js/web'
     displayName: 'Run ort-web tests - packed mode with Edge browser'
-    condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
   - script: |
       python3 tools/python/run_android_emulator.py --android-sdk-root $(ANDROID_SDK_ROOT) --create-avd --system-image "system-images;android-29;google_apis;x86_64" --start --emulator-extra-args="-partition-size 1024" --window --emulator-pid-file $(Build.BinariesDirectory)/emulator.pid
     workingDirectory: '$(Build.SourcesDirectory)'
     displayName: 'Start Android emulator'
-    condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
   - script: |
-      npm install --prefix $(Build.SourcesDirectory)\build\appium appium
-      python3 tools/python/run_appium.py --start --appium-path $(Build.SourcesDirectory)\build\appium
+      npm install --prefix $(Build.SourcesDirectory)/build/appium appium
+      python3 tools/python/run_appium.py --start --appium-path $(Build.SourcesDirectory)/build/appium
     workingDirectory: '$(Build.SourcesDirectory)'
     displayName: 'Install and run appium'
-    condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
   - script: |
       npm test -- --env=android
-    workingDirectory: '$(Build.SourcesDirectory)\js\web'
+    workingDirectory: '$(Build.SourcesDirectory)/js/web'
     displayName: 'Run ort-web tests - Android Chrome browser'
-    condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
   - script: |
       npm test -- --env=android --webgl-texture-pack-mode -b=webgl
-    workingDirectory: '$(Build.SourcesDirectory)\js\web'
+    workingDirectory: '$(Build.SourcesDirectory)/js/web'
     displayName: 'Run ort-web tests - packed mode with Android Chrome browser'
-    condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
   - script: |
       python3 tools/python/run_appium.py --stop
     workingDirectory: '$(Build.SourcesDirectory)'
     displayName: 'Stop Appium'
-    condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
   - script: |
-      python3 tools/python/run_android_emulator.py \
-        --android-sdk-root $(ANDROID_SDK_ROOT) \
-        --stop \
-        --emulator-pid-file $(Build.BinariesDirectory)/emulator.pid
+      python3 tools/python/run_android_emulator.py --android-sdk-root $(ANDROID_SDK_ROOT) --stop --emulator-pid-file $(Build.BinariesDirectory)/emulator.pid
     workingDirectory: '$(Build.SourcesDirectory)'
     displayName: 'Stop Android emulator'
-    condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
-  - script: |
-      npm pack
-    workingDirectory: '$(Build.SourcesDirectory)\js\common'
-    displayName: 'Generate NPM package (onnxruntime-common)'
-    condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
-  - script: |
-      npm pack
-    workingDirectory: '$(Build.SourcesDirectory)\js\web'
-    displayName: 'Generate NPM package (onnxruntime-web)'
-    condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
-  - script: |
-      npm run test:e2e
-    workingDirectory: '$(Build.SourcesDirectory)\js\web'
-    displayName: 'E2E package consuming test'
-    condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
-  - task: CopyFiles@2
-    inputs:
-      sourceFolder: $(Build.SourcesDirectory)\js\common
-      contents: onnxruntime-common-*.tgz
-      targetFolder: $(Build.ArtifactStagingDirectory)
-    displayName: 'Create Artifacts (onnxruntime-common)'
-    condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
-  - task: CopyFiles@2
-    inputs:
-      sourceFolder: $(Build.SourcesDirectory)\js\web
-      contents: onnxruntime-web-*.tgz
-      targetFolder: $(Build.ArtifactStagingDirectory)
-    displayName: 'Create Artifacts (onnxruntime-web)'
-    condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
-  - task: PublishPipelineArtifact@0
-    inputs:
-      artifactName: 'NPM_packages'
-      targetPath: '$(Build.ArtifactStagingDirectory)'
-    displayName: 'Publish Pipeline Artifact'
-    condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
-  - template: templates/component-governance-component-detection-steps.yml
-    parameters :
-      condition : 'succeeded'
   - task: mspremier.PostBuildCleanup.PostBuildCleanup-task.PostBuildCleanup@3
     displayName: 'Clean Agent Directories'
     condition: always()
