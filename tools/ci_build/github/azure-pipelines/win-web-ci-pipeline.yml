@@ -244,7 +244,7 @@ jobs:
     displayName: 'Run ort-web tests - packed mode with Edge browser'
     condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
   - script: |
-      python3 tools/python/run_android_emulator.py --android-sdk-root ${ANDROID_SDK_ROOT} --create-avd --system-image "system-images;android-29;google_apis;x86_64" --start --emulator-extra-args="-partition-size 4096" --emulator-pid-file $(Build.BinariesDirectory)/emulator.pid
+      python3 tools/python/run_android_emulator.py --android-sdk-root $(ANDROID_SDK_ROOT) --create-avd --system-image "system-images;android-29;google_apis;x86_64" --start --emulator-extra-args="-partition-size 4096" --emulator-pid-file $(Build.BinariesDirectory)/emulator.pid
     workingDirectory: '$(Build.SourcesDirectory)'
     displayName: 'Start Android emulator'
     condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
@@ -271,7 +271,7 @@ jobs:
     condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
   - script: |
       python3 tools/python/run_android_emulator.py \
-        --android-sdk-root ${ANDROID_SDK_ROOT} \
+        --android-sdk-root $(ANDROID_SDK_ROOT) \
         --stop \
         --emulator-pid-file $(Build.BinariesDirectory)/emulator.pid
     workingDirectory: '$(Build.SourcesDirectory)'
