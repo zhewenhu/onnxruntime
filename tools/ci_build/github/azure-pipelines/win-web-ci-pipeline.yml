@@ -151,6 +151,7 @@ jobs:
     workingDirectory: '$(Build.SourcesDirectory)'
     displayName: 'Start Android emulator'
   - script: |
+      sudo python3 -m pip install psutil
       npm install --prefix $(Build.SourcesDirectory)/build/appium appium
       python3 tools/python/run_appium.py --start --appium-path $(Build.SourcesDirectory)/build/appium
     workingDirectory: '$(Build.SourcesDirectory)'
