@@ -171,7 +171,7 @@ jobs:
     workingDirectory: '$(Build.SourcesDirectory)/js/web'
     displayName: 'Run ort-web tests - packed mode with Edge browser'
   - script: |
-      python3 tools/python/run_android_emulator.py --android-sdk-root $(ANDROID_SDK_ROOT) --create-avd --system-image "system-images;android-29;google_apis;x86_64" --start --emulator-extra-args="-partition-size 1024" --window --emulator-pid-file $(Build.BinariesDirectory)/emulator.pid
+      python3 tools/python/run_android_emulator.py --android-sdk-root $(ANDROID_SDK_ROOT) --create-avd --system-image "system-images;android-30;google_apis;x86_64" --start --emulator-extra-args="-partition-size 1024" --window --emulator-pid-file $(Build.BinariesDirectory)/emulator.pid
     workingDirectory: '$(Build.SourcesDirectory)'
     displayName: 'Start Android emulator'
   - script: |
