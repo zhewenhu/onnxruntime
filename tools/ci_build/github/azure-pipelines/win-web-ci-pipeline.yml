@@ -158,6 +158,9 @@ jobs:
     workingDirectory: '$(Build.SourcesDirectory)'
     displayName: 'Install and run appium'
   - script: |
+      ps -aef | grep -i adb
+      ps -aef | grep -i android
+      ps -aef | grep -i appium
       npm test -- --env=android
     workingDirectory: '$(Build.SourcesDirectory)/js/web'
     displayName: 'Run ort-web tests - Android Chrome browser'
