@@ -18,6 +18,7 @@ jobs:
       targetPath: '$(Build.ArtifactStagingDirectory)'
 
 - job: build_onnxruntime_web
+  dependsOn: Extract_commit
   pool:
     vmImage: 'windows-latest'
   timeoutInMinutes: 30
@@ -97,6 +98,7 @@ jobs:
     condition: always()
 
 - job: test_onnxruntime_web
+  dependsOn: Extract_commit
   pool:
     vmImage: 'macOS-10.15'
   timeoutInMinutes: 60
