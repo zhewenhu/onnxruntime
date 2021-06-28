@@ -60,9 +60,12 @@ struct RemoveNodes : public Action {
 //   - outputs from the output node, if present, will become the outputs of the target node
 // The input and/or output node will be removed after the merge. The target node will not.
 struct MergeIntoTarget : public Action {
+  MergeIntoTarget(std::vector<NodeAndMoveInfo>&& value_moves) : value_moves_{std::move(value_moves)} {}
+
  private:
   Status Run(Graph&, const NodesToOptimize& selected_nodes) const override;
 
+  std::vector<NodeAndMoveInfo> value_moves_;
   RemoveNodes node_remover_{true};  // preserve target node when removing selected_nodes
 };
 

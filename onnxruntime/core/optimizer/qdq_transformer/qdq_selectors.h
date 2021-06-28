@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include "core/optimizer/selectors_actions/constraint_checkers.h"
 #include "core/optimizer/selectors_actions/selector_action_transformer.h"
 
 #if !defined(ORT_MINIMAL_BUILD)
@@ -42,18 +41,10 @@ class BaseSelector : public NodeSelector {
 // Single DQ -> node that does not change data -> Q.
 // Zero point and scale are constant scalars and must match
 class DropDQDNodesSelector : public BaseSelector {
- public:
-  DropDQDNodesSelector();
-
  private:
   bool Check(const Graph& graph, const Node& node,
              const std::vector<const Node*>& dq_nodes,
              const std::vector<const Node*>& q_nodes) const override;
-
-  const ConstantScalarChecker dq_scale_is_constant_scalar_;
-  const ConstantScalarChecker dq_zero_point_is_constant_scalar_;
-  const ConstantScalarChecker q_scale_is_constant_scalar_;
-  const ConstantScalarChecker q_zero_point_is_constant_scalar_;
 };
 
 // single input. default is to only support uint8.

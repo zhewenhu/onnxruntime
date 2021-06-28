@@ -19,6 +19,16 @@ int NumExistingInputs(const Node& node) {
   return gsl::narrow_cast<int>(std::count_if(input_defs.cbegin(), input_defs.cend(),
                                              [](const NodeArg* def) { return def && def->Exists(); }));
 }
+
+bool IsConstantScalar(const Graph& graph, const NodeArg* node_arg) {
+  if (node_arg != nullptr && node_arg->Exists()) {
+    return optimizer_utils::IsScalar(*node_arg) &&
+           graph.GetConstantInitializer(node_arg->Name(), true) != nullptr;
+  }
+
+  return false;
+}
+
 }  // namespace
 
 bool BaseSelector::CheckQDQNodes(const Graph& graph, const Node& node,
@@ -71,14 +81,6 @@ bool BaseSelector::Select(Graph& graph, const Node& node, std::unique_ptr<NodesT
   return true;
 }
 
-DropDQDNodesSelector::DropDQDNodesSelector()
-    : BaseSelector{},
-      dq_scale_is_constant_scalar_{InOutDefSlot{ArgType::kInput, QDQ::QDQInputIndex::SCALE_ID}},
-      dq_zero_point_is_constant_scalar_{InOutDefSlot{ArgType::kInput, QDQ::QDQInputIndex::ZERO_POINT_ID}},
-      q_scale_is_constant_scalar_{InOutDefSlot{ArgType::kInput, QDQ::QDQInputIndex::SCALE_ID}},
-      q_zero_point_is_constant_scalar_{InOutDefSlot{ArgType::kInput, QDQ::QDQInputIndex::ZERO_POINT_ID}} {
-}
-
 bool DropDQDNodesSelector::Check(const Graph& graph,
                                  const Node& node,
                                  const std::vector<const Node*>& dq_nodes,
@@ -90,28 +92,29 @@ bool DropDQDNodesSelector::Check(const Graph& graph,
   const Node& dq_node = *dq_nodes.front();
   const Node& q_node = *q_nodes.front();
 
-  if (!(dq_scale_is_constant_scalar_(graph, dq_node) &&
-        dq_zero_point_is_constant_scalar_(graph, dq_node) &&
-        q_scale_is_constant_scalar_(graph, q_node) &&
-        q_zero_point_is_constant_scalar_(graph, q_node))) {
+  const NodeArg* dq_scale_arg = dq_node.InputDefs()[QDQ::QDQInputIndex::SCALE_ID];
+  const NodeArg* dq_zp_arg = dq_node.InputDefs()[QDQ::QDQInputIndex::ZERO_POINT_ID];
+  const NodeArg* q_scale_arg = q_node.InputDefs()[QDQ::QDQInputIndex::SCALE_ID];
+  const NodeArg* q_zp_arg = q_node.InputDefs()[QDQ::QDQInputIndex::ZERO_POINT_ID];
+
+  if (!(IsConstantScalar(graph, dq_scale_arg) &&
+        IsConstantScalar(graph, dq_zp_arg) &&
+        IsConstantScalar(graph, q_scale_arg) &&
+        IsConstantScalar(graph, q_zp_arg))) {
     return false;
   }
 
   // check values match
   const auto& model_path = graph.ModelPath();
-  const auto& dq_scale_arg = dq_node.InputDefs()[QDQ::QDQInputIndex::SCALE_ID]->Name();
-  const auto& dq_zp_arg = dq_node.InputDefs()[QDQ::QDQInputIndex::ZERO_POINT_ID]->Name();
-  const auto& q_scale_arg = q_node.InputDefs()[QDQ::QDQInputIndex::SCALE_ID]->Name();
-  const auto& q_zp_arg = q_node.InputDefs()[QDQ::QDQInputIndex::ZERO_POINT_ID]->Name();
 
   // TODO: IIRC the Initializer class is pretty heavy, and given we're checking a single value here we may want
   // a cut-down version that just checks the type specific field and raw_data to read the value to minimize the
   // binary size impact.
   // We can also assert that this value will not be in an external file so model_path shouldn't be necessary either
-  Initializer dq_scale(*graph.GetConstantInitializer(dq_scale_arg, true), model_path);
-  Initializer dq_zp(*graph.GetConstantInitializer(dq_zp_arg, true), model_path);
-  Initializer q_scale(*graph.GetConstantInitializer(q_scale_arg, true), model_path);
-  Initializer q_zp(*graph.GetConstantInitializer(q_zp_arg, true), model_path);
+  Initializer dq_scale(*graph.GetConstantInitializer(dq_scale_arg->Name(), true), model_path);
+  Initializer dq_zp(*graph.GetConstantInitializer(dq_zp_arg->Name(), true), model_path);
+  Initializer q_scale(*graph.GetConstantInitializer(q_scale_arg->Name(), true), model_path);
+  Initializer q_zp(*graph.GetConstantInitializer(q_zp_arg->Name(), true), model_path);
 
   return q_zp.data_type() == dq_zp.data_type() &&
          *q_zp.data<int8_t>() == *dq_zp.data<int8_t>() &&
