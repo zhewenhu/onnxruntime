@@ -12,11 +12,11 @@ namespace onnxruntime {
 // Struct to serialize the node indexes in an ORT format model.
 // Use EmptyNodeIndex for nullptr entries in the vectors for missing optional inputs
 struct NodesToOptimizeIndexes {
-  std::vector<NodeIndex> input_nodes;
-  NodeIndex target_node;
-  std::vector<NodeIndex> output_nodes;
-  int num_input_defs{-1};
-  int num_output_defs{-1};
+  std::vector<NodeIndex> nodes;
+  int num_inputs;
+  int num_extra_variadic_inputs;
+  int num_outputs;
+  int num_extra_variadic_outputs;
 };
 
 // Group of nodes for processing. Accessors are provided for input/target/output nodes.
@@ -46,6 +46,8 @@ class NodesToOptimize {
   NodesToOptimize(Graph& graph, const NodesToOptimizeIndexes& node_indexes);
 
   static constexpr NodeIndex EmptyNodeIndex = std::numeric_limits<NodeIndex>::max();
+
+  NodesToOptimizeIndexes ToIndexes() const;
 
   // number of inputs and outputs. these equate to the nodes providing an input/output (defined in the operator schema)
   // for the target node.
@@ -104,11 +106,6 @@ class NodesToOptimize {
   ORT_DISALLOW_COPY_AND_ASSIGNMENT(NodesToOptimize);
 
  private:
-  void Init(const std::vector<Node*>& input_nodes,
-            Node& target_node,
-            const std::vector<Node*>& output_nodes,
-            int num_input_defs, int num_output_defs);
-
   Node* GetNode(int index, bool required) const {
     Node* node = nullptr;
     ORT_ENFORCE(static_cast<size_t>(index) < nodes_.size() &&

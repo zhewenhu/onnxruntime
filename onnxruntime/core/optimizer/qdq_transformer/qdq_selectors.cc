@@ -34,7 +34,7 @@ bool BaseSelector::CheckQDQNodes(const Graph& graph, const Node& node,
          optimizer_utils::CheckOutputEdges(graph, node, q_nodes.size());
 }
 
-bool BaseSelector::operator()(Graph& graph, const Node& node, std::unique_ptr<NodesToOptimize>& selection) const {
+bool BaseSelector::Select(Graph& graph, const Node& node, std::unique_ptr<NodesToOptimize>& selection) const {
   // GetDQNodes can be overridden so an op which has optional DQ inputs can insert nullptr in the correct
   // slots for those
   std::vector<const Node*> dq_nodes = graph_utils::FindParentsByType(node, QDQ::DQOpName);
@@ -105,7 +105,8 @@ bool DropDQDNodesSelector::Check(const Graph& graph,
   const auto& q_zp_arg = q_node.InputDefs()[QDQ::QDQInputIndex::ZERO_POINT_ID]->Name();
 
   // TODO: IIRC the Initializer class is pretty heavy, and given we're checking a single value here we may want
-  // a cut-down version that just checks the type specific field and raw_data to read the value.
+  // a cut-down version that just checks the type specific field and raw_data to read the value to minimize the
+  // binary size impact.
   // We can also assert that this value will not be in an external file so model_path shouldn't be necessary either
   Initializer dq_scale(*graph.GetConstantInitializer(dq_scale_arg, true), model_path);
   Initializer dq_zp(*graph.GetConstantInitializer(dq_zp_arg, true), model_path);
@@ -211,10 +212,10 @@ void ConvSelector::UpdateBuilder(NodesToOptimizeBuilder& builder) const {
   builder.input_nodes.resize(3);  // add nullptr for bias if missing
 }
 
-bool MatMulSelector ::Check(const Graph& graph,
-                            const Node& node,
-                            const std::vector<const Node*>& dq_nodes,
-                            const std::vector<const Node*>& q_nodes) const {
+bool MatMulSelector::Check(const Graph& graph,
+                           const Node& node,
+                           const std::vector<const Node*>& dq_nodes,
+                           const std::vector<const Node*>& q_nodes) const {
   if (dq_nodes.size() != 2) {
     return false;
   }
@@ -233,7 +234,7 @@ bool MatMulSelector ::Check(const Graph& graph,
       return false;
     }
   } else {
-    // MatMulIntegerToFloat
+    // MatMulIntegerToFloat has no additional constraints to check
   }
 
   // Currently Quant MatMul only support activation type uint8_t

@@ -15,8 +15,8 @@ class Node;
 // Base class for a selector which checks for a match and returns the set of nodes involved.
 struct NodeSelector {
   // Select one or more nodes for an Action to process if the constraints are satisfied.
-  // `selection` is be ignored if this returns false
-  virtual bool operator()(Graph& graph, const Node& node, std::unique_ptr<NodesToOptimize>& selection) const = 0;
+  // `selection` should not be set if this returns false
+  virtual bool Select(Graph& graph, const Node& node, std::unique_ptr<NodesToOptimize>& selection) const = 0;
   virtual ~NodeSelector() = default;
 
  protected:
@@ -47,7 +47,7 @@ struct SelectorAndAction {
 #endif
 
 // standalone class to manage a set of selector and associated actions in a full build,
-// or a set of actions in a minimal build
+// or just the set of actions in a minimal build.
 class SelectorsAndActions {
  public:
   SelectorsAndActions() = default;
@@ -91,11 +91,14 @@ class SelectorsAndActions {
 };
 
 /**
-@Class SelectorActionTransformer
+Class that implements graph transformation via a set of Selector+Action pairs. 
+This setup allows optimizations to be captured and applied at runtime in a minimal build.
 */
 class SelectorActionTransformer : public GraphTransformer {
  protected:
-  SelectorActionTransformer(const std::string& name, SelectorsAndActions&& selectors_and_actions);
+  // set `save` to find matching node groups and save them for later replay. if `save` is true the matching Action
+  // for the Selector will not be called, so the nodes in the Graph will be preserved.
+  SelectorActionTransformer(const std::string& name, SelectorsAndActions&& selectors_and_actions, bool save = false);
 
   // can't copy/assign selectors_and_actions_
   ORT_DISALLOW_COPY_AND_ASSIGNMENT(SelectorActionTransformer);
@@ -109,6 +112,7 @@ class SelectorActionTransformer : public GraphTransformer {
   Status MatchAndProcess(Graph& graph, Node& node, bool& modified, const logging::Logger& logger) const;
 
   std::unordered_map<std::string, const SelectorAndAction*> op_type_to_selector_and_action_;
+  bool save_;  // save the node groups for use in runtime optimization in a minimal build with an ORT format model
 #else
   // apply any saved optimizations
   Status ApplySaved(Graph& graph, bool& modified, const logging::Logger& logger) const;

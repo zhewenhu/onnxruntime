@@ -6,9 +6,11 @@
 namespace onnxruntime {
 
 SelectorActionTransformer::SelectorActionTransformer(const std::string& name,
-                                                     SelectorsAndActions&& selectors_and_actions)
+                                                     SelectorsAndActions&& selectors_and_actions,
+                                                     bool save)
     : GraphTransformer{name},
-      selectors_and_actions_{std::move(selectors_and_actions)} {
+      selectors_and_actions_{std::move(selectors_and_actions)},
+      save_{save} {
 #if !defined(ORT_MINIMAL_BUILD)
   // setup a map so we lookup by operator type efficiently
   for (const auto& map_entry : selectors_and_actions_.SelectorsAndActionsMap()) {
@@ -65,18 +67,23 @@ Status SelectorActionTransformer::MatchAndProcess(Graph& graph, Node& node, bool
     }
 
     std::unique_ptr<NodesToOptimize> selections;
-    if (!(*selector_and_actions.selector)(graph, node, selections)) {
+    if (!selector_and_actions.selector->Select(graph, node, selections)) {
       break;
     }
 
     LOGS(logger, VERBOSE) << "Matched " << node.OpType();
 
-    status = selector_and_actions.action->Run(graph, *selections);
-    if (!status.IsOK()) {
-      break;
-    }
+    if (save_) {
+      // save to Graph. map<transformer name, map<action name, vector<NodesToOptimizeIndexes>>>
+      ORT_NOT_IMPLEMENTED("TODO: Save the selected nodes into the Graph.");
+    } else {
+      status = selector_and_actions.action->Run(graph, *selections);
+      if (!status.IsOK()) {
+        break;
+      }
 
-    modified = true;
+      modified = true;
+    }
   } while (false);
 
   return status;

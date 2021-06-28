@@ -16,7 +16,7 @@ namespace QDQ {
 // Base QDQ checker. Provides the DQ and Q nodes to the operator specific checkers
 class BaseSelector : public NodeSelector {
  public:
-  bool operator()(Graph& graph, const Node& node, std::unique_ptr<NodesToOptimize>& selection) const override;
+  bool Select(Graph& graph, const Node& node, std::unique_ptr<NodesToOptimize>& selection) const override;
 
  protected:
   BaseSelector() = default;
