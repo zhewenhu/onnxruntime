@@ -34,7 +34,7 @@ class BaseSelector : public NodeSelector {
 
   // override if you need to adjust the values in NodesToOptimize.
   // e.g. add entries for missing optional DQ inputs or set num_inputs to handle variadic inputs
-  // Called post-Check if Check returned `true`
+  // Called post-Check, if Check returned `true`
   virtual void UpdateBuilder(NodesToOptimizeBuilder&) const {}
 };
 

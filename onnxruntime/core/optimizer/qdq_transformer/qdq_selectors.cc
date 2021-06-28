@@ -14,21 +14,11 @@ namespace onnxruntime {
 namespace QDQ {
 namespace {
 // adjust for an optional input that has an entry but does not exist
-int NumExistingInputs(const Node& node) {
+int NumActualInputs(const Node& node) {
   const auto& input_defs = node.InputDefs();
   return gsl::narrow_cast<int>(std::count_if(input_defs.cbegin(), input_defs.cend(),
                                              [](const NodeArg* def) { return def && def->Exists(); }));
 }
-
-bool IsConstantScalar(const Graph& graph, const NodeArg* node_arg) {
-  if (node_arg != nullptr && node_arg->Exists()) {
-    return optimizer_utils::IsScalar(*node_arg) &&
-           graph.GetConstantInitializer(node_arg->Name(), true) != nullptr;
-  }
-
-  return false;
-}
-
 }  // namespace
 
 bool BaseSelector::CheckQDQNodes(const Graph& graph, const Node& node,
@@ -36,7 +26,7 @@ bool BaseSelector::CheckQDQNodes(const Graph& graph, const Node& node,
                                  const std::vector<const Node*>& q_nodes,
                                  int num_dq_inputs) const {
   if (num_dq_inputs == -1) {
-    num_dq_inputs = NumExistingInputs(node);
+    num_dq_inputs = NumActualInputs(node);
   }
 
   return num_dq_inputs == gsl::narrow_cast<int>(dq_nodes.size()) &&
@@ -45,8 +35,6 @@ bool BaseSelector::CheckQDQNodes(const Graph& graph, const Node& node,
 }
 
 bool BaseSelector::Select(Graph& graph, const Node& node, std::unique_ptr<NodesToOptimize>& selection) const {
-  // GetDQNodes can be overridden so an op which has optional DQ inputs can insert nullptr in the correct
-  // slots for those
   std::vector<const Node*> dq_nodes = graph_utils::FindParentsByType(node, QDQ::DQOpName);
   std::vector<const Node*> q_nodes = graph_utils::FindChildrenByType(node, QDQ::QOpName);
 
@@ -59,7 +47,6 @@ bool BaseSelector::Select(Graph& graph, const Node& node, std::unique_ptr<NodesT
     return graph.GetNode(node->Index());
   };
 
-  // TODO: If this packing isn't always the case we may need to do the insertion into `selection` via a virtual
   NodesToOptimizeBuilder builder;
   builder.input_nodes.reserve(dq_nodes.size());
   builder.output_nodes.reserve(q_nodes.size());
@@ -92,33 +79,7 @@ bool DropDQDNodesSelector::Check(const Graph& graph,
   const Node& dq_node = *dq_nodes.front();
   const Node& q_node = *q_nodes.front();
 
-  const NodeArg* dq_scale_arg = dq_node.InputDefs()[QDQ::QDQInputIndex::SCALE_ID];
-  const NodeArg* dq_zp_arg = dq_node.InputDefs()[QDQ::QDQInputIndex::ZERO_POINT_ID];
-  const NodeArg* q_scale_arg = q_node.InputDefs()[QDQ::QDQInputIndex::SCALE_ID];
-  const NodeArg* q_zp_arg = q_node.InputDefs()[QDQ::QDQInputIndex::ZERO_POINT_ID];
-
-  if (!(IsConstantScalar(graph, dq_scale_arg) &&
-        IsConstantScalar(graph, dq_zp_arg) &&
-        IsConstantScalar(graph, q_scale_arg) &&
-        IsConstantScalar(graph, q_zp_arg))) {
-    return false;
-  }
-
-  // check values match
-  const auto& model_path = graph.ModelPath();
-
-  // TODO: IIRC the Initializer class is pretty heavy, and given we're checking a single value here we may want
-  // a cut-down version that just checks the type specific field and raw_data to read the value to minimize the
-  // binary size impact.
-  // We can also assert that this value will not be in an external file so model_path shouldn't be necessary either
-  Initializer dq_scale(*graph.GetConstantInitializer(dq_scale_arg->Name(), true), model_path);
-  Initializer dq_zp(*graph.GetConstantInitializer(dq_zp_arg->Name(), true), model_path);
-  Initializer q_scale(*graph.GetConstantInitializer(q_scale_arg->Name(), true), model_path);
-  Initializer q_zp(*graph.GetConstantInitializer(q_zp_arg->Name(), true), model_path);
-
-  return q_zp.data_type() == dq_zp.data_type() &&
-         *q_zp.data<int8_t>() == *dq_zp.data<int8_t>() &&
-         *q_scale.data<float>() == *dq_scale.data<float>();
+  return IsQDQPairSupported(graph, q_node, dq_node);
 }
 
 bool UnarySelector::Check(const Graph& graph, const Node& node,
@@ -184,16 +145,6 @@ bool ConvSelector::Check(const Graph& graph,
   if (!CheckQDQNodes(graph, node, dq_nodes, q_nodes)) {
     return false;
   }
-
-  // TODO: Can we create more generic checkers for the element type comparisons that can be re-used across the selectors
-  // so that we just use that with the set of checks to make?
-  //   - check type of individual input/output
-  //   - check 2 types match
-  //     - type selection of 1 input/output + type to compare to
-  //     - or type selections of 2 inputs/outputs
-  //   - check multiple types match
-  // To generalize: check a collection of entries match. entries could be a type selector for an input/output or a type
-  // The type selector could maybe have a cast to int for comparison against TensorProto_DataType values
 
   // Currently QLinearConv only support activation type uint8_t and output type uint8_t
   int32_t dt_input = dq_nodes[0]->InputDefs()[0]->TypeAsProto()->tensor_type().elem_type();

@@ -17,12 +17,11 @@ using NTO = onnxruntime::NodesToOptimize;
 void DropQDQNodesRules(SelectorsAndActions& qdq_selectors_and_actions) {
   // 3 nodes. DQ, target, Q. Merge into target and remove DQ and Q.
   const std::string action_name{"drop"};
-
-  // Move DQ input 0 to target input 0.
-  // Move Q output 0 to target output 0.
   NTO::NodeLocation dq{NTO::NodeType::kInput, 0};
   NTO::NodeLocation q{NTO::NodeType::kOutput, 0};
 
+  // Move DQ input 0 to target input 0.
+  // Move Q output 0 to target output 0.
   std::vector<NodeAndMoveInfo> moves{
       MoveToSlot(dq, ArgType::kInput, 0, ArgType::kInput, 0),
       MoveToSlot(q, ArgType::kOutput, 0, ArgType::kOutput, 0)};

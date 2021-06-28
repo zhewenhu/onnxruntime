@@ -29,11 +29,11 @@ bool CanSafelyRemoveNode(Node& node_to_remove, const std::unordered_set<const No
 
 // remove nodes if it is safe to do so. 'safe' means no output edges to nodes not in the set of nodes being removed.
 // there is NO check on a node producing a graph output. we assume the optimizer has handled that already.
-void SafelyRemoveNodes(Graph& graph, const std::vector<Node*>& nodes_to_remove, const Node* skip_target) {
+void SafelyRemoveNodes(Graph& graph, const std::vector<Node*>& nodes_to_remove, const Node* ignore_target) {
   std::unordered_set<const Node*> removal_set(nodes_to_remove.cbegin(), nodes_to_remove.cend());
 
   for (Node* node : nodes_to_remove) {
-    if (node && node != skip_target && CanSafelyRemoveNode(*node, removal_set)) {
+    if (node && node != ignore_target && CanSafelyRemoveNode(*node, removal_set)) {
       // TODO: It's slightly insane we don't support optionally removing the output edges as part of Graph::RemoveNode
       // but to make that change we need to validate a lot of existing code
       graph_utils::RemoveNodeOutputEdges(graph, *node);
@@ -44,8 +44,8 @@ void SafelyRemoveNodes(Graph& graph, const std::vector<Node*>& nodes_to_remove, 
 }  // namespace
 
 Status RemoveNodes::Run(Graph& graph, const NodesToOptimize& selected_nodes) const {
-  Node* skip_target = preserve_target_node_ ? &selected_nodes.Target() : nullptr;
-  SafelyRemoveNodes(graph, selected_nodes.AllNodes(), skip_target);
+  Node* ignore_target = preserve_target_node_ ? &selected_nodes.Target() : nullptr;
+  SafelyRemoveNodes(graph, selected_nodes.AllNodes(), ignore_target);
 
   return Status::OK();
 }

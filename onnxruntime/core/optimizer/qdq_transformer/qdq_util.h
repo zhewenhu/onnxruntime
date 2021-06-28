@@ -13,7 +13,7 @@ namespace QDQ {
 static constexpr const char* QOpName = "QuantizeLinear";
 static constexpr const char* DQOpName = "DequantizeLinear";
 
-enum QDQInputIndex : int {
+enum InputIndex : int {
   INPUT_ID = 0,
   SCALE_ID = 1,
   ZERO_POINT_ID = 2,

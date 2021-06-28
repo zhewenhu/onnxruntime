@@ -129,7 +129,7 @@ void SetOptionalZeroPoint::UpdateNodes(Graph& graph, const NodesToOptimize& sele
 
     std::vector<NodeArg*>& input_defs = node.MutableInputDefs();
     bool has_zp_input = input_defs.size() == 3;
-    if (has_zp_input && input_defs[QDQInputIndex::ZERO_POINT_ID]->Exists()) {
+    if (has_zp_input && input_defs[InputIndex::ZERO_POINT_ID]->Exists()) {
       continue;  // zero point was set. No need to fill.
     }
 
@@ -152,7 +152,7 @@ void SetOptionalZeroPoint::UpdateNodes(Graph& graph, const NodesToOptimize& sele
     if (has_zp_input) {
       input_defs.push_back(&node_arg);
     } else {
-      input_defs[QDQInputIndex::ZERO_POINT_ID] = &node_arg;
+      input_defs[InputIndex::ZERO_POINT_ID] = &node_arg;
     }
   }
 }
