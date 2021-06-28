@@ -3,6 +3,8 @@
 
 #include "core/optimizer/qdq_transformer/qdq_selectors.h"
 
+#if !defined(ORT_MINIMAL_BUILD)
+
 #include "core/graph/graph.h"
 #include "core/optimizer/initializer.h"
 #include "core/optimizer/qdq_transformer/qdq_util.h"
@@ -241,3 +243,5 @@ bool MatMulSelector ::Check(const Graph& graph,
 
 }  // namespace QDQ
 }  // namespace onnxruntime
+
+#endif  // !defined(ORT_MINIMAL_BUILD)

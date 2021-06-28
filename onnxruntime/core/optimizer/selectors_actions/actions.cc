@@ -43,14 +43,14 @@ void SafelyRemoveNodes(Graph& graph, const std::vector<Node*>& nodes_to_remove, 
 }
 }  // namespace
 
-Status RemoveNodes::operator()(Graph& graph, const NodesToOptimize& selected_nodes) const {
+Status RemoveNodes::Run(Graph& graph, const NodesToOptimize& selected_nodes) const {
   Node* skip_target = preserve_target_node_ ? &selected_nodes.Target() : nullptr;
   SafelyRemoveNodes(graph, selected_nodes.AllNodes(), skip_target);
 
   return Status::OK();
 }
 
-Status MergeIntoTarget::operator()(Graph& graph, const NodesToOptimize& selected_nodes) const {
+Status MergeIntoTarget::Run(Graph& graph, const NodesToOptimize& selected_nodes) const {
   // sanity check. any incorrect usage would happen during development so no need to use ORT_ENFORCE
   assert(selected_nodes.num_inputs <= 1 && selected_nodes.num_outputs <= 1 &&
          !selected_nodes.HasVariadicInput() && !selected_nodes.HasVariadicOutput());
@@ -67,7 +67,7 @@ Status MergeIntoTarget::operator()(Graph& graph, const NodesToOptimize& selected
                                         {ArgType::kOutput, ArgType::kOutput}));
   }
 
-  return node_remover_(graph, selected_nodes);
+  return node_remover_.Run(graph, selected_nodes);
 }
 
 ReplaceWithNew::ReplaceWithNew(const std::string& domain,
@@ -76,7 +76,7 @@ ReplaceWithNew::ReplaceWithNew(const std::string& domain,
     : domain_{domain}, op_{op_name}, value_moves_{std ::move(value_moves)} {
 }
 
-Status ReplaceWithNew::operator()(Graph& graph, const NodesToOptimize& selected_nodes) const {
+Status ReplaceWithNew::Run(Graph& graph, const NodesToOptimize& selected_nodes) const {
   auto& target = selected_nodes.Target();
 
   std::string op_type = OpType(selected_nodes);
@@ -93,7 +93,7 @@ Status ReplaceWithNew::operator()(Graph& graph, const NodesToOptimize& selected_
   replacement.SetExecutionProviderType(kCpuExecutionProvider);
 
   ORT_RETURN_IF_ERROR(MoveInputOutput(graph, selected_nodes, replacement, value_moves_));
-  return node_remover_(graph, selected_nodes);
+  return node_remover_.Run(graph, selected_nodes);
 }
 
 }  // namespace onnxruntime

@@ -19,7 +19,7 @@ struct QDQReplaceWithNew : public ReplaceWithNew {
                     const std::string& op_name)
       : ReplaceWithNew{domain, op_name, std::move(value_moves)} {}
 
-  Status operator()(Graph&, const NodesToOptimize& selected_nodes) const override;
+  Status Run(Graph&, const NodesToOptimize& selected_nodes) const override;
 };
 
 // replace node with QLinear version
@@ -54,7 +54,7 @@ struct ConvReplaceWithQLinear : ReplaceWithQLinear {
 struct MatMulReplaceWithQLinear : public Action {
   MatMulReplaceWithQLinear();
 
-  Status operator()(Graph&, const NodesToOptimize& selected_nodes) const override;
+  Status Run(Graph&, const NodesToOptimize& selected_nodes) const override;
 
  private:
   QDQReplaceWithNew matmul_int_to_float_replacer_;

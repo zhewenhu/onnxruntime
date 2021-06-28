@@ -11,6 +11,7 @@ namespace onnxruntime {
 class Graph;
 class Node;
 
+#if !defined(ORT_MINIMAL_BUILD)
 // Base class for a selector which checks for a match and returns the set of nodes involved.
 struct NodeSelector {
   // Select one or more nodes for an Action to process if the constraints are satisfied.
@@ -26,14 +27,16 @@ struct SelectorAndAction {
   using OpVersionsMap = std::unordered_map<std::string, std::vector<ONNX_NAMESPACE::OperatorSetVersion>>;
 
   // ctor so we can use make_unique to construct this class
-  SelectorAndAction(const OpVersionsMap& ops_and_versions_in,
+  SelectorAndAction(const std::string& name_in,
+                    const OpVersionsMap& ops_and_versions_in,
                     std::unique_ptr<NodeSelector> selector_in,
                     std::unique_ptr<Action> action_in)
-      : ops_and_versions{ops_and_versions_in},
+      : name{name_in},
+        ops_and_versions{ops_and_versions_in},
         selector{std::move(selector_in)},
         action{std::move(action_in)} {}
 
-  // Operator and supported versions for the node that selection will start from.
+  const std::string name;
   OpVersionsMap ops_and_versions;
   std::unique_ptr<NodeSelector> selector;
   std::unique_ptr<Action> action;
@@ -41,24 +44,75 @@ struct SelectorAndAction {
   // can't copy/assign our unique_ptr members
   ORT_DISALLOW_COPY_AND_ASSIGNMENT(SelectorAndAction);
 };
+#endif
+
+// standalone class to manage a set of selector and associated actions in a full build,
+// or a set of actions in a minimal build
+class SelectorsAndActions {
+ public:
+  SelectorsAndActions() = default;
+
+#if !defined(ORT_MINIMAL_BUILD)
+  SelectorsAndActions(SelectorsAndActions&& rhs) noexcept
+      : selectors_and_actions_map_{std::move(rhs.selectors_and_actions_map_)} {}
+
+  // register a selector and action for the specified ops.
+  // the name used in the registration is for matching the action when replaying the optimizations in a minimal build.
+  // as it's stored in the ORT format model a shorter name is better. the name is scoped to this SelectorsAndActions
+  // instance (which is scoped to a single SelectorActionTransformer instance).
+  void RegisterSelectorAndAction(const std::string& name,
+                                 const SelectorAndAction::OpVersionsMap& ops_and_versions_in,
+                                 std::unique_ptr<NodeSelector> selector_in,
+                                 std::unique_ptr<Action> action_in);
+
+  const std::unordered_map<std::string, std::unique_ptr<SelectorAndAction>>& SelectorsAndActionsMap() const {
+    return selectors_and_actions_map_;
+  }
+
+#else
+  SelectorsAndActions(SelectorsAndActions&& rhs) noexcept
+      : actions_map_{std::move(rhs.actions_map_)} {}
+
+  void RegisterAction(const std::string& name, std::unique_ptr<Action> action);
+
+  const std::unordered_map<std::string, std::unique_ptr<Action>>& ActionsMap() const {
+    return actions_map_;
+  }
+#endif
+
+  ORT_DISALLOW_COPY_AND_ASSIGNMENT(SelectorsAndActions);
+
+ private:
+#if !defined(ORT_MINIMAL_BUILD)
+  std::unordered_map<std::string, std::unique_ptr<SelectorAndAction>> selectors_and_actions_map_;
+#else
+  std::unordered_map<std::string, std::unique_ptr<Action>> actions_map_;
+#endif
+};
 
 /**
 @Class SelectorActionTransformer
 */
 class SelectorActionTransformer : public GraphTransformer {
  protected:
-  SelectorActionTransformer(const std::string& name,
-                            std::vector<std::unique_ptr<SelectorAndAction>>&& selectors_and_actions);
+  SelectorActionTransformer(const std::string& name, SelectorsAndActions&& selectors_and_actions);
 
   // can't copy/assign selectors_and_actions_
   ORT_DISALLOW_COPY_AND_ASSIGNMENT(SelectorActionTransformer);
 
  private:
   Status ApplyImpl(Graph& graph, bool& modified, int graph_level, const logging::Logger& logger) const override;
+
+  SelectorsAndActions selectors_and_actions_;
+
+#if !defined(ORT_MINIMAL_BUILD)
   Status MatchAndProcess(Graph& graph, Node& node, bool& modified, const logging::Logger& logger) const;
 
-  std::vector<std::unique_ptr<SelectorAndAction>> selectors_and_actions_;
   std::unordered_map<std::string, const SelectorAndAction*> op_type_to_selector_and_action_;
+#else
+  // apply any saved optimizations
+  Status ApplySaved(Graph& graph, bool& modified, const logging::Logger& logger) const;
+#endif
 };
 
 }  // namespace onnxruntime

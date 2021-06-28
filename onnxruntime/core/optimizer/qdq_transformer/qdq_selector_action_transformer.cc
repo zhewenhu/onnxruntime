@@ -1,10 +1,11 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-//#include "core/optimizer/qdq_transformer/qdq_util.h"
 #include "core/optimizer/qdq_transformer/qdq_actions.h"
+#if !defined(ORT_MINIMAL_BUILD)
 #include "core/optimizer/qdq_transformer/qdq_selector_action_transformer.h"
 #include "core/optimizer/qdq_transformer/qdq_selectors.h"
+#endif
 
 namespace onnxruntime {
 
@@ -12,104 +13,140 @@ namespace {
 
 using NTO = onnxruntime::NodesToOptimize;
 
-#define ADD_ACTION(container, action, ...) \
-  container.push_back(std::unique_ptr<Action>(new action(__VA_ARGS__)))
-
 // create rules for ops that don't change the data
-std::unique_ptr<SelectorAndAction> DropQDQNodesRules() {
+void DropQDQNodesRules(SelectorsAndActions& qdq_selectors_and_actions) {
   // 3 nodes. DQ, target, Q. Merge into target and remove DQ and Q.
-
-  std::unique_ptr<NodeSelector> selector(new QDQ::DropDQDNodesSelector());
+  const std::string action_name{"drop"};
   std::unique_ptr<Action> action(new MergeIntoTarget());
 
-  return std::make_unique<SelectorAndAction>(SelectorAndAction::OpVersionsMap{{"Gather", {}},
-                                                                              {"Reshape", {}},
-                                                                              {"Transpose", {}},
-                                                                              {"MaxPool", {12}}},
-                                             std::move(selector),
-                                             std::move(action));
+#if !defined(ORT_MINIMAL_BUILD)
+  std::unique_ptr<NodeSelector> selector(new QDQ::DropDQDNodesSelector());
+  qdq_selectors_and_actions.RegisterSelectorAndAction(action_name,
+                                                      SelectorAndAction::OpVersionsMap{{"Gather", {}},
+                                                                                       {"Reshape", {}},
+                                                                                       {"Transpose", {}},
+                                                                                       {"MaxPool", {12}}},
+                                                      std::move(selector),
+                                                      std::move(action));
+#else
+  qdq_selectors_and_actions.RegisterAction(action_name, std::move(action));
+#endif
 }
 
-std::unique_ptr<SelectorAndAction> UnaryOpQDQRules() {
+void UnaryOpQDQRules(SelectorsAndActions& qdq_selectors_and_actions) {
   // 3 nodes. DQ, target, Q
   // Replace with internal QLinear version of operator. Delete all original nodes.
-  std::unique_ptr<NodeSelector> selector(new QDQ::UnarySelector());
-
+  const std::string action_name{"1DQ"};
   std::unique_ptr<Action> action(new QDQ::UnaryReplaceWithQLinear(kMSDomain));
 
-  return std::make_unique<SelectorAndAction>(SelectorAndAction::OpVersionsMap{{"AveragePool", {}}},
-                                             std::move(selector),
-                                             std::move(action));
+#if !defined(ORT_MINIMAL_BUILD)
+  std::unique_ptr<NodeSelector> selector(new QDQ::UnarySelector());
+  qdq_selectors_and_actions.RegisterSelectorAndAction(action_name,
+                                                      SelectorAndAction::OpVersionsMap{{"AveragePool", {}}},
+                                                      std::move(selector),
+                                                      std::move(action));
+#else
+  qdq_selectors_and_actions.RegisterAction(action_name, std::move(action));
+#endif
 }
 
-std::unique_ptr<SelectorAndAction> BinaryOpQDQRules() {
+void BinaryOpQDQRules(SelectorsAndActions& qdq_selectors_and_actions) {
   // 4 nodes. 2 x DQ for inputs, target, Q
   // Replace with internal QLinear version of operator. Delete all original nodes.
-
-  std::unique_ptr<NodeSelector> selector(new QDQ::BinarySelector());
+  const std::string action_name{"2DQ"};
   std::unique_ptr<Action> action(new QDQ::BinaryReplaceWithQLinear(kMSDomain));
-  return std::make_unique<SelectorAndAction>(SelectorAndAction::OpVersionsMap{{"Add", {}},
-                                                                              {"Mul", {}}},
-                                             std::move(selector),
-                                             std::move(action));
+
+#if !defined(ORT_MINIMAL_BUILD)
+  std::unique_ptr<NodeSelector> selector(new QDQ::BinarySelector());
+  qdq_selectors_and_actions.RegisterSelectorAndAction(action_name,
+                                                      SelectorAndAction::OpVersionsMap{{"Add", {}},
+                                                                                       {"Mul", {}}},
+                                                      std::move(selector),
+                                                      std::move(action));
+
+#else
+  qdq_selectors_and_actions.RegisterAction(action_name, std::move(action));
+#endif
 }
 
-std::unique_ptr<SelectorAndAction> VariadicOpQDQRules() {
+void VariadicOpQDQRules(SelectorsAndActions& qdq_selectors_and_actions) {
   // 0=variadic DQ nodes 2=target, 3=Q
   // Replace with QLinear version of operator. Delete all original nodes.
+  const std::string action_name{"*DQ"};
+  std::unique_ptr<Action> action(new QDQ::VariadicReplaceWithQLinear(kMSDomain));
+
+#if !defined(ORT_MINIMAL_BUILD)
   NTO::NodeLocation variadic_dq{NTO::NodeType::kInput, 0};
   NTO::NodeLocation q{NTO::NodeType::kOutput, 0};
-
   std::unique_ptr<NodeSelector> selector(new QDQ::VariadicSelector());
-  std::unique_ptr<Action> action(new QDQ::VariadicReplaceWithQLinear(kMSDomain));
-  return std::make_unique<SelectorAndAction>(SelectorAndAction::OpVersionsMap{{"Concat", {}}},
-                                             std::move(selector),
-                                             std::move(action));
+
+  qdq_selectors_and_actions.RegisterSelectorAndAction(action_name,
+                                                      SelectorAndAction::OpVersionsMap{{"Concat", {}}},
+                                                      std::move(selector),
+                                                      std::move(action));
+
+#else
+  qdq_selectors_and_actions.RegisterAction(action_name, std::move(action));
+#endif
 }
 
-std::unique_ptr<SelectorAndAction> ConvQDQRules() {
+void ConvQDQRules(SelectorsAndActions& qdq_selectors_and_actions) {
   // 4 or 5 Nodes. 0=DQ X, 1=DQ W, 2=DQ B (optional), 3=Conv, 4=Q
   // Handle the DQ input for the Bias being optional.
   // Replace Conv with QLinearConv
   // Delete all original nodes
+  const std::string action_name{"Conv"};
+  std::unique_ptr<Action> action(new QDQ::ConvReplaceWithQLinear());
+
+#if !defined(ORT_MINIMAL_BUILD)
   NTO::NodeLocation dq_x{NTO::NodeType::kInput, 0};
   NTO::NodeLocation dq_w{NTO::NodeType::kInput, 1};
   NTO::NodeLocation dq_bias{NTO::NodeType::kInput, 2};
   NTO::NodeLocation q{NTO::NodeType::kOutput, 0};
 
   std::unique_ptr<NodeSelector> selector(new QDQ::ConvSelector());
-  std::unique_ptr<Action> action(new QDQ::ConvReplaceWithQLinear());
-  return std::make_unique<SelectorAndAction>(SelectorAndAction::OpVersionsMap{{"Conv", {}}},
-                                             std::move(selector),
-                                             std::move(action));
+
+  qdq_selectors_and_actions.RegisterSelectorAndAction(action_name,
+                                                      SelectorAndAction::OpVersionsMap{{"Conv", {}}},
+                                                      std::move(selector),
+                                                      std::move(action));
+
+#else
+  qdq_selectors_and_actions.RegisterAction(action_name, std::move(action));
+#endif
 }
 
-std::unique_ptr<SelectorAndAction> MatMulQDQRules() {
+void MatMulQDQRules(SelectorsAndActions& qdq_selectors_and_actions) {
   // 3 or 4 nodes. 2 x DQ for inputs, target, optional Q
   // Replace with QLinearMatMul if Q found, or MatMulIntegerToFloat if not.
   // Delete all original nodes.
+  const std::string action_name{"MatMul"};
 
-  std::unique_ptr<NodeSelector> selector(new QDQ::MatMulSelector());
   std::unique_ptr<Action> action(new QDQ::MatMulReplaceWithQLinear());
-  return std::make_unique<SelectorAndAction>(SelectorAndAction::OpVersionsMap{{"MatMul", {}}},
-                                             std::move(selector),
-                                             std::move(action));
+
+#if !defined(ORT_MINIMAL_BUILD)
+  std::unique_ptr<NodeSelector> selector(new QDQ::MatMulSelector());
+  qdq_selectors_and_actions.RegisterSelectorAndAction(action_name,
+                                                      SelectorAndAction::OpVersionsMap{{"MatMul", {}}},
+                                                      std::move(selector),
+                                                      std::move(action));
+
+#else
+  qdq_selectors_and_actions.RegisterAction(action_name, std::move(action));
+#endif
 }
 
-static std::vector<std::unique_ptr<SelectorAndAction>> CreateQDQSelectorActionEntries() {
-  std::vector<std::unique_ptr<SelectorAndAction>> qdq_selector_action_entries;
+SelectorsAndActions CreateSelectorsAndActions() {
+  SelectorsAndActions qdq_selectors_and_actions;
 
-  // can't use an initializer list with unique_ptr values as that involves a copy,
-  // so have to push_back each entry individually
-  qdq_selector_action_entries.reserve(8);
-  qdq_selector_action_entries.push_back(std::move(DropQDQNodesRules()));
-  qdq_selector_action_entries.push_back(std::move(UnaryOpQDQRules()));
-  qdq_selector_action_entries.push_back(std::move(BinaryOpQDQRules()));
-  qdq_selector_action_entries.push_back(std::move(VariadicOpQDQRules()));
-  qdq_selector_action_entries.push_back(std::move(ConvQDQRules()));
-  qdq_selector_action_entries.push_back(std::move(MatMulQDQRules()));
+  DropQDQNodesRules(qdq_selectors_and_actions);
+  UnaryOpQDQRules(qdq_selectors_and_actions);
+  BinaryOpQDQRules(qdq_selectors_and_actions);
+  VariadicOpQDQRules(qdq_selectors_and_actions);
+  ConvQDQRules(qdq_selectors_and_actions);
+  MatMulQDQRules(qdq_selectors_and_actions);
 
-  return qdq_selector_action_entries;
+  return qdq_selectors_and_actions;
 }
 
 }  // namespace
@@ -117,7 +154,7 @@ static std::vector<std::unique_ptr<SelectorAndAction>> CreateQDQSelectorActionEn
 QDQSelectorActionTransformer::QDQSelectorActionTransformer()
     : SelectorActionTransformer{
           "QDQSelectorActionTransformer",
-          CreateQDQSelectorActionEntries()} {
+          CreateSelectorsAndActions()} {
 }
 
 }  // namespace onnxruntime

@@ -6,6 +6,8 @@
 #include "core/optimizer/selectors_actions/constraint_checkers.h"
 #include "core/optimizer/selectors_actions/selector_action_transformer.h"
 
+#if !defined(ORT_MINIMAL_BUILD)
+
 namespace onnxruntime {
 class Graph;
 class Node;
@@ -99,3 +101,5 @@ class MatMulSelector : public BaseSelector {
 };
 }  // namespace QDQ
 }  // namespace onnxruntime
+
+#endif  // !defined(ORT_MINIMAL_BUILD)

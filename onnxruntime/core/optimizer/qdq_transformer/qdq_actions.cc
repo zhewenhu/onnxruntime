@@ -179,9 +179,9 @@ const ONNX_NAMESPACE::TensorProto SetOptionalZeroPoint::optional_zero_point_uint
 
 }  // namespace
 
-Status QDQReplaceWithNew::operator()(Graph& graph, const NodesToOptimize& selected_nodes) const {
+Status QDQReplaceWithNew::Run(Graph& graph, const NodesToOptimize& selected_nodes) const {
   SetOptionalZeroPoint::UpdateNodes(graph, selected_nodes);
-  return ReplaceWithNew::operator()(graph, selected_nodes);
+  return ReplaceWithNew::Run(graph, selected_nodes);
 }
 
 UnaryReplaceWithQLinear::UnaryReplaceWithQLinear(const std::string& domain)
@@ -205,14 +205,14 @@ MatMulReplaceWithQLinear::MatMulReplaceWithQLinear()
       qlinear_matmul_replacer_{MatMulQLinearReplacer()} {
 }
 
-Status MatMulReplaceWithQLinear ::operator()(Graph& graph, const NodesToOptimize& selected_nodes) const {
+Status MatMulReplaceWithQLinear::Run(Graph& graph, const NodesToOptimize& selected_nodes) const {
   // if the output is empty there were no Q nodes selected, so replace with MatMulIntegerToFloat
   // otherwise replace with QLinearMatMul
   bool matmul_integer_to_float = selected_nodes.num_outputs == 0;
   if (matmul_integer_to_float) {
-    return matmul_int_to_float_replacer_(graph, selected_nodes);
+    return matmul_int_to_float_replacer_.Run(graph, selected_nodes);
   } else {
-    return qlinear_matmul_replacer_(graph, selected_nodes);
+    return qlinear_matmul_replacer_.Run(graph, selected_nodes);
   }
 }
 

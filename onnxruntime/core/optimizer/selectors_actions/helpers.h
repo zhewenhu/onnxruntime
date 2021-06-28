@@ -9,6 +9,16 @@ namespace onnxruntime {
 // Selection helpers
 //
 
+// Struct to serialize the node indexes in an ORT format model.
+// Use EmptyNodeIndex for nullptr entries in the vectors for missing optional inputs
+struct NodesToOptimizeIndexes {
+  std::vector<NodeIndex> input_nodes;
+  NodeIndex target_node;
+  std::vector<NodeIndex> output_nodes;
+  int num_input_defs{-1};
+  int num_output_defs{-1};
+};
+
 // Group of nodes for processing. Accessors are provided for input/target/output nodes.
 // A single variadic input OR output (not both - but no inferencing operator requires that) is currently supported
 class NodesToOptimize {
@@ -31,13 +41,9 @@ class NodesToOptimize {
                   const std::vector<Node*>& output_nodes,
                   int num_input_defs = -1, int num_output_defs = -1);
 
-  // construct from saved NodeIndex values.
+  // construct from saved NodeIndex values. IsValid() will return false if one or more nodes were missing.
   // Use EmptyNodeIndex for nullptr entries in the vectors for missing optional inputs
-  NodesToOptimize(Graph& graph,
-                  const std::vector<NodeIndex>& input_nodes,
-                  NodeIndex target_node,
-                  const std::vector<NodeIndex>& output_nodes,
-                  int num_input_defs = -1, int num_output_defs = -1);
+  NodesToOptimize(Graph& graph, const NodesToOptimizeIndexes& node_indexes);
 
   static constexpr NodeIndex EmptyNodeIndex = std::numeric_limits<NodeIndex>::max();
 
@@ -61,6 +67,8 @@ class NodesToOptimize {
 
   bool HasVariadicOutput() const { return num_extra_variadic_outputs_ > 0; }
   int NumVariadicOutputs() const { return num_extra_variadic_outputs_ + 1; }
+
+  bool IsValid() const { return !nodes_.empty(); }
 
   // fetch an input.
   // valid indexes are 0 to num_inputs - 1 if no variadic inputs.
@@ -96,6 +104,11 @@ class NodesToOptimize {
   ORT_DISALLOW_COPY_AND_ASSIGNMENT(NodesToOptimize);
 
  private:
+  void Init(const std::vector<Node*>& input_nodes,
+            Node& target_node,
+            const std::vector<Node*>& output_nodes,
+            int num_input_defs, int num_output_defs);
+
   Node* GetNode(int index, bool required) const {
     Node* node = nullptr;
     ORT_ENFORCE(static_cast<size_t>(index) < nodes_.size() &&

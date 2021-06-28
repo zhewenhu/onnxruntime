@@ -16,7 +16,7 @@ class Node;
 
 // actions that are applied to a set of nodes identified during selection
 struct Action {
-  virtual Status operator()(Graph&, const NodesToOptimize& selected_nodes) const = 0;
+  virtual Status Run(Graph&, const NodesToOptimize& selected_nodes) const = 0;
   virtual ~Action() = default;
 
  protected:
@@ -27,9 +27,9 @@ struct Action {
 struct MultiAction : public Action {
   MultiAction(std::vector<std::unique_ptr<Action>>&& actions) : actions_{std::move(actions)} {}
 
-  Status operator()(Graph& graph, const NodesToOptimize& selected_nodes) const override {
+  Status Run(Graph& graph, const NodesToOptimize& selected_nodes) const override {
     for (const auto& action : actions_) {
-      ORT_RETURN_IF_ERROR((*action)(graph, selected_nodes));
+      ORT_RETURN_IF_ERROR(action->Run(graph, selected_nodes));
     }
 
     return Status::OK();
@@ -49,7 +49,7 @@ struct RemoveNodes : public Action {
   RemoveNodes(bool preserve_target_node = false) : preserve_target_node_{preserve_target_node} {
   }
 
-  Status operator()(Graph& graph, const NodesToOptimize& selected_nodes) const override;
+  Status Run(Graph& graph, const NodesToOptimize& selected_nodes) const override;
 
  private:
   bool preserve_target_node_;
@@ -61,7 +61,7 @@ struct RemoveNodes : public Action {
 // The input and/or output node will be removed after the merge. The target node will not.
 struct MergeIntoTarget : public Action {
  private:
-  Status operator()(Graph&, const NodesToOptimize& selected_nodes) const override;
+  Status Run(Graph&, const NodesToOptimize& selected_nodes) const override;
 
   RemoveNodes node_remover_{true};  // preserve target node when removing selected_nodes
 };
@@ -72,7 +72,7 @@ struct ReplaceWithNew : public Action {
                  const std::string& op_name,
                  std::vector<NodeAndMoveInfo>&& value_moves);
 
-  Status operator()(Graph&, const NodesToOptimize& selected_nodes) const override;
+  Status Run(Graph&, const NodesToOptimize& selected_nodes) const override;
 
  private:
   // support usage where operator name is determined at runtime from the selected nodes
