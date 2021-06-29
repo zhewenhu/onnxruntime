@@ -85,8 +85,6 @@ void VariadicOpQDQRules(SelectorsAndActions& qdq_selectors_and_actions) {
   std::unique_ptr<Action> action(new QDQ::VariadicReplaceWithQLinear(kMSDomain));
 
 #if !defined(ORT_MINIMAL_BUILD)
-  NTO::NodeLocation variadic_dq{NTO::NodeType::kInput, 0};
-  NTO::NodeLocation q{NTO::NodeType::kOutput, 0};
   std::unique_ptr<NodeSelector> selector(new QDQ::VariadicSelector());
 
   qdq_selectors_and_actions.RegisterSelectorAndAction(action_name,
@@ -108,11 +106,6 @@ void ConvQDQRules(SelectorsAndActions& qdq_selectors_and_actions) {
   std::unique_ptr<Action> action(new QDQ::ConvReplaceWithQLinear());
 
 #if !defined(ORT_MINIMAL_BUILD)
-  NTO::NodeLocation dq_x{NTO::NodeType::kInput, 0};
-  NTO::NodeLocation dq_w{NTO::NodeType::kInput, 1};
-  NTO::NodeLocation dq_bias{NTO::NodeType::kInput, 2};
-  NTO::NodeLocation q{NTO::NodeType::kOutput, 0};
-
   std::unique_ptr<NodeSelector> selector(new QDQ::ConvSelector());
 
   qdq_selectors_and_actions.RegisterSelectorAndAction(action_name,

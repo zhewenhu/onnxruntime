@@ -30,7 +30,7 @@ struct ReplaceWithQLinear : public QDQReplaceWithNew {
       : QDQReplaceWithNew{domain, std::move(value_moves), "generated at runtime"} {}
 
  private:
-  std::string ReplaceWithQLinear::OpType(const NodesToOptimize& selected_nodes) const override {
+  std::string OpType(const NodesToOptimize& selected_nodes) const override {
     return "QLinear" + selected_nodes.Target().OpType();
   }
 };

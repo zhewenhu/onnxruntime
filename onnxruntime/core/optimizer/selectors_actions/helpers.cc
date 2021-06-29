@@ -64,7 +64,7 @@ Status MoveInputOutputImpl(Graph& graph, const ValueMoveInfo& move_info, Node& s
       // now that we have a dest index we can move edges
       InOutDefSlot src_slot{move_info.src_slot.in_out, src_idx};
       InOutDefSlot dest_slot{move_info.dest_slot.in_out, gsl::narrow_cast<int>(dest_defs.size()) - 1};
-      ProcessEdge(graph, src, {move_info.src_slot.in_out, src_idx}, &dest, &dest_slot);
+      ProcessEdge(graph, src, src_slot, &dest, &dest_slot);
 
       // also need to set the arg count
       if (move_info.dest_slot.in_out == ArgType::kInput) {
