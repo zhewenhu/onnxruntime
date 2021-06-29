@@ -101,10 +101,6 @@ class NodesToOptimize {
 
   const std::vector<Node*>& AllNodes() const { return nodes_; }
 
-  NodesToOptimize(NodesToOptimize&&) = default;
-  NodesToOptimize& operator=(NodesToOptimize&&) = default;
-  ORT_DISALLOW_COPY_AND_ASSIGNMENT(NodesToOptimize);
-
  private:
   Node* GetNode(int index, bool required) const {
     Node* node = nullptr;

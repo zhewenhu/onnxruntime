@@ -1510,24 +1510,5 @@ TEST(QDQTransformerTests, Concat_UInt8) {
 }
 
 #endif  // DISABLE_CONTRIB_OPS
-
-TEST(TempTest, LoadModel) {
-  Status status;
-  auto model_uri = ORT_TSTR("D:\\tflite_models\\mlperf_models\\mobilenet_edgetpu_224_1.0-qdq.onnx");
-  //{
-  //  std::shared_ptr<Model> model;
-  //  status = Model::Load(model_uri, model, nullptr, DefaultLoggingManager().DefaultLogger());
-  //  ASSERT_TRUE(status.IsOK()) << status;
-  //}
-
-  SessionOptions so;
-  so.session_logid = "TempTest.LoadModel";
-  InferenceSession session_object{so, GetEnvironment()};
-  status = session_object.Load(model_uri);
-  ASSERT_TRUE(status.IsOK()) << status;
-  status = session_object.Initialize();
-  ASSERT_TRUE(status.IsOK()) << status;
-}
-
 }  // namespace test
 }  // namespace onnxruntime
