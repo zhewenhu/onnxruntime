@@ -185,19 +185,19 @@ Status QDQReplaceWithNew::Run(Graph& graph, const NodesToOptimize& selected_node
 }
 
 UnaryReplaceWithQLinear::UnaryReplaceWithQLinear(const std::string& domain)
-    : ReplaceWithQLinear(domain, std::move(UnaryMoves())) {
+    : ReplaceWithQLinear(domain, UnaryMoves()) {
 }
 
 BinaryReplaceWithQLinear::BinaryReplaceWithQLinear(const std::string& domain)
-    : ReplaceWithQLinear(domain, std::move(BinaryMoves())) {
+    : ReplaceWithQLinear(domain, BinaryMoves()) {
 }
 
 VariadicReplaceWithQLinear::VariadicReplaceWithQLinear(const std::string& domain)
-    : ReplaceWithQLinear(domain, std::move(VariadicMoves())) {
+    : ReplaceWithQLinear(domain, VariadicMoves()) {
 }
 
 ConvReplaceWithQLinear::ConvReplaceWithQLinear()
-    : ReplaceWithQLinear(kOnnxDomain, std::move(ConvMoves())) {
+    : ReplaceWithQLinear(kOnnxDomain, ConvMoves()) {
 }
 
 MatMulReplaceWithQLinear::MatMulReplaceWithQLinear()
