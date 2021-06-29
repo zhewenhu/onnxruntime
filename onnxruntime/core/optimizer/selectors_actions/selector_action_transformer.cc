@@ -66,8 +66,8 @@ Status SelectorActionTransformer::MatchAndProcess(Graph& graph, Node& node, bool
       }
     }
 
-    std::unique_ptr<NodesToOptimize> selections;
-    if (!selector_and_actions.selector->Select(graph, node, selections)) {
+    std::unique_ptr<NodesToOptimize> node_group;
+    if (!selector_and_actions.selector->Select(graph, node, node_group)) {
       break;
     }
 
@@ -77,7 +77,7 @@ Status SelectorActionTransformer::MatchAndProcess(Graph& graph, Node& node, bool
       // save to Graph. map<transformer name, map<action name, vector<NodesToOptimizeIndexes>>>
       ORT_NOT_IMPLEMENTED("TODO: Save the selected nodes into the Graph.");
     } else {
-      status = selector_and_actions.action->Run(graph, *selections);
+      status = selector_and_actions.action->Run(graph, *node_group);
       if (!status.IsOK()) {
         break;
       }

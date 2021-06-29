@@ -101,6 +101,8 @@ class NodesToOptimize {
 
   const std::vector<Node*>& AllNodes() const { return nodes_; }
 
+  ORT_DISALLOW_COPY_ASSIGNMENT_AND_MOVE(NodesToOptimize);
+
  private:
   Node* GetNode(int index, bool required) const {
     Node* node = nullptr;
