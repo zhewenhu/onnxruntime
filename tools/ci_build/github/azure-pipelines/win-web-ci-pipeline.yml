@@ -43,14 +43,6 @@ jobs:
      npm run build
     workingDirectory: '$(Build.SourcesDirectory)/js/web'
     displayName: 'Build ort-web'
-  - script: |
-     npm test
-    workingDirectory: '$(Build.SourcesDirectory)/js/web'
-    displayName: 'Run ort-web tests - unpacked mode'
-  - script: |
-     npm test --  --webgl-texture-pack-mode -b=webgl
-    workingDirectory: '$(Build.SourcesDirectory)/js/web'
-    displayName: 'Run ort-web tests - packed mode'
   - task: BrowserStackConfig@0
     inputs:
       BrowserStackServiceEndPoint: 'BrowserStack Connection'
