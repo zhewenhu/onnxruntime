@@ -1,6 +1,6 @@
 jobs:
 - job: build_onnxruntime_web
-  pool: 'Linux-CPU'
+  pool: Linux-CPU-2019
   strategy:
     maxParallel: 2
     matrix:
