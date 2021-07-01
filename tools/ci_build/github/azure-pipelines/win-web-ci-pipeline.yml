@@ -232,7 +232,8 @@ jobs:
     condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
   - script: |
       set ONNXJS_TEST_BS_BROWSERS=BS_MAC_10_14_Safari_12,BS_MAC_10_14_Chrome_73,BS_MAC_10_13_Safari_11_1
-      npm test -- suite0 --env=bs --wasm-cpu-fallback=false --wasm-init-timeout=30000 --file-cache
+      npm test -- suite0 --env=bs --wasm-init-timeout=30000 --file-cache
+    workingDirectory: '$(Build.SourcesDirectory)\js\web'
     displayName: 'npm test (Suite0, BS_MAC_*)'
     condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
     env:
@@ -240,7 +241,8 @@ jobs:
       BROWSER_STACK_USERNAME: $(BROWSER_STACK_USERNAME)
   - script: |
       export ONNXJS_TEST_BS_BROWSERS=BS_ANDROID_9_Pixel_3
-      npm test -- suite0 --env=bs --wasm-cpu-fallback=false --wasm-init-timeout=30000 --file-cache
+      npm test -- suite0 --env=bs --wasm-init-timeout=30000 --file-cache
+    workingDirectory: '$(Build.SourcesDirectory)\js\web'
     displayName: 'npm test (Suite0, BS_ANDROID_*)'
     condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
     env:
@@ -248,7 +250,8 @@ jobs:
       BROWSER_STACK_USERNAME: $(BROWSER_STACK_USERNAME)
   - script: |
       export ONNXJS_TEST_BS_BROWSERS=BS_WIN_10_Chrome_73,BS_WIN_10_Edge_18,BS_WIN_10_Firefox_66
-      npm test -- suite0 --env=bs --wasm-cpu-fallback=false --wasm-init-timeout=30000 --file-cache
+      npm test -- suite0 --env=bs --wasm-init-timeout=30000 --file-cache
+    workingDirectory: '$(Build.SourcesDirectory)\js\web'
     displayName: 'npm test (Suite0, BS_WIN_*)'
     condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
     env:
@@ -256,7 +259,8 @@ jobs:
       BROWSER_STACK_USERNAME: $(BROWSER_STACK_USERNAME)
   - script: |
       export ONNXJS_TEST_BS_BROWSERS=BS_IOS_12_1_iPhoneXS
-      npm test -- suite0 --env=bs --wasm-cpu-fallback=false --wasm-init-timeout=30000 --file-cache
+      npm test -- suite0 --env=bs --wasm-init-timeout=30000 --file-cache
+    workingDirectory: '$(Build.SourcesDirectory)\js\web'
     displayName: 'npm test (Suite0, BS_IOS_*)'
     condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
     env:
