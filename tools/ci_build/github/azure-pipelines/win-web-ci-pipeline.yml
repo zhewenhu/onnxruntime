@@ -60,6 +60,7 @@ jobs:
     timeoutInMinutes: 20
     condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
   - script: |
+      dir C:\Users\cloudtest\.browserstack
       set ONNXJS_TEST_BS_BROWSERS=BS_MAC_10_14_Safari_12,BS_MAC_10_14_Chrome_73,BS_MAC_10_13_Safari_11_1
       npm test -- suite0 --env=bs --wasm-init-timeout=30000 --file-cache
     workingDirectory: '$(Build.SourcesDirectory)\js\web'
