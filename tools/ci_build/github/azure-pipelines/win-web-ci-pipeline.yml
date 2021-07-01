@@ -1,6 +1,6 @@
 jobs:
 - job: build_onnxruntime_web
-  pool: 'Win-CPU-2019'
+  pool: 'Linux-CPU'
   strategy:
     maxParallel: 2
     matrix:
@@ -16,8 +16,8 @@ jobs:
   - checkout: self
     submodules: false
   - script: |
-     git submodule sync -- cmake\external\onnx
-     git submodule update --init -- cmake\external\onnx
+     git submodule sync -- cmake/external/onnx
+     git submodule update --init -- cmake/external/onnx
     workingDirectory: '$(Build.SourcesDirectory)'
     displayName: 'Checkout submodule onnx'
   - task: NodeTool@0
@@ -25,31 +25,31 @@ jobs:
       versionSpec: '14.x'
   - script: |
      npm ci
-    workingDirectory: '$(Build.SourcesDirectory)\js'
+    workingDirectory: '$(Build.SourcesDirectory)/js'
     displayName: 'npm ci /js/'
   - script: |
      npm ci
-    workingDirectory: '$(Build.SourcesDirectory)\js\common'
+    workingDirectory: '$(Build.SourcesDirectory)/js/common'
     displayName: 'npm ci /js/common/'
   - script: |
      npm ci
-    workingDirectory: '$(Build.SourcesDirectory)\js\web'
+    workingDirectory: '$(Build.SourcesDirectory)/js/web'
     displayName: 'npm ci /js/web/'
   - script: |
      npm run pull:wasm
-    workingDirectory: '$(Build.SourcesDirectory)\js\web'
+    workingDirectory: '$(Build.SourcesDirectory)/js/web'
     displayName: 'Binplace js files'
   - script: |
      npm run build
-    workingDirectory: '$(Build.SourcesDirectory)\js\web'
+    workingDirectory: '$(Build.SourcesDirectory)/js/web'
     displayName: 'Build ort-web'
   - script: |
      npm test
-    workingDirectory: '$(Build.SourcesDirectory)\js\web'
+    workingDirectory: '$(Build.SourcesDirectory)/js/web'
     displayName: 'Run ort-web tests - unpacked mode'
   - script: |
      npm test --  --webgl-texture-pack-mode -b=webgl
-    workingDirectory: '$(Build.SourcesDirectory)\js\web'
+    workingDirectory: '$(Build.SourcesDirectory)/js/web'
     displayName: 'Run ort-web tests - packed mode'
   - task: BrowserStackConfig@0
     inputs:
@@ -60,10 +60,9 @@ jobs:
     timeoutInMinutes: 20
     condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
   - script: |
-      dir C:\Users\cloudtest\.browserstack
-      set ONNXJS_TEST_BS_BROWSERS=BS_MAC_10_14_Safari_12,BS_MAC_10_14_Chrome_73,BS_MAC_10_13_Safari_11_1
+      export ONNXJS_TEST_BS_BROWSERS=BS_MAC_10_14_Safari_12,BS_MAC_10_14_Chrome_73,BS_MAC_10_13_Safari_11_1
       npm test -- suite0 --env=bs --wasm-init-timeout=30000 --file-cache
-    workingDirectory: '$(Build.SourcesDirectory)\js\web'
+    workingDirectory: '$(Build.SourcesDirectory)/js/web'
     displayName: 'npm test (Suite0, BS_MAC_*)'
     condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
     env:
@@ -72,7 +71,7 @@ jobs:
   - script: |
       export ONNXJS_TEST_BS_BROWSERS=BS_ANDROID_9_Pixel_3
       npm test -- suite0 --env=bs --wasm-init-timeout=30000 --file-cache
-    workingDirectory: '$(Build.SourcesDirectory)\js\web'
+    workingDirectory: '$(Build.SourcesDirectory)/js/web'
     displayName: 'npm test (Suite0, BS_ANDROID_*)'
     condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
     env:
@@ -81,7 +80,7 @@ jobs:
   - script: |
       export ONNXJS_TEST_BS_BROWSERS=BS_WIN_10_Chrome_73,BS_WIN_10_Edge_18,BS_WIN_10_Firefox_66
       npm test -- suite0 --env=bs --wasm-init-timeout=30000 --file-cache
-    workingDirectory: '$(Build.SourcesDirectory)\js\web'
+    workingDirectory: '$(Build.SourcesDirectory)/js/web'
     displayName: 'npm test (Suite0, BS_WIN_*)'
     condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
     env:
@@ -90,7 +89,7 @@ jobs:
   - script: |
       export ONNXJS_TEST_BS_BROWSERS=BS_IOS_12_1_iPhoneXS
       npm test -- suite0 --env=bs --wasm-init-timeout=30000 --file-cache
-    workingDirectory: '$(Build.SourcesDirectory)\js\web'
+    workingDirectory: '$(Build.SourcesDirectory)/js/web'
     displayName: 'npm test (Suite0, BS_IOS_*)'
     condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
     env:
