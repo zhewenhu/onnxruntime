@@ -56,8 +56,8 @@ jobs:
     displayName: 'npm test (Suite0, BS_MAC_*)'
     condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
     env:
-      BROWSER_STACK_ACCESS_KEY: $(BROWSER_STACK_ACCESS_KEY)
-      BROWSER_STACK_USERNAME: $(BROWSER_STACK_USERNAME)
+      BROWSER_STACK_ACCESS_KEY: $(BROWSERSTACK_ACCESS_KEY)
+      BROWSER_STACK_USERNAME: $(BROWSERSTACK_USERNAME)
   - script: |
       export ONNXJS_TEST_BS_BROWSERS=BS_ANDROID_9_Pixel_3
       npm test -- suite0 --env=bs --wasm-init-timeout=30000 --file-cache
