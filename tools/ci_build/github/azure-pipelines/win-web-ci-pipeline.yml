@@ -51,7 +51,7 @@ jobs:
     timeoutInMinutes: 20
     condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
   - script: |
-      export ONNXJS_TEST_BS_BROWSERS=BS_MAC_11_Safari_14,BS_MAC_11_Chrome_91
+      export ONNXJS_TEST_BS_BROWSERS=BS_MAC_10_Safari_13,BS_MAC_10_Chrome_91
       npm test -- suite0 --env=bs --wasm-init-timeout=30000 --file-cache
     workingDirectory: '$(Build.SourcesDirectory)/js/web'
     displayName: 'npm test (Suite0, BS_MAC_*)'
@@ -64,7 +64,7 @@ jobs:
       npm test -- suite0 --env=bs --wasm-init-timeout=30000 --file-cache
     workingDirectory: '$(Build.SourcesDirectory)/js/web'
     displayName: 'npm test (Suite0, BS_ANDROID_*)'
-    condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
+    condition: eq(variables['BuildConfig'], 'Release')
     env:
       BROWSERSTACK_ACCESS_KEY: $(BROWSERSTACK_ACCESS_KEY)
       BROWSERSTACK_USERNAME: $(BROWSERSTACK_USERNAME)
@@ -73,7 +73,7 @@ jobs:
       npm test -- suite0 --env=bs --wasm-init-timeout=30000 --file-cache
     workingDirectory: '$(Build.SourcesDirectory)/js/web'
     displayName: 'npm test (Suite0, BS_WIN_*)'
-    condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
+    condition: eq(variables['BuildConfig'], 'Release')
     env:
       BROWSERSTACK_ACCESS_KEY: $(BROWSERSTACK_ACCESS_KEY)
       BROWSERSTACK_USERNAME: $(BROWSERSTACK_USERNAME)
@@ -82,7 +82,7 @@ jobs:
       npm test -- suite0 --env=bs --wasm-init-timeout=30000 --file-cache
     workingDirectory: '$(Build.SourcesDirectory)/js/web'
     displayName: 'npm test (Suite0, BS_IOS_*)'
-    condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
+    condition: eq(variables['BuildConfig'], 'Release')
     env:
       BROWSERSTACK_ACCESS_KEY: $(BROWSERSTACK_ACCESS_KEY)
       BROWSERSTACK_USERNAME: $(BROWSERSTACK_USERNAME)
@@ -91,7 +91,7 @@ jobs:
     displayName: 'BrowserStack results'
     continueOnError: true
     timeoutInMinutes: 10
-    condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
+    condition: eq(variables['BuildConfig'], 'Release')
   - task: mspremier.PostBuildCleanup.PostBuildCleanup-task.PostBuildCleanup@3
     displayName: 'Clean Agent Directories'
     condition: always()
