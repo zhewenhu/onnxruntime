@@ -122,15 +122,15 @@ module.exports = function (config) {
       //
       BS_MAC_11_Safari_14: {
         base: 'BrowserStack',
-        os: 'macOS',
-        os_version: 'Big Sur',
+        os: 'OS X',
+        os_version: 'Catalina',
         browser: 'Safari',
         browser_version: '14',
       },
       BS_MAC_11_Chrome_91: {
         base: 'BrowserStack',
-        os: 'macOS',
-        os_version: 'Big Sur',
+        os: 'OS X',
+        os_version: 'Catalina',
         browser: 'Chrome',
         browser_version: '91',
       },
