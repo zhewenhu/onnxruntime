@@ -41,6 +41,7 @@ module.exports = function (config) {
       accessKey: process.env.BROWSERSTACK_ACCESS_KEY,
       forceLocal: true,
       startTunnel: true,
+      idleTimeout: '300',
     },
     frameworks: ['mocha'],
     files: [
@@ -98,41 +99,41 @@ module.exports = function (config) {
       //
       BS_WIN_10_Chrome_91: {
         base: 'BrowserStack',
-        browser: 'Chrome',
-        browser_version: '91',
         os: 'Windows',
         os_version: '10',
+        browser: 'Chrome',
+        browser_version: '91'
       },
       BS_WIN_10_Edge_91: {
         base: 'BrowserStack',
         os: 'Windows',
         os_version: '10',
         browser: 'Edge',
-        browser_version: '91',
+        browser_version: '91'
       },
       BS_WIN_10_Firefox_89: {
         base: 'BrowserStack',
         os: 'Windows',
         os_version: '10',
         browser: 'Firefox',
-        browser_version: '89',
+        browser_version: '89'
       },
 
       // macOS
       //
-      BS_MAC_10_Safari_13: {
+      BS_MAC_11_Safari_14: {
         base: 'BrowserStack',
         os: 'OS X',
-        os_version: 'Catalina',
+        os_version: 'Big Sur',
         browser: 'Safari',
-        browser_version: '13.1',
+        browser_version: '14.0'
       },
-      BS_MAC_10_Chrome_91: {
+      BS_MAC_11_Chrome_91: {
         base: 'BrowserStack',
         os: 'OS X',
-        os_version: 'Catalina',
+        os_version: 'Big Sur',
         browser: 'Chrome',
-        browser_version: '91',
+        browser_version: '91'
       },
 
       // iPhone
@@ -142,14 +143,14 @@ module.exports = function (config) {
         device: 'iPhone XS',
         real_mobile: true,
         os: 'ios',
-        os_version: '14',
+        os_version: '14'
       },
       BS_IOS_13_iPhoneXS: {
         base: 'BrowserStack',
         device: 'iPhone XS',
         real_mobile: true,
         os: 'ios',
-        os_version: '13',
+        os_version: '13'
       },
 
       // Android
@@ -159,15 +160,15 @@ module.exports = function (config) {
         device: 'Google Pixel 5',
         real_mobile: true,
         os: 'android',
-        os_version: '11.0',
+        os_version: '11.0'
       },
       BS_ANDROID_10_Galaxy_Note_20: {
         base: 'BrowserStack',
         device: 'Samsung Galaxy Note 20',
         real_mobile: true,
         os: 'android',
-        os_version: '10.0',
-      },
+        os_version: '10.0'
+      }
     }
   });
 };
