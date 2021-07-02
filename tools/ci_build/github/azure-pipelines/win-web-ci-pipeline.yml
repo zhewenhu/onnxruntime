@@ -56,8 +56,8 @@ jobs:
     displayName: 'npm test (Suite0, BS_MAC_*)'
     condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
     env:
-      BROWSER_STACK_ACCESS_KEY: $(BROWSERSTACK_ACCESS_KEY)
-      BROWSER_STACK_USERNAME: $(BROWSERSTACK_USERNAME)
+      BROWSERSTACK_ACCESS_KEY: $(BROWSERSTACK_ACCESS_KEY)
+      BROWSERSTACK_USERNAME: $(BROWSERSTACK_USERNAME)
   - script: |
       export ONNXJS_TEST_BS_BROWSERS=BS_ANDROID_9_Pixel_3
       npm test -- suite0 --env=bs --wasm-init-timeout=30000 --file-cache
@@ -65,8 +65,8 @@ jobs:
     displayName: 'npm test (Suite0, BS_ANDROID_*)'
     condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
     env:
-      BROWSER_STACK_ACCESS_KEY: $(BROWSER_STACK_ACCESS_KEY)
-      BROWSER_STACK_USERNAME: $(BROWSER_STACK_USERNAME)
+      BROWSERSTACK_ACCESS_KEY: $(BROWSERSTACK_ACCESS_KEY)
+      BROWSERSTACK_USERNAME: $(BROWSERSTACK_USERNAME)
   - script: |
       export ONNXJS_TEST_BS_BROWSERS=BS_WIN_10_Chrome_73,BS_WIN_10_Edge_18,BS_WIN_10_Firefox_66
       npm test -- suite0 --env=bs --wasm-init-timeout=30000 --file-cache
@@ -74,8 +74,8 @@ jobs:
     displayName: 'npm test (Suite0, BS_WIN_*)'
     condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
     env:
-      BROWSER_STACK_ACCESS_KEY: $(BROWSER_STACK_ACCESS_KEY)
-      BROWSER_STACK_USERNAME: $(BROWSER_STACK_USERNAME)
+      BROWSERSTACK_ACCESS_KEY: $(BROWSERSTACK_ACCESS_KEY)
+      BROWSERSTACK_USERNAME: $(BROWSERSTACK_USERNAME)
   - script: |
       export ONNXJS_TEST_BS_BROWSERS=BS_IOS_12_1_iPhoneXS
       npm test -- suite0 --env=bs --wasm-init-timeout=30000 --file-cache
@@ -83,8 +83,8 @@ jobs:
     displayName: 'npm test (Suite0, BS_IOS_*)'
     condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
     env:
-      BROWSER_STACK_ACCESS_KEY: $(BROWSER_STACK_ACCESS_KEY)
-      BROWSER_STACK_USERNAME: $(BROWSER_STACK_USERNAME)
+      BROWSERSTACK_ACCESS_KEY: $(BROWSERSTACK_ACCESS_KEY)
+      BROWSERSTACK_USERNAME: $(BROWSERSTACK_USERNAME)
   - task: BrowserStackResults@0
     displayName: 'BrowserStack results'
     continueOnError: true
