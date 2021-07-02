@@ -37,8 +37,8 @@ module.exports = function (config) {
   config.set({
     // global config of your BrowserStack account
     browserStack: {
-      username: process.env.BROWSER_STACK_USERNAME,
-      accessKey: process.env.BROWSER_STACK_ACCESS_KEY,
+      username: process.env.BROWSERSTACK_USERNAME,
+      accessKey: process.env.BROWSERSTACK_ACCESS_KEY,
       forceLocal: true,
       startTunnel: true,
     },
