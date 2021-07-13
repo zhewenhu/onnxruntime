@@ -3,6 +3,7 @@
 
 #include "qlinear_pool.h"
 
+#include "core/common/safeint.h"
 #include "core/util/math_cpuonly.h"
 #include "core/providers/common.h"
 #include "core/platform/threadpool.h"
@@ -10,6 +11,8 @@
 #include "core/mlas/inc/mlas.h"
 
 #include <functional>
+
+#include <iostream>
 
 namespace onnxruntime {
 
@@ -238,54 +241,57 @@ struct QLinearPoolNhwc2DTask final {
   const PoolAttributes& pool_attrs_;
 
   TensorOpCost Cost() {
-    double loop_count = static_cast<double>(channels * kernel_size);
-    return TensorOpCost{loop_count, loop_count, loop_count};
+    double loop_count = static_cast<double>(kernel_size);
+    return TensorOpCost{loop_count, 1, loop_count};
   }
 
   void operator()(std::ptrdiff_t begin, std::ptrdiff_t end) const {
-    int64_t batch = begin / y_image_size;
-    int64_t offset = begin % y_image_size;
-
+    // static std::mutex m;
+    // {
+    //   std::unique_lock<std::mutex> lock(m);
+    //   std::cout << "  ====" << begin << ", " << end << std::endl;
+    // }
+    int64_t y_pixel_channels = channels * y_image_size;
+    int64_t batch = begin / y_pixel_channels;
+    int64_t offset = begin % y_pixel_channels;
     for (int64_t remains = end - begin; remains > 0; offset = 0, batch++) {
-      if (offset + remains <= y_image_size) {
-        operator()(std::ptrdiff_t(batch), std::ptrdiff_t(offset), std::ptrdiff_t(offset + remains));
-        remains = 0;
-      } else {
-        operator()(std::ptrdiff_t(batch), std::ptrdiff_t(offset), std::ptrdiff_t(y_image_size));
-        remains -= (y_image_size - offset);
-      }
+      int64_t remains_in_batch = std::min(remains, y_pixel_channels - offset);
+      operator()(batch, offset, offset + remains_in_batch);
+      remains -= remains_in_batch;
     }
   }
 
-  void operator()(std::ptrdiff_t batch, std::ptrdiff_t begin, std::ptrdiff_t end) const {
+  void operator()(int64_t batch, int64_t begin_pixel_channel, int64_t end_pixel_channel) const {
     const float* x_d = X_data + batch * x_image_size * channels;
     T8Bits* y_d = Y_data + batch * y_image_size * channels;
 
     // Calculate starting pooled_h, pooled_w, pooled_d
-    int64_t start_pw = begin;
+    int64_t start_pw = begin_pixel_channel / channels;
+    int64_t pool_index = channels * start_pw;
+    int64_t pixel_start_channel = begin_pixel_channel - start_pw;
     int64_t start_ph = start_pw / pooled_width;
     start_pw -= (start_ph * pooled_width);
 
-    int64_t pool_index = channels * begin;
-    int64_t remains = end - begin;
+    int64_t remain_pixel_channel = end_pixel_channel - begin_pixel_channel;
     std::vector<float> Yh(channels);
 
-    for (int64_t ph = start_ph; remains > 0 && ph < pooled_height; ++ph) {
+    for (int64_t ph = start_ph; remain_pixel_channel > 0 && ph < pooled_height; ++ph) {
       int64_t hstart = ph * stride_h - pads[0];
       int64_t hend = std::min(hstart + kernel_shape[0], height);
       hstart = std::max(hstart, static_cast<int64_t>(0));
-      for (int64_t pw = start_pw; remains > 0 && pw < pooled_width; ++pw) {
+      for (int64_t pw = start_pw; remain_pixel_channel > 0 && pw < pooled_width; ++pw) {
         int64_t wstart = pw * stride_w - pads[1];
         int64_t wend = std::min(wstart + kernel_shape[1], width);
         wstart = std::max(wstart, static_cast<int64_t>(0));
 
+        int64_t remain_channel_in_pixel = std::min(remain_pixel_channel, channels - pixel_start_channel);
         // do the pooling here
         float pool_init_value = PoolType::Initialize();
         std::fill(Yh.data(), Yh.data() + channels, pool_init_value);
         for (int64_t h = hstart; h < hend; ++h) {
           int64_t input_index = channels * (h * width + wstart);
           for (int64_t w = wstart; w < wend; ++w) {
-            for (int64_t c = 0; c < channels; c++) {
+            for (int64_t c = pixel_start_channel, cend = pixel_start_channel + remain_channel_in_pixel; c < cend; c++) {
               PoolType::Process(x_d[input_index + c], Yh[c], pool_context_);
             }
             input_index += channels;
@@ -293,19 +299,21 @@ struct QLinearPoolNhwc2DTask final {
         }
 
         int64_t elements_count = (pool_attrs_.count_include_pad) ? kernel_size : (hend - hstart) * (wend - wstart);
-        for (int64_t c = 0; c < channels; c++) {
+        for (int64_t c = pixel_start_channel, cend = pixel_start_channel + remain_channel_in_pixel; c < cend; c++) {
           PoolType::Finalize(elements_count, Yh[c], pool_context_);
           auto y_value = quantize_value(Yh[c], y_scale, y_zero_point);
           y_d[pool_index + c] = y_value;
         }
 
         pool_index += channels;
-        remains--;
+        remain_pixel_channel -= remain_channel_in_pixel;
+        pixel_start_channel = 0;
       }
       start_pw = 0;
     }
   }
 };
+
 
 template <typename T8Bits, typename PoolType>
 struct QLinearPool3DTask final {
@@ -544,13 +552,19 @@ Status QLinearAveragePool::Compute(OpKernelContext* context) const {
   const auto* X_data = X->Data<uint8_t>();
   auto* Y_data = Y->MutableData<uint8_t>();
 
+  AllocatorPtr allocator;
+  ORT_RETURN_IF_ERROR(context->GetTempSpaceAllocator(&allocator));
   ThreadPool* tp = context->GetOperatorThreadPool();
-  std::vector<float> x_data_fp32;
+
+  float* x_data_fp32 = nullptr;
+  BufferUniquePtr x_data_fp32_guard;
   if (kernel_shape.size() <= 3) {
-    x_data_fp32.resize(x_shape.Size());
+    x_data_fp32 = (float *)allocator->Alloc(SafeInt<size_t>(x_shape.Size()) * sizeof(float));
+    x_data_fp32_guard = BufferUniquePtr(x_data_fp32, BufferDeleter(allocator));
+
     ThreadPool::TryParallelFor(tp, x_shape.Size(), 1.0f, [=, &x_data_fp32](ptrdiff_t first, ptrdiff_t last) {
       const auto* x8 = X_data + first;
-      float* x32 = x_data_fp32.data() + first;
+      float* x32 = x_data_fp32 + first;
       for (ptrdiff_t i = 0, sz = last - first; i < sz; ++i) {
         *x32++ = dequantize_value(x8[i], x_scale, x_zero_point);
       }
@@ -561,12 +575,12 @@ Status QLinearAveragePool::Compute(OpKernelContext* context) const {
     case 1: {
       if (channels_last_) {
         QLinearPoolNhwc1DTask<uint8_t, onnxruntime::AveragePool> avg_pool_task_1d = {
-            x_data_fp32.data(), Y_data, y_scale, y_zero_point, channels,
+            x_data_fp32, Y_data, y_scale, y_zero_point, channels,
             pooled_height, strides[0], height, kernel_shape, pads, pool_context_, pool_attrs_};
         ThreadPool::TryParallelFor(tp, y_image_size * batch_count, avg_pool_task_1d.Cost(), avg_pool_task_1d);
       } else {
         QLinearPool1DTask<uint8_t, onnxruntime::AveragePool> avg_pool_task_1d = {
-            x_data_fp32.data(), Y_data, y_scale, y_zero_point, x_image_size, y_image_size,
+            x_data_fp32, Y_data, y_scale, y_zero_point, x_image_size, y_image_size,
             pooled_height, strides[0], height, kernel_shape, pads, pool_context_, pool_attrs_};
         ThreadPool::TryParallelFor(tp, total_channels, avg_pool_task_1d.Cost(), avg_pool_task_1d);
       }
@@ -576,13 +590,13 @@ Status QLinearAveragePool::Compute(OpKernelContext* context) const {
     case 2: {
       if (channels_last_) {
         QLinearPoolNhwc2DTask<uint8_t, onnxruntime::AveragePool> avg_pool_task_2d = {
-            x_data_fp32.data(), Y_data, y_scale, y_zero_point, x_image_size, y_image_size, kernel_size, channels,
+            x_data_fp32, Y_data, y_scale, y_zero_point, x_image_size, y_image_size, kernel_size, channels,
             pooled_height, pooled_width, strides[0], strides[1], height, width, kernel_shape, pads, pool_context_, pool_attrs_};
-        ThreadPool::TryParallelFor(tp, y_image_size * batch_count, avg_pool_task_2d.Cost(), avg_pool_task_2d);
+        ThreadPool::TryParallelFor(tp, y_image_size * batch_count * channels, avg_pool_task_2d.Cost(), avg_pool_task_2d);
 
       } else {
         QLinearPool2DTask<uint8_t, onnxruntime::AveragePool> avg_pool_task_2d = {
-            x_data_fp32.data(), Y_data, y_scale, y_zero_point, x_image_size, y_image_size,
+            x_data_fp32, Y_data, y_scale, y_zero_point, x_image_size, y_image_size,
             pooled_height, pooled_width, strides[0], strides[1], height, width, kernel_shape, pads, pool_context_, pool_attrs_};
         ThreadPool::TryParallelFor(tp, total_channels, avg_pool_task_2d.Cost(), avg_pool_task_2d);
       }
@@ -592,14 +606,14 @@ Status QLinearAveragePool::Compute(OpKernelContext* context) const {
     case 3: {
       if (channels_last_) {
         QLinearPoolNhwc3DTask<uint8_t, onnxruntime::AveragePool> avg_pool_task_3d = {
-            x_data_fp32.data(), Y_data, y_scale, y_zero_point, x_image_size, y_image_size, kernel_size, channels,
+            x_data_fp32, Y_data, y_scale, y_zero_point, x_image_size, y_image_size, kernel_size, channels,
             pooled_height, pooled_width, pooled_depth, strides[0], strides[1], strides[2], height, width, depth,
             kernel_shape, pads, pool_context_, pool_attrs_};
         ThreadPool::TryParallelFor(tp, y_image_size * batch_count, avg_pool_task_3d.Cost(), avg_pool_task_3d);
 
       } else {
         QLinearPool3DTask<uint8_t, onnxruntime::AveragePool> avg_pool_task_3d = {
-            x_data_fp32.data(), Y_data, y_scale, y_zero_point, x_image_size, y_image_size,
+            x_data_fp32, Y_data, y_scale, y_zero_point, x_image_size, y_image_size,
             pooled_height, pooled_width, pooled_depth, strides[0], strides[1], strides[2], height, width, depth,
             kernel_shape, pads, pool_context_, pool_attrs_};
         ThreadPool::TryParallelFor(tp, total_channels, avg_pool_task_3d.Cost(), avg_pool_task_3d);
