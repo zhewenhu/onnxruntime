@@ -215,7 +215,7 @@ class TrainingManager(GraphExecutionManager):
                                                     kwargs,
                                                     self._device)))
         except Exception as e:
-            self._update_fallback_state(e)
+            self._check_fallback(e)
 
         # Fallback to PyTorch due to failures *during* forward(),
         #  (e.g. export, model/input post-processing, forward, output processing, etc)
