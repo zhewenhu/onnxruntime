@@ -26,7 +26,7 @@ using namespace ::onnxruntime::logging;
 namespace onnxruntime {
 namespace test {
 
-template<typename T>
+template <typename T>
 Tensor copy_sort(const Tensor& src, const AllocatorPtr& allocator) {
   Tensor result(src.DataType(), src.Shape(), allocator);
   memcpy(result.MutableDataRaw(), src.DataRaw(), src.SizeInBytes());
@@ -39,7 +39,6 @@ Tensor copy_sort(const Tensor& src, const AllocatorPtr& allocator) {
 template <typename T>
 void sort_expected_and_actual_buffers(const Tensor& expected, Tensor& expected_sorted,
                                       const Tensor& actual, Tensor& actual_sorted) {
-
   auto allocator = TestCPUExecutionProvider()->GetAllocator(0, OrtMemTypeDefault);
   expected_sorted = copy_sort<T>(expected, allocator);
   actual_sorted = copy_sort<T>(actual, allocator);
@@ -71,7 +70,6 @@ template <typename T>
 struct TensorCheck {
   void operator()(const Tensor& expected_tensor, const Tensor& output_tensor,
                   const std::string& provider_type, const CheckParams& params) const {
-
     Tensor expected_sorted, output_sorted;
     const T* expected;
     const T* output;
@@ -103,7 +101,6 @@ struct TensorCheck<uint8_t> {
   void operator()(const Tensor& expected_tensor,
                   const Tensor& output_tensor,
                   const std::string& provider_type, const CheckParams& params) const {
-
     const bool has_abs_err = params.absolute_error_.has_value();
     const bool has_rel_err = params.relative_error_.has_value();
 
@@ -217,7 +214,6 @@ void InternalNumericalCheck(const Tensor& expected_tensor,
                             const Tensor& output_tensor,
                             const std::string& provider_type,
                             const CheckParams& params) {
-
   const bool has_abs_err = params.absolute_error_.has_value();
   const bool has_rel_err = params.relative_error_.has_value();
 
@@ -238,7 +234,7 @@ void InternalNumericalCheck(const Tensor& expected_tensor,
 
 #if defined(USE_CUDA) || defined(USE_ROCM)
   constexpr float threshold = 0.005f;
-#else 
+#else
   constexpr float threshold = 0.0001f;
 #endif
 
@@ -601,7 +597,7 @@ std::unique_ptr<onnxruntime::Model> OpTester::BuildGraph(
 }
 
 template <class SessionType>
-std::vector<MLValue> OpTester::ExecuteModel(
+std::vector<OrtValue> OpTester::ExecuteModel(
     Model& model, SessionType& session_object, ExpectResult expect_result,
     const std::string& expected_failure_string, const RunOptions* run_options,
     const std::unordered_map<std::string, OrtValue>& feeds,
@@ -622,6 +618,7 @@ std::vector<MLValue> OpTester::ExecuteModel(
   }
 
   status = session_object.Initialize();
+
   if (!status.IsOK()) {
     if (expect_result == ExpectResult::kExpectFailure) {
       EXPECT_TRUE(!status.IsOK());
@@ -758,7 +755,9 @@ void OpTester::Run(
     const std::unordered_set<std::string>& excluded_provider_types,
     const RunOptions* run_options,
     std::vector<std::unique_ptr<IExecutionProvider>>* execution_providers,
-    const Graph::ResolveOptions& options) {
+    const Graph::ResolveOptions& options,
+    /*out*/ size_t* number_of_pre_packed_weights_counter,
+    /*out*/ size_t* number_of_shared_pre_packed_weights_counter) {
   std::string cur_provider = "not set";
   ORT_TRY {
 #ifndef NDEBUG
@@ -852,6 +851,10 @@ void OpTester::Run(
 
       InferenceSession session_object{so, GetEnvironment()};
 
+      if (add_prepacked_shared_container_to_sessions_) {
+        session_object.AddPrePackedWeightsContainer(&prepacked_weights_container_);
+      }
+
       ASSERT_TRUE(!execution_providers->empty())
           << "Empty execution providers vector.";
       std::string provider_types;
@@ -865,6 +868,21 @@ void OpTester::Run(
           *p_model, session_object, expect_result, expected_failure_string,
           run_options, feeds, output_names, provider_types);
 
+      // After the model has initialized (happens in ExecuteModel),
+      // we should be able to tell how many constant initializers were pre-packed
+      // and out of these pre-packed ones how many of them used a "cached" version
+      // from the shared container.
+      // Populate these value if the user has requested this information.
+      if (number_of_pre_packed_weights_counter) {
+        *number_of_pre_packed_weights_counter =
+            session_object.GetSessionState().GetNumberOfPrepacksCounter();
+      }
+
+      if (number_of_shared_pre_packed_weights_counter) {
+        *number_of_shared_pre_packed_weights_counter =
+            session_object.GetSessionState().GetUsedSharedPrePackedWeightCounter();
+      }
+
     } else {
       for (const std::string& provider_type : all_provider_types) {
         if (excluded_provider_types.count(provider_type) > 0)
@@ -877,6 +895,10 @@ void OpTester::Run(
           so.execution_mode = ExecutionMode::ORT_SEQUENTIAL;
         }
         InferenceSession session_object{so, GetEnvironment()};
+
+        if (add_prepacked_shared_container_to_sessions_) {
+          session_object.AddPrePackedWeightsContainer(&prepacked_weights_container_);
+        }
 
         for (auto& custom_session_registry : custom_session_registries_)
           ASSERT_PROVIDER_STATUS_OK(session_object.RegisterCustomRegistry(custom_session_registry));
@@ -955,6 +977,21 @@ void OpTester::Run(
             *p_model, session_object, expect_result, expected_failure_string,
             run_options, feeds, output_names, provider_type);
 
+        // After the model has initialized (happens in ExecuteModel),
+        // we should be able to tell how many constant initializers were pre-packed
+        // and out of these pre-packed ones how many of them used a "cached" version
+        // from the shared container.
+        // Populate these value if the user has requested this information.
+        if (number_of_pre_packed_weights_counter) {
+          *number_of_pre_packed_weights_counter =
+              session_object.GetSessionState().GetNumberOfPrepacksCounter();
+        }
+
+        if (number_of_shared_pre_packed_weights_counter) {
+          *number_of_shared_pre_packed_weights_counter =
+              session_object.GetSessionState().GetUsedSharedPrePackedWeightCounter();
+        }
+
         cur_provider = "not set";
       }
 
@@ -975,6 +1012,7 @@ void OpTester::AddReferenceOutputs(const std::string& model_path) {
   SessionOptions so;
   so.session_logid = op_;
   so.session_log_verbosity_level = 1;
+  so.graph_optimization_level = TransformerLevel::Default;
 
   RunOptions run_options;
   run_options.run_tag = op_;
@@ -1001,7 +1039,7 @@ void OpTester::AddReferenceOutputs(const std::string& model_path) {
     }
   }
 
-  std::vector<MLValue> subgraph_fetches;
+  std::vector<OrtValue> subgraph_fetches;
   ASSERT_TRUE((status = subgraph_session_object.Run(run_options, feeds, output_names, &subgraph_fetches)).IsOK()) << status;
 
   for (size_t out_idx = 0; out_idx < subgraph_fetches.size(); out_idx++) {
@@ -1026,11 +1064,11 @@ void OpTester::AddReferenceOutputs(const std::string& model_path) {
 }
 
 #ifdef ENABLE_TRAINING
-template std::vector<MLValue> OpTester::ExecuteModel<training::TrainingSession>(
+template std::vector<OrtValue> OpTester::ExecuteModel<training::TrainingSession>(
     Model& model, training::TrainingSession& session_object,
     ExpectResult expect_result, const std::string& expected_failure_string,
     const RunOptions* run_options,
-    const std::unordered_map<std::string, MLValue>& feeds,
+    const std::unordered_map<std::string, OrtValue>& feeds,
     const std::vector<std::string>& output_names, const std::string& provider_type);
 #endif
 

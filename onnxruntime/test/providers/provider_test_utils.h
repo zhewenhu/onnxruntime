@@ -12,6 +12,7 @@
 #include "core/framework/run_options.h"
 #include "core/framework/session_state.h"
 #include "core/framework/tensor.h"
+#include "core/framework/prepacked_weights_container.h"
 #include "core/graph/graph_viewer.h"
 #include "core/graph/model.h"
 #include "core/framework/data_types.h"
@@ -19,6 +20,7 @@
 #include "test/framework/TestAllocatorManager.h"
 #include "core/framework/TensorSeq.h"
 #include "core/framework/session_options.h"
+#include "core/providers/providers.h"
 #include "test/util/include/asserts.h"
 
 #include "gmock/gmock.h"
@@ -315,8 +317,15 @@ class OpTester {
                                optional<float>(), optional<float>()));
   }
 
+  /*
+  * Use this API to add an input *edge* to the node/op being tested that won't 
+  * have any data passed into.
+  * Such an edge will have the qualifier OpSchema::Optional in the schema.
+  * This is exposed to ensure the op kernel implementations can be tested to handle 
+  * presence/absence of such optional input edges.
+  */
   template <typename T>
-  void AddMissingOptionalInput() {
+  void AddOptionalInputEdge() {
     std::string name;  // empty == input doesn't exist
     input_data_.push_back(Data(NodeArg(name, &TTensorType<T>::s_type_proto.proto), OrtValue(), optional<float>(),
                                optional<float>()));
@@ -344,9 +353,16 @@ class OpTester {
             sort_output, nullptr /* dim_params */, rel_error, abs_error);
   }
 
+  /*
+  * Use this API to add an output *edge* to the node/op being tested that shouldn't have any 
+  * data produced into.
+  * Such an edge will have the qualifier OpSchema::Optional in the schema.
+  * This is exposed to ensure the op kernel implementations can be tested to handle 
+  * presence/absence of such optional output edges.
+  */
   template <typename T>
-  void AddMissingOptionalOutput() {
-    std::string name;  // empty == input doesn't exist
+  void AddOptionalOutputEdge() {
+    std::string name;  // empty == output doesn't exist
     output_data_.push_back(Data(NodeArg(name, &TTensorType<T>::s_type_proto.proto), OrtValue(), optional<float>(),
                                 optional<float>()));
   }
@@ -436,9 +452,12 @@ class OpTester {
            const std::unordered_set<std::string>& excluded_provider_types = {},
            const RunOptions* run_options = nullptr,
            std::vector<std::unique_ptr<IExecutionProvider>>* execution_providers = nullptr,
-           const Graph::ResolveOptions& resolve_options = {});
+           const Graph::ResolveOptions& resolve_options = {},
+           /*out*/ size_t* number_of_pre_packed_weights_counter = nullptr,
+           /*out*/ size_t* number_of_shared_pre_packed_weights_counter = nullptr);
 
-  std::vector<MLValue> GetFetches() { return fetches_; }
+  std::vector<OrtValue>
+  GetFetches() { return fetches_; }
 
   std::unique_ptr<onnxruntime::Model> BuildGraph(const std::unordered_map<std::string, int>& extra_domain_to_version = {});
 
@@ -487,6 +506,14 @@ class OpTester {
     use_determinism_ = use_determinism;
   }
 
+  void EnableSharingOfPrePackedWeightsAcrossSessions() {
+    add_prepacked_shared_container_to_sessions_ = true;
+  }
+
+  size_t GetNumPrePackedWeightsShared() const {
+    return prepacked_weights_container_.GetNumberOfElements();
+  }
+
  protected:
   virtual void AddNodes(onnxruntime::Graph& graph, std::vector<onnxruntime::NodeArg*>& graph_input_defs,
                         std::vector<onnxruntime::NodeArg*>& graph_output_defs,
@@ -500,14 +527,14 @@ class OpTester {
   void FillFeeds(std::unordered_map<std::string, OrtValue>& feeds);
 
   template <class SessionType>
-  std::vector<MLValue> ExecuteModel(Model& model,
-                                    SessionType& session_object,
-                                    ExpectResult expect_result,
-                                    const std::string& expected_failure_string,
-                                    const RunOptions* run_options,
-                                    const std::unordered_map<std::string, OrtValue>& feeds,
-                                    const std::vector<std::string>& output_names,
-                                    const std::string& provider_type);
+  std::vector<OrtValue> ExecuteModel(Model& model,
+                                     SessionType& session_object,
+                                     ExpectResult expect_result,
+                                     const std::string& expected_failure_string,
+                                     const RunOptions* run_options,
+                                     const std::unordered_map<std::string, OrtValue>& feeds,
+                                     const std::vector<std::string>& output_names,
+                                     const std::string& provider_type);
 
   const char* op_;
   std::vector<Data> input_data_;
@@ -645,6 +672,10 @@ class OpTester {
   bool use_determinism_ = false;
 
   CustomOutputVerifierFn custom_output_verifier_;
+
+  bool add_prepacked_shared_container_to_sessions_ = false;
+
+  onnxruntime::PrepackedWeightsContainer prepacked_weights_container_;
 };
 
 template <typename TException>

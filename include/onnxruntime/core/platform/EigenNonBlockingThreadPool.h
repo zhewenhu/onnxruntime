@@ -1024,7 +1024,7 @@ void InitializePreferredWorkers(std::vector<int> &preferred_workers) {
 void UpdatePreferredWorker(std::vector<int> &preferred_workers,
                            unsigned par_idx) {
   unsigned ran_on_idx = GetPerThread()->thread_id;
-  assert(ran_on_idx >= 0 && ran_on_idx < num_threads_);
+  assert(ran_on_idx < num_threads_);
   assert(par_idx < preferred_workers.size());
   preferred_workers[par_idx] = ran_on_idx;
 }
@@ -1261,12 +1261,11 @@ void RunInParallel(std::function<void(unsigned idx)> fn, unsigned n, std::ptrdif
   profiler_.LogEnd(ThreadPoolProfiler::WAIT);
 }
 
-
-int NumThreads() const EIGEN_FINAL {
+int NumThreads() const final {
   return num_threads_;
 }
 
-int CurrentThreadId() const EIGEN_FINAL {
+int CurrentThreadId() const final {
   const PerThread* pt = const_cast<ThreadPoolTempl*>(this)->GetPerThread();
   if (pt->pool == this) {
     return pt->thread_id;

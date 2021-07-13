@@ -35,9 +35,10 @@ export class WebGLConv extends Conv {
 
   run(inferenceHandler: WebGLInferenceHandler, inputs: Tensor[]): Tensor[] {
     const packMode = inferenceHandler.session.pack;
+    const isPointwise = this.kernelShape[0] === 1 && this.kernelShape[1] === 1;
     if (this.group > 1) {
       return this.unpackedGroupedConvImpl.run(inferenceHandler, inputs);
-    } else if (packMode && inputs[0].dims.length === 4 && inputs[0].dims[0] === 1) {
+    } else if (packMode && inputs[0].dims.length === 4 && inputs[0].dims[0] === 1 && !isPointwise) {
       return this.packedConvImpl.run(inferenceHandler, inputs);
     } else {
       return this.unpackedConvImpl.run(inferenceHandler, inputs);
@@ -86,12 +87,16 @@ export class WebGLUnpackedGroupedConv extends Conv implements WebGLOperator {
             this.kernelShape}, pads:${this.pads}, strides:${this.strides}`);
     const outputShape = WebGLConv.calcOutputShape(xShape, wShape, this.dilations, this.pads, this.strides);
     const glsl = getGlsl(handler.session.backend.glContext.version);
-
+    const additionalVars = this.activation === 'Clip' ? `
+    const float min = float(${this.clipMin});
+    const float max = float(${this.clipMax});` :
+                                                        '';
     const {activationFunction, applyActivation} = getActicationSnippet(this.activation);
 
     const shaderSource = `
     const ivec2 strides = ivec2(${this.strides[0]}, ${this.strides[1]});
     const ivec2 pads = ivec2(${this.pads[0]}, ${this.pads[1]});
+    ${additionalVars}
     ${activationFunction}
     void main() {
       ivec4 coords = getOutputCoords();
@@ -299,6 +304,7 @@ export class WebGLUnpackedConv extends Conv {
       }
       `;
     return {
+      name: 'Im2Col',
       inputLayouts: [inferenceHandler.createTextureLayoutFromShape(xshape)],
       outputLayout,
       samplers: ['X'],
@@ -333,11 +339,14 @@ export class WebGLUnpackedConv extends Conv {
     if (inputs.length === 3) {
       samplers.push('B');
     }
-
+    const additionalVars = this.activation === 'Clip' ? `
+    const float min = float(${this.clipMin});
+    const float max = float(${this.clipMax});` :
+                                                        '';
     const {activationFunction, applyActivation} = getActicationSnippet(this.activation);
-
     const glsl = getGlsl(inferenceHandler.session.backend.glContext.version);
     const shaderSource = `
+    ${additionalVars}
     ${activationFunction}
     float process(int indices[${rank}]) {
       int b[1];
@@ -361,6 +370,7 @@ export class WebGLUnpackedConv extends Conv {
       return value;
     }`;
     return {
+      name: 'dotProduct',
       inputLayouts: inputs.length === 3 ? [im2colLayout, kLayout, bLayout!] : [im2colLayout, kLayout],
       outputLayout,
       shaderSource,
