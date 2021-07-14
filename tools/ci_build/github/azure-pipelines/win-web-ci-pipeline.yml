@@ -161,9 +161,9 @@ jobs:
     workingDirectory: '$(Build.SourcesDirectory)/js/web'
     displayName: 'npm test (Suite1, Chrome, WebAssembly)'
   - script: |
-      npm test -- suite1 --env=firefox --wasm-init-timeout=30000 --file-cache --backend=wasm
+      npm test -- suite1 --env=safari --wasm-init-timeout=30000 --file-cache --backend=wasm
     workingDirectory: '$(Build.SourcesDirectory)/js/web'
-    displayName: 'npm test (Suite1, Firefox, WebAssembly)'
+    displayName: 'npm test (Suite1, Safari, WebAssembly)'
   - script: |
       npm test -- suite1 --env=edge --wasm-init-timeout=30000 --file-cache --backend=wasm
     workingDirectory: '$(Build.SourcesDirectory)/js/web'
