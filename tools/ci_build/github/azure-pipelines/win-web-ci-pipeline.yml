@@ -1,14 +1,6 @@
 jobs:
-- job: build_onnxruntime_web
+- job: build_onnxruntime_web_browserstack
   pool: Linux-CPU-2019
-  strategy:
-    maxParallel: 2
-    matrix:
-      'debug':
-        BuildConfig: 'Debug'
-      'release':
-        BuildConfig: 'Release'
-
   timeoutInMinutes: 30
   workspace:
     clean: all
@@ -49,13 +41,11 @@ jobs:
       browserstackLocal: true
     displayName: 'BrowserStack configuration setup'
     timeoutInMinutes: 20
-    condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
   - script: |
       export ONNXJS_TEST_BS_BROWSERS=BS_ANDROID_11_Pixel_5
       npm test -- suite0 --env=bs --wasm-init-timeout=30000 --file-cache
     workingDirectory: '$(Build.SourcesDirectory)/js/web'
     displayName: 'npm test (Suite0, BS_ANDROID_*)'
-    condition: eq(variables['BuildConfig'], 'Release')
     env:
       BROWSERSTACK_ACCESS_KEY: $(BROWSERSTACK_ACCESS_KEY)
       BROWSERSTACK_USERNAME: $(BROWSERSTACK_USERNAME)
@@ -64,7 +54,6 @@ jobs:
       npm test -- suite1 --env=bs --wasm-init-timeout=30000 --file-cache --backend=wasm
     workingDirectory: '$(Build.SourcesDirectory)/js/web'
     displayName: 'npm test (Suite0, BS_IOS_*)'
-    condition: eq(variables['BuildConfig'], 'Release')
     env:
       BROWSERSTACK_ACCESS_KEY: $(BROWSERSTACK_ACCESS_KEY)
       BROWSERSTACK_USERNAME: $(BROWSERSTACK_USERNAME)
@@ -73,7 +62,112 @@ jobs:
     displayName: 'BrowserStack results'
     continueOnError: true
     timeoutInMinutes: 10
-    condition: eq(variables['BuildConfig'], 'Release')
+  - task: mspremier.PostBuildCleanup.PostBuildCleanup-task.PostBuildCleanup@3
+    displayName: 'Clean Agent Directories'
+    condition: always()
+
+- job: build_onnxruntime_web_windows
+  pool:
+    vmImage: windows-latest
+  timeoutInMinutes: 30
+  workspace:
+    clean: all
+  steps:
+  - checkout: self
+    submodules: false
+  - script: |
+     git submodule sync -- cmake\external\onnx
+     git submodule update --init -- cmake\external\onnx
+    workingDirectory: '$(Build.SourcesDirectory)'
+    displayName: 'Checkout submodule onnx'
+  - task: NodeTool@0
+    inputs:
+      versionSpec: '14.x'
+  - script: |
+     npm ci
+    workingDirectory: '$(Build.SourcesDirectory)\js'
+    displayName: 'npm ci /js/'
+  - script: |
+     npm ci
+    workingDirectory: '$(Build.SourcesDirectory)\js\common'
+    displayName: 'npm ci /js/common/'
+  - script: |
+     npm ci
+    workingDirectory: '$(Build.SourcesDirectory)\js\web'
+    displayName: 'npm ci /js/web/'
+  - script: |
+     npm run pull:wasm
+    workingDirectory: '$(Build.SourcesDirectory)\js\web'
+    displayName: 'Binplace js files'
+  - script: |
+     npm run build
+    workingDirectory: '$(Build.SourcesDirectory)\js\web'
+    displayName: 'Build ort-web'
+  - script: |
+      npm test -- suite0 --wasm-init-timeout=30000 --file-cache
+    workingDirectory: '$(Build.SourcesDirectory)\js\web'
+    displayName: 'npm test (Suite0, Chrome)'
+  - script: |
+      npm test -- suite0 --env=firebox --wasm-init-timeout=30000 --file-cache
+    workingDirectory: '$(Build.SourcesDirectory)\js\web'
+    displayName: 'npm test (Suite0, Firefox)'
+  - script: |
+      npm test -- suite0 --env=edge --wasm-init-timeout=30000 --file-cache
+    workingDirectory: '$(Build.SourcesDirectory)\js\web'
+    displayName: 'npm test (Suite0, Edge)'
+  - task: mspremier.PostBuildCleanup.PostBuildCleanup-task.PostBuildCleanup@3
+    displayName: 'Clean Agent Directories'
+    condition: always()
+
+- job: build_onnxruntime_web_macos
+  pool:
+    vmImage: macOS-latest
+  timeoutInMinutes: 30
+  workspace:
+    clean: all
+  steps:
+  - checkout: self
+    submodules: false
+  - script: |
+     git submodule sync -- cmake/external/onnx
+     git submodule update --init -- cmake/external/onnx
+    workingDirectory: '$(Build.SourcesDirectory)'
+    displayName: 'Checkout submodule onnx'
+  - task: NodeTool@0
+    inputs:
+      versionSpec: '14.x'
+  - script: |
+     npm ci
+    workingDirectory: '$(Build.SourcesDirectory)/js'
+    displayName: 'npm ci /js/'
+  - script: |
+     npm ci
+    workingDirectory: '$(Build.SourcesDirectory)/js/common'
+    displayName: 'npm ci /js/common/'
+  - script: |
+     npm ci
+    workingDirectory: '$(Build.SourcesDirectory)/js/web'
+    displayName: 'npm ci /js/web/'
+  - script: |
+     npm run pull:wasm
+    workingDirectory: '$(Build.SourcesDirectory)/js/web'
+    displayName: 'Binplace js files'
+  - script: |
+     npm run build
+    workingDirectory: '$(Build.SourcesDirectory)/js/web'
+    displayName: 'Build ort-web'
+  - script: |
+      npm test -- suite0 --wasm-init-timeout=30000 --file-cache
+    workingDirectory: '$(Build.SourcesDirectory)/js/web'
+    displayName: 'npm test (Suite0, Chrome)'
+  - script: |
+      npm test -- suite0 --env=firebox --wasm-init-timeout=30000 --file-cache
+    workingDirectory: '$(Build.SourcesDirectory)/js/web'
+    displayName: 'npm test (Suite0, Firefox)'
+  - script: |
+      npm test -- suite0 --env=edge --wasm-init-timeout=30000 --file-cache
+    workingDirectory: '$(Build.SourcesDirectory)/js/web'
+    displayName: 'npm test (Suite0, Edge)'
   - task: mspremier.PostBuildCleanup.PostBuildCleanup-task.PostBuildCleanup@3
     displayName: 'Clean Agent Directories'
     condition: always()
