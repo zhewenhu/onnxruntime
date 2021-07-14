@@ -61,7 +61,7 @@ jobs:
       BROWSERSTACK_USERNAME: $(BROWSERSTACK_USERNAME)
   - script: |
       export ONNXJS_TEST_BS_BROWSERS=BS_IOS_14_iPhoneXS
-      npm test -- suite0 --env=bs --wasm-init-timeout=30000 --file-cache --backend=wasm
+      npm test -- suite1 --env=bs --wasm-init-timeout=30000 --file-cache --backend=wasm
     workingDirectory: '$(Build.SourcesDirectory)/js/web'
     displayName: 'npm test (Suite0, BS_IOS_*)'
     condition: eq(variables['BuildConfig'], 'Release')

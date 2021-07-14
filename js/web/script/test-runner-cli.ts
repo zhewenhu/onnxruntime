@@ -33,7 +33,7 @@ const TEST_DATA_OP_ROOT = path.join(TEST_ROOT, 'data', 'ops');
 const TEST_DATA_BASE = args.env === 'node' ? TEST_ROOT : '/base/test/';
 
 let whitelist: Test.WhiteList;
-const shouldLoadSuiteTestData = (args.mode === 'suite0');
+const shouldLoadSuiteTestData = (args.mode === 'suite0' || args.mode === 'suite1');
 if (shouldLoadSuiteTestData) {
   npmlog.verbose('TestRunnerCli.Init', 'Loading whitelist...');
 
@@ -97,6 +97,15 @@ switch (args.mode) {
       }
     }
     unittest = true;
+    break;
+
+  case 'suite1':
+    for (const backend of DEFAULT_BACKENDS) {
+      if (args.backends.indexOf(backend) !== -1) {
+        modelTestGroups.push(...nodeTests.get(backend)!);  // model test : node
+        opTestGroups.push(...opTests.get(backend)!);       // operator test
+      }
+    }
     break;
 
   case 'model':

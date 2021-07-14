@@ -95,7 +95,7 @@ Examples:
 /* eslint-enable max-len */
 
 export declare namespace TestRunnerCliArgs {
-  type Mode = 'suite0'|'model'|'unittest'|'op';
+  type Mode = 'suite0'|'suite1'|'model'|'unittest'|'op';
   type Backend = 'cpu'|'webgl'|'wasm'|'onnxruntime';
   type Environment = 'chrome'|'edge'|'firefox'|'electron'|'safari'|'node'|'bs'|'android';
   type BundleMode = 'prod'|'dev'|'perf';
