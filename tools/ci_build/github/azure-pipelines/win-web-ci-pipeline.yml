@@ -108,7 +108,7 @@ jobs:
     workingDirectory: '$(Build.SourcesDirectory)\js\web'
     displayName: 'npm test (Suite0, Chrome)'
   - script: |
-      npm test -- suite0 --env=firebox --wasm-init-timeout=30000 --file-cache
+      npm test -- suite0 --env=firefox --wasm-init-timeout=30000 --file-cache
     workingDirectory: '$(Build.SourcesDirectory)\js\web'
     displayName: 'npm test (Suite0, Firefox)'
   - script: |
@@ -161,7 +161,7 @@ jobs:
     workingDirectory: '$(Build.SourcesDirectory)/js/web'
     displayName: 'npm test (Suite0, Chrome)'
   - script: |
-      npm test -- suite0 --env=firebox --wasm-init-timeout=30000 --file-cache
+      npm test -- suite0 --env=firefox --wasm-init-timeout=30000 --file-cache
     workingDirectory: '$(Build.SourcesDirectory)/js/web'
     displayName: 'npm test (Suite0, Firefox)'
   - script: |
