@@ -51,16 +51,7 @@ jobs:
     timeoutInMinutes: 20
     condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
   - script: |
-      export ONNXJS_TEST_BS_BROWSERS=BS_MAC_10_Safari_13,BS_MAC_10_Chrome_91
-      npm test -- suite0 --env=bs --wasm-init-timeout=30000 --file-cache
-    workingDirectory: '$(Build.SourcesDirectory)/js/web'
-    displayName: 'npm test (Suite0, BS_MAC_*)'
-    condition: and(succeeded(), eq(variables['BuildConfig'], 'Release'))
-    env:
-      BROWSERSTACK_ACCESS_KEY: $(BROWSERSTACK_ACCESS_KEY)
-      BROWSERSTACK_USERNAME: $(BROWSERSTACK_USERNAME)
-  - script: |
-      export ONNXJS_TEST_BS_BROWSERS=BS_ANDROID_11_Pixel_5,BS_ANDROID_10_Galaxy_Note_20
+      export ONNXJS_TEST_BS_BROWSERS=BS_ANDROID_11_Pixel_5
       npm test -- suite0 --env=bs --wasm-init-timeout=30000 --file-cache
     workingDirectory: '$(Build.SourcesDirectory)/js/web'
     displayName: 'npm test (Suite0, BS_ANDROID_*)'
@@ -69,17 +60,8 @@ jobs:
       BROWSERSTACK_ACCESS_KEY: $(BROWSERSTACK_ACCESS_KEY)
       BROWSERSTACK_USERNAME: $(BROWSERSTACK_USERNAME)
   - script: |
-      export ONNXJS_TEST_BS_BROWSERS=BS_WIN_10_Chrome_91,BS_WIN_10_Edge_91,BS_WIN_10_Firefox_89
-      npm test -- suite0 --env=bs --wasm-init-timeout=30000 --file-cache
-    workingDirectory: '$(Build.SourcesDirectory)/js/web'
-    displayName: 'npm test (Suite0, BS_WIN_*)'
-    condition: eq(variables['BuildConfig'], 'Release')
-    env:
-      BROWSERSTACK_ACCESS_KEY: $(BROWSERSTACK_ACCESS_KEY)
-      BROWSERSTACK_USERNAME: $(BROWSERSTACK_USERNAME)
-  - script: |
-      export ONNXJS_TEST_BS_BROWSERS=BS_IOS_14_iPhoneXS,BS_IOS_13_iPhoneXS
-      npm test -- suite0 --env=bs --wasm-init-timeout=30000 --file-cache
+      export ONNXJS_TEST_BS_BROWSERS=BS_IOS_14_iPhoneXS
+      npm test -- suite0 --env=bs --wasm-init-timeout=30000 --file-cache --backend=wasm
     workingDirectory: '$(Build.SourcesDirectory)/js/web'
     displayName: 'npm test (Suite0, BS_IOS_*)'
     condition: eq(variables['BuildConfig'], 'Release')

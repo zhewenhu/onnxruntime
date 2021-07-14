@@ -34,6 +34,14 @@ function getMachineIpAddress() {
 }
 
 module.exports = function (config) {
+  var webDriverConfig = {
+    desiredCapabilities: {
+    },
+    host: 'localhost',
+    port: 4444,
+    path: '/wd/hub'
+  };
+
   config.set({
     // global config of your BrowserStack account
     browserStack: {
@@ -77,19 +85,6 @@ module.exports = function (config) {
     customLaunchers: {
       ChromeTest: { base: 'Chrome', flags: ['--window-size=1,1'] },
       ChromeDebug: { debug: true, base: 'Chrome', flags: ['--remote-debugging-port=9333'] },
-
-      AndroidTest: {
-        base: 'WebDriver',
-        platformName: 'Android',
-        platformVersion: '11',
-        deviceName: 'Android Emulator',
-        config: {
-          hostname: 'localhost',
-          port: 4723
-        },
-        browserName: 'Chrome',
-        newCommandTimeout: 0
-      },
 
       //
       // ==== BrowserStack browsers ====
@@ -162,9 +157,16 @@ module.exports = function (config) {
         os: 'android',
         os_version: '11.0'
       },
-      BS_ANDROID_10_Galaxy_Note_20: {
+      BS_ANDROID_11_Galaxy_S_21: {
         base: 'BrowserStack',
-        device: 'Samsung Galaxy Note 20',
+        device: 'Samsung Galaxy S21',
+        real_mobile: true,
+        os: 'android',
+        os_version: '11.0'
+      },
+      BS_ANDROID_10_Pixel_4: {
+        base: 'BrowserStack',
+        device: 'Google Pixel 4',
         real_mobile: true,
         os: 'android',
         os_version: '10.0'
