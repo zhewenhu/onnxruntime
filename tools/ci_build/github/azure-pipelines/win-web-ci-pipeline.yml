@@ -1,6 +1,6 @@
 jobs:
 - job: build_onnxruntime_web_browserstack
-  pool: Linux-CPU-2019
+  pool: Win-CPU-2019
   timeoutInMinutes: 30
   workspace:
     clean: all
@@ -8,8 +8,8 @@ jobs:
   - checkout: self
     submodules: false
   - script: |
-     git submodule sync -- cmake/external/onnx
-     git submodule update --init -- cmake/external/onnx
+     git submodule sync -- cmake\external\onnx
+     git submodule update --init -- cmake\external\onnx
     workingDirectory: '$(Build.SourcesDirectory)'
     displayName: 'Checkout submodule onnx'
   - task: NodeTool@0
@@ -17,23 +17,23 @@ jobs:
       versionSpec: '14.x'
   - script: |
      npm ci
-    workingDirectory: '$(Build.SourcesDirectory)/js'
+    workingDirectory: '$(Build.SourcesDirectory)\js'
     displayName: 'npm ci /js/'
   - script: |
      npm ci
-    workingDirectory: '$(Build.SourcesDirectory)/js/common'
+    workingDirectory: '$(Build.SourcesDirectory)\js\common'
     displayName: 'npm ci /js/common/'
   - script: |
      npm ci
-    workingDirectory: '$(Build.SourcesDirectory)/js/web'
+    workingDirectory: '$(Build.SourcesDirectory)\js\web'
     displayName: 'npm ci /js/web/'
   - script: |
      npm run pull:wasm
-    workingDirectory: '$(Build.SourcesDirectory)/js/web'
+    workingDirectory: '$(Build.SourcesDirectory)\js\web'
     displayName: 'Binplace js files'
   - script: |
      npm run build
-    workingDirectory: '$(Build.SourcesDirectory)/js/web'
+    workingDirectory: '$(Build.SourcesDirectory)\js\web'
     displayName: 'Build ort-web'
   - task: BrowserStackConfig@0
     inputs:
@@ -44,7 +44,7 @@ jobs:
   - script: |
       export ONNXJS_TEST_BS_BROWSERS=BS_ANDROID_11_Pixel_5
       npm test -- suite0 --env=bs --wasm-init-timeout=30000 --file-cache
-    workingDirectory: '$(Build.SourcesDirectory)/js/web'
+    workingDirectory: '$(Build.SourcesDirectory)\js\web'
     displayName: 'npm test (Suite0, BS_ANDROID_*)'
     env:
       BROWSERSTACK_ACCESS_KEY: $(BROWSERSTACK_ACCESS_KEY)
@@ -52,7 +52,7 @@ jobs:
   - script: |
       export ONNXJS_TEST_BS_BROWSERS=BS_IOS_14_iPhoneXS
       npm test -- suite1 --env=bs --wasm-init-timeout=30000 --file-cache --backend=wasm
-    workingDirectory: '$(Build.SourcesDirectory)/js/web'
+    workingDirectory: '$(Build.SourcesDirectory)\js\web'
     displayName: 'npm test (Suite0, BS_IOS_*)'
     env:
       BROWSERSTACK_ACCESS_KEY: $(BROWSERSTACK_ACCESS_KEY)
@@ -157,17 +157,17 @@ jobs:
     workingDirectory: '$(Build.SourcesDirectory)/js/web'
     displayName: 'Build ort-web'
   - script: |
-      npm test -- suite0 --wasm-init-timeout=30000 --file-cache
+      npm test -- suite1 --wasm-init-timeout=30000 --file-cache --backend=wasm
     workingDirectory: '$(Build.SourcesDirectory)/js/web'
-    displayName: 'npm test (Suite0, Chrome)'
+    displayName: 'npm test (Suite1, Chrome, WebAssembly)'
   - script: |
-      npm test -- suite0 --env=firefox --wasm-init-timeout=30000 --file-cache
+      npm test -- suite1 --env=firefox --wasm-init-timeout=30000 --file-cache --backend=wasm
     workingDirectory: '$(Build.SourcesDirectory)/js/web'
-    displayName: 'npm test (Suite0, Firefox)'
+    displayName: 'npm test (Suite1, Firefox, WebAssembly)'
   - script: |
-      npm test -- suite0 --env=edge --wasm-init-timeout=30000 --file-cache
+      npm test -- suite1 --env=edge --wasm-init-timeout=30000 --file-cache --backend=wasm
     workingDirectory: '$(Build.SourcesDirectory)/js/web'
-    displayName: 'npm test (Suite0, Edge)'
+    displayName: 'npm test (Suite1, Edge, WebAssembly)'
   - task: mspremier.PostBuildCleanup.PostBuildCleanup-task.PostBuildCleanup@3
     displayName: 'Clean Agent Directories'
     condition: always()
