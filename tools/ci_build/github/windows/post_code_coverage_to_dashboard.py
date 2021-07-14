@@ -60,7 +60,7 @@ def write_to_db(coverage_data, args):
     cnx = mysql.connector.connect(
         user='ort@onnxruntimedashboard',
         password=os.environ.get('DASHBOARD_MYSQL_ORT_PASSWORD'),
-        host='onnxruntimedashboard.mysql.database.azure.com',
+        host='172.19.0.7',
         database='onnxruntime')
 
     try:
