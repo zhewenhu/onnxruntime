@@ -1,0 +1,11 @@
+# sets variables $(TestDataUrl)
+
+parameters:
+  MYSQL_SERVER_IP: 172.19.0.7
+
+steps:
+- task: CmdLine@1
+  displayName: 'Set MySQL Server IP variable'
+  inputs:
+    filename: echo
+    arguments: '##vso[task.setvariable variable=MYSQL_SERVER_IP;]${{parameters.MYSQL_SERVER_IP}}'

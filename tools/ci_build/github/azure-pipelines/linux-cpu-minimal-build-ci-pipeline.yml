@@ -22,7 +22,6 @@ jobs:
 
   variables:
     test_data_directory: $(Build.SourcesDirectory)/.test_data
-    MYSQL_SERVER_IP: 172.19.0.7
   steps:
   - checkout: self
     clean: true
@@ -35,7 +34,7 @@ jobs:
         # Create a folder for all test data
         mkdir -p $(test_data_directory)
       workingDirectory: $(Build.SourcesDirectory)
-
+  - template: templates/set-mysql-ip-step.yml
   - template: templates/get-docker-image-steps.yml
     parameters:
       Dockerfile: tools/ci_build/github/linux/docker/Dockerfile.manylinux2014_cpu
