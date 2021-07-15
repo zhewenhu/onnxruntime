@@ -41,7 +41,7 @@ jobs:
       displayName: 'Post code coverage data to the Dashboard'
       inputs:
         scriptPath: $(Build.SourcesDirectory)/tools/ci_build/github/windows/post_code_coverage_to_dashboard.py
-        arguments: --commit_hash=$(OnnxRuntimeGitCommitHash) --report_file="$(Build.BinariesDirectory)/report.json" --report_url="https://aiinfra.visualstudio.com/Lotus/_build/results?buildId=$(Build.BuildId)" --branch $(Build.SourceBranchName) --arch $(Agent.OSArchitecture) --os $(Agent.OS) --build_config default
+        arguments: --commit_hash=$(OnnxRuntimeGitCommitHash) --report_file="$(Build.BinariesDirectory)/report.json" --report_url="https://aiinfra.visualstudio.com/Lotus/_build/results?buildId=$(Build.BuildId)" --branch $(Build.SourceBranchName) --arch $(Agent.OSArchitecture) --os $(Agent.OS) --build_config default --database_server 172.19.0.7
         workingDirectory: $(Build.BinariesDirectory)
         pythonInterpreter: '/usr/bin/python3'
       env: 
