@@ -38,7 +38,7 @@ python3 /onnxruntime_src/tools/ci_build/github/linux/ort_minimal/check_build_bin
 # Post the binary size info to ort mysql DB
 # The report script's DB connection failure will not fail the pipeline
 # To reduce noise, we only report binary size for Continuous integration (a merge to master)
-if [[ $BUILD_REASON == "IndividualCI" || $BUILD_REASON == "BatchedCI" ]] && [[ $BUILD_BRANCH == "refs/heads/master" ]]; then
+if [[ $BUILD_REASON == "IndividualCI" || $BUILD_REASON == "BatchedCI" ]] && [[ $BUILD_BRANCH == "refs/heads/snnn/codecov2" ]]; then
     # Install the mysql connector
     python3 -m pip install --user mysql-connector-python
 

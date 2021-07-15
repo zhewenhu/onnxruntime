@@ -497,7 +497,7 @@ jobs:
   - name: GDN_CODESIGN_TARGETDIRECTORY
     value: '$(Build.BinariesDirectory)/nuget-artifact/final-package'
   pool: 'Win-CPU-2021'
-  condition: and (succeeded(), and (${{ parameters.PublishingNuget }}, and (${{ parameters.DoEsrp }}, eq(variables['Build.SourceBranch'], 'refs/heads/master'))))
+  condition: and (succeeded(), and (${{ parameters.PublishingNuget }}, and (${{ parameters.DoEsrp }}, eq(variables['Build.SourceBranch'], 'refs/heads/snnn/codecov2'))))
   dependsOn:
   - NuGet_Test_Win
   - NuGet_Test_Linux
