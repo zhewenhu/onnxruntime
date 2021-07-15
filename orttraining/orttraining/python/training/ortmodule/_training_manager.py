@@ -4,8 +4,9 @@
 # --------------------------------------------------------------------------
 
 from . import _utils, _io, _logger
-from ._graph_execution_manager import GraphExecutionManager, _RunStateInfo, _FallbackLevel
+from ._graph_execution_manager import GraphExecutionManager, _RunStateInfo
 from ._execution_agent import TrainingAgent
+from ._fallback import FallbackBaseException, _FallbackPolicy
 
 from onnxruntime.capi import _pybind_state as C
 from onnxruntime.capi.onnxruntime_inference_collection import get_ort_device_type
@@ -63,8 +64,8 @@ class TrainingManager(GraphExecutionManager):
 
         # Fallback to PyTorch due to failures *external* to forward(),
         #  typically from initialization
-        if self._pending_fallback():
-            return self._apply_fallback(*inputs, **kwargs)
+        if self._fallback_manager._is_pending():
+            return self._fallback_manager._fallback(self._original_module, *inputs, **kwargs)
 
         try:
             # Exporting module to ONNX for the first time
@@ -214,13 +215,17 @@ class TrainingManager(GraphExecutionManager):
                                                     inputs,
                                                     kwargs,
                                                     self._device)))
+        except FallbackBaseException as e:
+            # Exceptions subject to fallback get here
+            self._fallback_manager._handle_exception(e)
         except Exception as e:
-            self._check_fallback(e)
+            # Last chance for fallback. FALLBACK_FORCE_TORCH_FORWARD is the only one possible here
+            self._fallback_manager._handle_exception(e, _FallbackPolicy.FALLBACK_FORCE_TORCH_FORWARD)
 
         # Fallback to PyTorch due to failures *during* forward(),
         #  (e.g. export, model/input post-processing, forward, output processing, etc)
-        if self._pending_fallback():
-            return self._apply_fallback(*inputs, **kwargs)
+        if self._fallback_manager._is_pending():
+            return self._fallback_manager._fallback(self._original_module, *inputs, **kwargs)
 
     def _build_graph(self):
         """Build an optimized gradient graph using the module_graph_builder"""
