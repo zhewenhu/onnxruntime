@@ -404,16 +404,35 @@ void clip_ignore_bias(const float b, const float* pb, float* pd, int c) {
   }
 }
 
+#include <intrin.h>
 void clip_add_bias(const float b, const float* pb, float* pd, int c) {
-  for (int i = 0; i < c; i++) {
-    float x = pd[i] + pb[i];
-    if (x > b)
-      pd[i] = b;
-    else if (x < -b)
-      pd[i] = -b;
-    else
-      pd[i] = x;
+  auto vceil = _mm256_set1_ps(b);
+  auto vfloor = _mm256_set1_ps(-b);
+  for (; c >= 8; c -= 8) {
+    auto vb = _mm256_loadu_ps(pb);
+    auto vd = _mm256_loadu_ps(pd);
+    pb += 8;
+    vd = _mm256_add_ps(vd, vb);
+    vd = _mm256_min_ps(vd, vceil);
+    vd = _mm256_max_ps(vd, vfloor);
+    _mm256_storeu_ps(pd, vd);
+    pd += 8;
   }
+
+  for (; c > 0; c--) {
+    float x = *pd + *pb++;
+    x = std::min(x, b);
+    x = std::max(x, -b);
+    *pd++ = x;
+  }
+
+    // if (x > b)
+    //   pd[i] = b;
+    // else if (x < -b)
+    //   pd[i] = -b;
+    // else
+    //   pd[i] = x;
+    // }
 }
 
 void sigmoid_m(const float* ps1, float* ps1_c, const float* ps2, float* pd, int c,
@@ -421,23 +440,29 @@ void sigmoid_m(const float* ps1, float* ps1_c, const float* ps2, float* pd, int 
   ORT_UNUSED_PARAMETER(alpha);
   ORT_UNUSED_PARAMETER(beta);
 
-  clip_for_sigmoid(ps1, ps1_c, c);
-
+  ORT_UNUSED_PARAMETER(ps1_c);
+  MlasComputeLogistic(ps1, pd, c);
   for (int i = 0; i < c; i++) {
-    float x = 0.5f * ps1_c[i];
-    float x2 = x * x;
-    float p = x2 * alpha_13 + alpha_11;
-    p = x2 * p + alpha_9;
-    p = x2 * p + alpha_7;
-    p = x2 * p + alpha_5;
-    p = x2 * p + alpha_3;
-    p = x2 * p + alpha_1;
-    p = x * p;
-    float q = x2 * beta_6 + beta_4;
-    q = x2 * q + beta_2;
-    q = x2 * q + beta_0;
-    pd[i] = ps2[i] * 0.5f * (1 + (p / q));
+    pd[i] *= ps2[i];
   }
+
+  // clip_for_sigmoid(ps1, ps1_c, c);
+
+  // for (int i = 0; i < c; i++) {
+  //   float x = 0.5f * ps1_c[i];
+  //   float x2 = x * x;
+  //   float p = x2 * alpha_13 + alpha_11;
+  //   p = x2 * p + alpha_9;
+  //   p = x2 * p + alpha_7;
+  //   p = x2 * p + alpha_5;
+  //   p = x2 * p + alpha_3;
+  //   p = x2 * p + alpha_1;
+  //   p = x * p;
+  //   float q = x2 * beta_6 + beta_4;
+  //   q = x2 * q + beta_2;
+  //   q = x2 * q + beta_0;
+  //   pd[i] = ps2[i] * 0.5f * (1 + (p / q));
+  // }
 }
 
 void tanh_m(const float* ps1, float* ps1_c, const float* ps2, float* pd, int c,
@@ -445,23 +470,38 @@ void tanh_m(const float* ps1, float* ps1_c, const float* ps2, float* pd, int c,
   ORT_UNUSED_PARAMETER(alpha);
   ORT_UNUSED_PARAMETER(beta);
 
-  clip_for_tanh(ps1, ps1_c, c);
+  ORT_UNUSED_PARAMETER(ps1_c);
+  MlasComputeTanh(ps1, pd, c);
+  for (; c >= 8; c -= 8) {
+    auto vs2 = _mm256_loadu_ps(ps2);
+    auto vd = _mm256_loadu_ps(pd);
+    ps2 += 8;
+    vd = _mm256_mul_ps(vd, vs2);
+    _mm256_storeu_ps(pd, vd);
+    pd += 8;
+  }
 
   for (int i = 0; i < c; i++) {
-    float x = ps1_c[i];
-    float x2 = x * x;
-    float p = x2 * alpha_13 + alpha_11;
-    p = x2 * p + alpha_9;
-    p = x2 * p + alpha_7;
-    p = x2 * p + alpha_5;
-    p = x2 * p + alpha_3;
-    p = x2 * p + alpha_1;
-    p = x * p;
-    float q = x2 * beta_6 + beta_4;
-    q = x2 * q + beta_2;
-    q = x2 * q + beta_0;
-    pd[i] = ps2[i] * p / q;
+    pd[i] *= ps2[i];
   }
+
+  // clip_for_tanh(ps1, ps1_c, c);
+
+  // for (int i = 0; i < c; i++) {
+  //   float x = ps1_c[i];
+  //   float x2 = x * x;
+  //   float p = x2 * alpha_13 + alpha_11;
+  //   p = x2 * p + alpha_9;
+  //   p = x2 * p + alpha_7;
+  //   p = x2 * p + alpha_5;
+  //   p = x2 * p + alpha_3;
+  //   p = x2 * p + alpha_1;
+  //   p = x * p;
+  //   float q = x2 * beta_6 + beta_4;
+  //   q = x2 * q + beta_2;
+  //   q = x2 * q + beta_0;
+  //   pd[i] = ps2[i] * p / q;
+  // }
 }
 
 void relu_m(const float* ps1, float* ps1_c, const float* ps2, float* pd, int c, float alpha, float beta) {
@@ -587,6 +627,21 @@ void tanh_exact(float* pd, int c, float alpha, float beta) {
 
 void merge_lstm_gates_to_memory(const float* pprev, const float* pi, const float* pf, const float* pg, float* pcurr,
                                 int c) {
+  for (; c >= 8; c -= 8) {
+    auto vpprev = _mm256_loadu_ps(pprev);
+    auto vpi = _mm256_loadu_ps(pi);
+    auto vpf = _mm256_loadu_ps(pf);
+    auto vpg = _mm256_loadu_ps(pg);
+    vpprev = _mm256_mul_ps(vpprev, vpi);
+    pprev += 8;
+    vpprev = _mm256_fmadd_ps(vpf, vpg, vpprev);
+    pi += 8;
+    pf += 8;
+    _mm256_storeu_ps(pcurr, vpprev);
+    pg += 8;
+    pcurr += 8;
+  }
+
   for (int i = 0; i < c; i++) {
     pcurr[i] = pprev[i] * pf[i] + pi[i] * pg[i];
   }
