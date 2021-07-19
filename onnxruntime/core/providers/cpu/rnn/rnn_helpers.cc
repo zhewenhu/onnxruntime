@@ -404,7 +404,13 @@ void clip_ignore_bias(const float b, const float* pb, float* pd, int c) {
   }
 }
 
+#if defined(_WIN32)
 #include <intrin.h>
+#else
+#if defined(__x86_64__) || defined(__i386__)
+#include <immintrin.h>
+#endif
+#endif
 void clip_add_bias(const float b, const float* pb, float* pd, int c) {
   auto vceil = _mm256_set1_ps(b);
   auto vfloor = _mm256_set1_ps(-b);
