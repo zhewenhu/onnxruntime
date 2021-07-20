@@ -77,14 +77,14 @@ jobs:
         displayName: 'Run memory test'
         workingDirectory: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/mem_test/'
   
-    - ${{ if not(eq(length(parameters.ModelGroups), 0)) }}:
-      - script: 'mkdir $(Build.SourcesDirectory)/Artifact && cp -r $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/result/ $(Build.SourcesDirectory)/Artifact && cp -r $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/mem_test/result $(Build.SourcesDirectory)/Artifact/result_mem_test'
-        displayName: 'Prepare Artifacts'
-        workingDirectory: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/'
-      - task: PublishBuildArtifacts@1
-        inputs:
-          pathtoPublish: '$(Build.SourcesDirectory)/Artifact'
-          artifactName: 'result'
+    #- ${{ if not(eq(length(parameters.ModelGroups), 0)) }}:
+    - script: 'mkdir $(Build.SourcesDirectory)/Artifact && cp -r $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/result/ $(Build.SourcesDirectory)/Artifact && cp -r $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/mem_test/result $(Build.SourcesDirectory)/Artifact/result_mem_test'
+      displayName: 'Prepare Artifacts'
+      workingDirectory: '$(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/'
+    - task: PublishBuildArtifacts@1
+      inputs:
+        pathtoPublish: '$(Build.SourcesDirectory)/Artifact'
+        artifactName: 'result'
     
     - ${{ if eq(parameters.PostToDashboard, true) }}:
       - script: '$(run_conda) && python3 $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/post.py -r $(Build.SourcesDirectory)/onnxruntime/python/tools/tensorrt/perf/result -c $(Build.SourceVersion) -u "https://dev.azure.com/onnxruntime/onnxruntime/_build/results?buildId=$(Build.BuildId)" ' 
