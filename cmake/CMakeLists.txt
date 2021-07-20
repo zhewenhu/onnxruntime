@@ -159,6 +159,15 @@ option(onnxruntime_ENABLE_EXTENSION_CUSTOM_OPS "Enable custom operators in onnxr
 # Single output director for all binaries
 set (RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin CACHE PATH "Single output directory for all binaries.")
 
+
+find_package(Git QUIET)
+if(GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/cmake/external/onnx/CMakeLists.txt")
+  set(onnxruntime_USE_SUBMODULE TRUE)
+else()
+  include(FetchContent)
+  set(onnxruntime_USE_SUBMODULE FALSE)
+endif()
+
 function(set_msvc_c_cpp_compiler_warning_level warning_level)
   if (NOT "${warning_level}" MATCHES "^[0-4]$")
     message(FATAL_ERROR "Expected warning_level value of 0-4, got '${warning_level}'.")
@@ -616,9 +625,19 @@ if (onnxruntime_BUILD_UNIT_TESTS)
     endif()
 
     # gtest and gmock
+ if(onnxruntime_USE_SUBMODULE)
     set_msvc_c_cpp_compiler_warning_level(4)
     add_subdirectory(${PROJECT_SOURCE_DIR}/external/googletest EXCLUDE_FROM_ALL)
     set_msvc_c_cpp_compiler_warning_level(3)
+  else()
+    FetchContent_Declare(
+      googletest
+      GIT_REPOSITORY https://github.com/google/googletest.git
+      GIT_TAG        53495a2a7d6ba7e0691a7f3602e9a5324bba6e45
+    )
+    FetchContent_MakeAvailable(googletest)
+  endif()
+    
     set_target_properties(gmock PROPERTIES FOLDER "External/GTest")
     # disable treating all warnings as errors for gmock
     target_compile_options(gmock PRIVATE "-w")
@@ -651,6 +670,7 @@ if(onnxruntime_BUILD_SHARED_LIB OR onnxruntime_ENABLE_PYTHON)
 endif()
 
 #target begins from here
+# External dependencies
 
 if(onnxruntime_BUILD_BENCHMARKS)
   if(onnxruntime_PREFER_SYSTEM_LIB)
@@ -668,9 +688,19 @@ if(onnxruntime_BUILD_BENCHMARKS)
 endif()
 
 if(NOT WIN32 AND NOT onnxruntime_PREFER_SYSTEM_LIB)
-  add_subdirectory(${PROJECT_SOURCE_DIR}/external/nsync EXCLUDE_FROM_ALL)
+  if(onnxruntime_USE_SUBMODULE)
+    set(nsync_SOURCE_DIR ${PROJECT_SOURCE_DIR}/external/nsync)
+    add_subdirectory(${nsync_SOURCE_DIR} EXCLUDE_FROM_ALL)	
+  else()
+    FetchContent_Declare(
+      nsync
+      GIT_REPOSITORY https://github.com/google/nsync.git
+      GIT_TAG        436617053d0f39a1019a371c3a9aa599b3cb2cea
+      SOURCE_SUBDIR  nsync
+    )
+    FetchContent_MakeAvailable(nsync)
+  endif()
 endif()
-# External dependencies
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/external)
 
 #protobuf begin
@@ -701,7 +731,7 @@ if(Protobuf_FOUND OR Protobuf_FOUND)
     set(PROTOBUF_LIB protobuf::libprotobuf-lite)
   endif()
 else()
-  message("Use protobuf from submodule")
+  message("Use protobuf from submodule")  
   # use protobuf as a submodule
   if (CMAKE_SYSTEM_NAME STREQUAL "Android")
     set(protobuf_BUILD_PROTOC_BINARIES OFF CACHE BOOL "Build protobuf tests" FORCE)
@@ -709,7 +739,17 @@ else()
   if(onnxruntime_DISABLE_RTTI)
     set(protobuf_DISABLE_RTTI OFF CACHE BOOL "Remove runtime type information in the binaries" FORCE)
   endif()
-  add_subdirectory(${PROJECT_SOURCE_DIR}/external/protobuf/cmake EXCLUDE_FROM_ALL)
+  if(onnxruntime_USE_SUBMODULE)
+    add_subdirectory(${PROJECT_SOURCE_DIR}/external/protobuf/cmake EXCLUDE_FROM_ALL)
+  else()
+    FetchContent_Declare(
+      protobuf
+      GIT_REPOSITORY https://github.com/protocolbuffers/protobuf.git
+      GIT_TAG        2dc747c574b68a808ea4699d26942c8132fe2b09
+      SOURCE_SUBDIR  cmake
+    )
+    FetchContent_MakeAvailable(protobuf)
+  endif()
   
   if(TARGET libprotoc)
     set_target_properties(libprotoc PROPERTIES FOLDER "External/Protobuf")
@@ -761,30 +801,92 @@ get_filename_component(ORTTRAINING_ROOT "${ORTTRAINING_ROOT}" ABSOLUTE)
 get_filename_component(REPO_ROOT "${REPO_ROOT}" ABSOLUTE)
 set(ONNXRUNTIME_INCLUDE_DIR ${REPO_ROOT}/include/onnxruntime)
 
-add_subdirectory(external/date EXCLUDE_FROM_ALL)
+if(NOT onnxruntime_DISABLE_EXCEPTIONS)
+    #This library requires C++ exception
+	if(onnxruntime_USE_SUBMODULE)
+		add_subdirectory(external/date EXCLUDE_FROM_ALL)
+	else()
+		FetchContent_Declare(
+		  date
+		  GIT_REPOSITORY https://github.com/HowardHinnant/date.git
+		  GIT_TAG        e7e1482087f58913b80a20b04d5c58d9d6d90155
+		)
+		FetchContent_MakeAvailable(date)
+	endif()
+endif()
 
-set(SAFEINT_INCLUDE_DIR ${REPO_ROOT}/cmake/external/SafeInt)
-add_library(safeint_interface INTERFACE)
-target_include_directories(safeint_interface INTERFACE ${SAFEINT_INCLUDE_DIR})
 
-set(OPTIONAL_LITE_INCLUDE_DIR ${REPO_ROOT}/cmake/external/optional-lite/include)
+if(onnxruntime_USE_SUBMODULE)
+    add_library(safeint_interface INTERFACE)
+    target_include_directories(safeint_interface INTERFACE ${REPO_ROOT}/cmake/external/SafeInt/safeint)
+else()
+    FetchContent_Declare(
+      safeint
+      GIT_REPOSITORY https://github.com/dcleblanc/SafeInt.git
+      GIT_TAG        a104e0cf23be4fe848f7ef1f3e8996fe429b06bb
+    )
+    FetchContent_MakeAvailable(safeint)
+    add_library(safeint_interface INTERFACE)
+    target_include_directories(safeint_interface INTERFACE ${safeint_SOURCE_DIR})
+endif()
+
+
+#TODO: remove optional-lite when we get Mac Big Sur build machines
+if(onnxruntime_USE_SUBMODULE)
+  set(OPTIONAL_LITE_INCLUDE_DIR ${REPO_ROOT}/cmake/external/optional-lite/include)
+else()
+   FetchContent_Declare(
+      optionallite
+      GIT_REPOSITORY https://github.com/martinmoene/optional-lite.git
+      GIT_TAG        4acf4553baa886e10e6613fe1452b706b0250e78
+    )
+    FetchContent_MakeAvailable(optionallite)
+    set(OPTIONAL_LITE_INCLUDE_DIR ${optional_lite_SOURCE_DIR}/include)
+endif()
+
 if(onnxruntime_DISABLE_EXCEPTIONS)
   add_compile_definitions(optional_CONFIG_NO_EXCEPTIONS=1)
 endif()
 
-add_subdirectory(external/mp11 EXCLUDE_FROM_ALL)
+if(onnxruntime_USE_SUBMODULE)
+    add_subdirectory(external/mp11 EXCLUDE_FROM_ALL)
+else()
+    FetchContent_Declare(
+      mp11
+      GIT_REPOSITORY https://github.com/boostorg/mp11.git
+      GIT_TAG        21cace4e574180ba64d9307a5e4ea9e5e94d3e8d
+    )
+    FetchContent_MakeAvailable(mp11)
+endif()
 
 set(JSON_BuildTests OFF CACHE INTERNAL "")
 set(JSON_Install OFF CACHE INTERNAL "")
-add_subdirectory(external/json EXCLUDE_FROM_ALL)
+if(onnxruntime_USE_SUBMODULE)
+    add_subdirectory(external/json EXCLUDE_FROM_ALL)
+else()
+    FetchContent_Declare(
+      json
+      GIT_REPOSITORY https://github.com/nlohmann/json.git
+      GIT_TAG        db78ac1d7716f56fc9f1b030b715f872f93964e4
+    )
+    FetchContent_MakeAvailable(json)
+endif()
 
 if(onnxruntime_PREFER_SYSTEM_LIB)
   find_package(re2)
 endif()
 if(NOT TARGET re2::re2)
-  add_subdirectory(external/re2 EXCLUDE_FROM_ALL)
-  set_target_properties(re2 PROPERTIES FOLDER "External/re2")
-  set(RE2_INCLUDE_DIR ${REPO_ROOT}/cmake/external/re2)
+if(onnxruntime_USE_SUBMODULE)
+   add_subdirectory(external/re2 EXCLUDE_FROM_ALL)
+   set_target_properties(re2 PROPERTIES FOLDER "External/re2")
+else()
+    FetchContent_Declare(
+      re2
+      GIT_REPOSITORY https://github.com/google/re2.git
+      GIT_TAG        4244cd1cb492fa1d10986ec67f862964c073f844
+    )
+    FetchContent_MakeAvailable(re2)
+endif()  
 endif()
 
 
@@ -810,8 +912,16 @@ message(STATUS "CMAKE_SYSTEM_NAME = ${CMAKE_SYSTEM_NAME}")
 message(STATUS "CMAKE_OSX_ARCHITECTURES = ${CMAKE_OSX_ARCHITECTURES}")
 message(STATUS "IOS_ARCH = ${IOS_ARCH}")
 
-add_subdirectory(external/pytorch_cpuinfo EXCLUDE_FROM_ALL)
-
+if(onnxruntime_USE_SUBMODULE)
+   add_subdirectory(external/pytorch_cpuinfo EXCLUDE_FROM_ALL)
+else()
+    FetchContent_Declare(
+      pytorch_cpuinfo
+      GIT_REPOSITORY https://github.com/pytorch/cpuinfo.git
+      GIT_TAG        5916273f79a21551890fd3d56fc5375a78d1598d
+    )
+    FetchContent_MakeAvailable(pytorch_cpuinfo)
+endif()
 endif()
 # bounds checking behavior.
 # throw instead of calling terminate if there's a bounds checking violation.
@@ -833,7 +943,7 @@ include(eigen)
 #onnxruntime_EXTERNAL_LIBRARIES could contain onnx, onnx_proto,libprotobuf, cuda/cudnn,
 # dnnl/mklml, onnxruntime_codegen_tvm, tvm, nnvm_compiler and pthread
 # pthread is always at the last
-set(onnxruntime_EXTERNAL_LIBRARIES onnx onnx_proto ${PROTOBUF_LIB} re2::re2)
+set(onnxruntime_EXTERNAL_LIBRARIES onnx onnx_proto ${PROTOBUF_LIB} re2::re2 Boost::mp11)
 
 
 set(onnxruntime_LINK_DIRS )
@@ -1055,7 +1165,7 @@ function(onnxruntime_set_compile_flags target_name)
       if(APPLE AND NOT ${CMAKE_SYSTEM_NAME} MATCHES "iOSCross" AND NOT ${CMAKE_SYSTEM_NAME} MATCHES "iOS")
         target_compile_definitions(${target_name} PUBLIC -Doptional_CONFIG_SELECT_OPTIONAL=optional_OPTIONAL_NONSTD)
       endif()
-      target_include_directories(${target_name} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/external/nsync/public")
+      target_include_directories(${target_name} PRIVATE ${nsync_SOURCE_DIR}/public)
     endif()
     foreach(ORT_FLAG ${ORT_PROVIDER_FLAGS})
       target_compile_definitions(${target_name} PRIVATE ${ORT_FLAG})
@@ -1127,8 +1237,10 @@ endfunction()
 
 function(onnxruntime_add_include_to_target dst_target)
     foreach(src_target ${ARGN})
+	  if(TARGET ${src_target})
         target_include_directories(${dst_target} PRIVATE $<TARGET_PROPERTY:${src_target},INTERFACE_INCLUDE_DIRECTORIES>)
         target_compile_definitions(${dst_target} PRIVATE $<TARGET_PROPERTY:${src_target},INTERFACE_COMPILE_DEFINITIONS>)
+	  endif()
     endforeach()
 endfunction()
 
@@ -1260,7 +1372,7 @@ if (onnxruntime_ENABLE_EXTENSION_CUSTOM_OPS)
   set(OCOS_ENABLE_SPM_TOKENIZER OFF CACHE INTERNAL "")
   add_subdirectory(external/onnxruntime-extensions EXCLUDE_FROM_ALL)
   # target library or executable are defined in CMakeLists.txt of onnxruntime-extensions
-  target_include_directories(ocos_operators PRIVATE ${RE2_INCLUDE_DIR} external/json/include)
+  target_include_directories(ocos_operators PRIVATE re2::re2 ${json_SOURCE_DIR}/include)
   target_include_directories(ortcustomops PUBLIC external/onnxruntime-extensions/shared)
 endif()
 
@@ -1281,7 +1393,17 @@ else()
 endif()
 
 if (NOT onnxruntime_MINIMAL_BUILD)
-  add_subdirectory(external/onnx EXCLUDE_FROM_ALL)
+if(onnxruntime_USE_SUBMODULE)
+   add_subdirectory(external/onnx EXCLUDE_FROM_ALL)
+else()
+    FetchContent_Declare(
+      onnx
+      GIT_REPOSITORY https://github.com/onnx/onnx.git
+      GIT_TAG        d75fb0502c9d8fef817d82c15223b4aaae8e8b6e
+    )
+    FetchContent_MakeAvailable(onnx)
+endif()
+  
 else()
   include(onnx_minimal)
 endif()
@@ -1315,7 +1437,17 @@ set(FLATBUFFERS_INSTALL OFF CACHE BOOL "FLATBUFFERS_INSTALL" FORCE)
 set(FLATBUFFERS_BUILD_FLATHASH OFF CACHE BOOL "FLATBUFFERS_BUILD_FLATHASH" FORCE)
 set(FLATBUFFERS_BUILD_FLATLIB ON CACHE BOOL "FLATBUFFERS_BUILD_FLATLIB" FORCE)
 set_msvc_c_cpp_compiler_warning_level(4)
-add_subdirectory(external/flatbuffers EXCLUDE_FROM_ALL)
+if(onnxruntime_USE_SUBMODULE)
+  add_subdirectory(external/flatbuffers EXCLUDE_FROM_ALL)
+else()
+    FetchContent_Declare(
+      flatbuffers
+      GIT_REPOSITORY https://github.com/google/flatbuffers.git
+      GIT_TAG        6df40a2471737b27271bdd9b900ab5f3aec746c7
+    )
+    FetchContent_MakeAvailable(flatbuffers)
+endif()
+
 set_msvc_c_cpp_compiler_warning_level(3)
 list(APPEND onnxruntime_EXTERNAL_DEPENDENCIES flatbuffers)
 list(APPEND onnxruntime_EXTERNAL_LIBRARIES flatbuffers)

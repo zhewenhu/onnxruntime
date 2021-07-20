@@ -434,7 +434,7 @@ endif()
 if(onnxruntime_USE_FEATURIZERS)
    list(APPEND onnxruntime_test_providers_dependencies onnxruntime_featurizers)
    list(APPEND onnxruntime_test_providers_libs onnxruntime_featurizers re2)
-   list(APPEND TEST_INC_DIR ${RE2_INCLUDE_DIR})
+   list(APPEND TEST_INC_DIR re2::re2)
 endif()
 
 if(onnxruntime_USE_DML)
@@ -560,7 +560,7 @@ if(MSVC)
 else()
   target_compile_definitions(onnxruntime_test_utils PUBLIC -DNSYNC_ATOMIC_CPP11)
   target_include_directories(onnxruntime_test_utils PRIVATE ${CMAKE_CURRENT_BINARY_DIR} ${ONNXRUNTIME_ROOT}
-          "${CMAKE_CURRENT_SOURCE_DIR}/external/nsync/public")
+          ${nsync_SOURCE_DIR}/public)
 endif()
 if (onnxruntime_USE_NCCL)
   target_include_directories(onnxruntime_test_utils PRIVATE ${NCCL_INCLUDE_DIRS})
@@ -590,7 +590,7 @@ if(MSVC)
 else()
   target_compile_definitions(onnx_test_runner_common PUBLIC -DNSYNC_ATOMIC_CPP11)
   target_include_directories(onnx_test_runner_common PRIVATE ${CMAKE_CURRENT_BINARY_DIR} ${ONNXRUNTIME_ROOT}
-          "${CMAKE_CURRENT_SOURCE_DIR}/external/nsync/public")
+          ${nsync_SOURCE_DIR}/public)
 endif()
 if (MSVC AND NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
   #TODO: fix the warnings, they are dangerous
@@ -600,7 +600,7 @@ onnxruntime_add_include_to_target(onnx_test_runner_common onnxruntime_common onn
         onnxruntime_test_utils onnx onnx_proto re2::re2 flatbuffers)
 
 add_dependencies(onnx_test_runner_common onnx_test_data_proto ${onnxruntime_EXTERNAL_DEPENDENCIES})
-target_include_directories(onnx_test_runner_common PRIVATE ${eigen_INCLUDE_DIRS} ${RE2_INCLUDE_DIR}
+target_include_directories(onnx_test_runner_common PRIVATE ${eigen_INCLUDE_DIRS}
         ${CMAKE_CURRENT_BINARY_DIR} ${ONNXRUNTIME_ROOT})
 
 set_target_properties(onnx_test_runner_common PROPERTIES FOLDER "ONNXRuntimeTest")
@@ -725,7 +725,11 @@ add_dependencies(onnx_test_data_proto onnx_proto ${onnxruntime_EXTERNAL_DEPENDEN
 onnxruntime_add_include_to_target(onnx_test_data_proto onnx_proto)
 target_include_directories(onnx_test_data_proto PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 set_target_properties(onnx_test_data_proto PROPERTIES FOLDER "ONNXRuntimeTest")
-onnxruntime_protobuf_generate(APPEND_PATH IMPORT_DIRS external/onnx TARGET onnx_test_data_proto)
+if(onnxruntime_USE_SUBMODULE)
+  onnxruntime_protobuf_generate(APPEND_PATH IMPORT_DIRS external/onnx TARGET onnx_test_data_proto)
+else()
+  onnxruntime_protobuf_generate(APPEND_PATH IMPORT_DIRS ${onnx_SOURCE_DIR} TARGET onnx_test_data_proto)
+endif()
 
 if (NOT onnxruntime_ENABLE_TRAINING_TORCH_INTEROP)
   #
