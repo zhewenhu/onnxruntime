@@ -1,6 +1,6 @@
 jobs:
 - job: build_onnxruntime_web_browserstack
-  pool: Win-CPU-2019
+  pool: Onnxruntime-BrowserStack-for-Web
   timeoutInMinutes: 30
   workspace:
     clean: all
@@ -115,59 +115,6 @@ jobs:
       npm test -- suite0 --env=edge --wasm-init-timeout=30000 --file-cache
     workingDirectory: '$(Build.SourcesDirectory)\js\web'
     displayName: 'npm test (Suite0, Edge)'
-  - task: mspremier.PostBuildCleanup.PostBuildCleanup-task.PostBuildCleanup@3
-    displayName: 'Clean Agent Directories'
-    condition: always()
-
-- job: build_onnxruntime_web_macos
-  pool:
-    vmImage: macOS-latest
-  timeoutInMinutes: 30
-  workspace:
-    clean: all
-  steps:
-  - checkout: self
-    submodules: false
-  - script: |
-     git submodule sync -- cmake/external/onnx
-     git submodule update --init -- cmake/external/onnx
-    workingDirectory: '$(Build.SourcesDirectory)'
-    displayName: 'Checkout submodule onnx'
-  - task: NodeTool@0
-    inputs:
-      versionSpec: '14.x'
-  - script: |
-     npm ci
-    workingDirectory: '$(Build.SourcesDirectory)/js'
-    displayName: 'npm ci /js/'
-  - script: |
-     npm ci
-    workingDirectory: '$(Build.SourcesDirectory)/js/common'
-    displayName: 'npm ci /js/common/'
-  - script: |
-     npm ci
-    workingDirectory: '$(Build.SourcesDirectory)/js/web'
-    displayName: 'npm ci /js/web/'
-  - script: |
-     npm run pull:wasm
-    workingDirectory: '$(Build.SourcesDirectory)/js/web'
-    displayName: 'Binplace js files'
-  - script: |
-     npm run build
-    workingDirectory: '$(Build.SourcesDirectory)/js/web'
-    displayName: 'Build ort-web'
-  - script: |
-      npm test -- suite1 --wasm-init-timeout=30000 --file-cache --backend=wasm
-    workingDirectory: '$(Build.SourcesDirectory)/js/web'
-    displayName: 'npm test (Suite1, Chrome, WebAssembly)'
-  - script: |
-      npm test -- suite1 --env=safari --wasm-init-timeout=30000 --file-cache --backend=wasm
-    workingDirectory: '$(Build.SourcesDirectory)/js/web'
-    displayName: 'npm test (Suite1, Safari, WebAssembly)'
-  - script: |
-      npm test -- suite1 --env=edge --wasm-init-timeout=30000 --file-cache --backend=wasm
-    workingDirectory: '$(Build.SourcesDirectory)/js/web'
-    displayName: 'npm test (Suite1, Edge, WebAssembly)'
   - task: mspremier.PostBuildCleanup.PostBuildCleanup-task.PostBuildCleanup@3
     displayName: 'Clean Agent Directories'
     condition: always()
