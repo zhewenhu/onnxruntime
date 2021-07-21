@@ -91,14 +91,16 @@ GemmU8X8KernelFrame ENDS
 
 MultiplyAccumulateRowU8S8Avx2 MACRO ColumnCount, Vec1Reg, Vec2Reg
 
-        vpmaddubsw ymm3,ymm2,ymm0
-        vpmaddwd ymm3,ymm3,ymm12
 IF ColumnCount EQ 16
-        vpaddd  Vec1Reg,Vec1Reg,ymm3
+        vpmaddubsw ymm3,ymm2,ymm0
         vpmaddubsw ymm2,ymm2,ymm1
+        vpmaddwd ymm3,ymm3,ymm12
         vpmaddwd ymm2,ymm2,ymm12
+        vpaddd  Vec1Reg,Vec1Reg,ymm3
         vpaddd  Vec2Reg,Vec2Reg,ymm2
 ELSE
+        vpmaddubsw ymm3,ymm2,ymm0
+        vpmaddwd ymm3,ymm3,ymm12
         vpaddd  Vec2Reg,Vec2Reg,ymm3
 ENDIF
 
@@ -149,7 +151,45 @@ IF ColumnCount EQ 16
 ELSE
         vpaddd  ymm5,ymm5,ymm3
 ENDIF
+
 ELSE
+
+IF (RowCount EQ 4) AND (ColumnCount EQ 16)
+        vmovdqu ymm0,YMMWORD PTR [rdx+VectorOffset]
+        vmovdqu ymm1,YMMWORD PTR [rdx+VectorOffset+32]
+
+        vpbroadcastd ymm2,DWORD PTR [rcx+BroadcastOffset]
+        vpbroadcastd ymm14,DWORD PTR [rcx+r9+BroadcastOffset]
+        vpmaddubsw ymm3,ymm2,ymm0
+        vpmaddubsw ymm15,ymm14,ymm0
+        vpmaddubsw ymm2,ymm2,ymm1
+        vpmaddubsw ymm14,ymm14,ymm1
+        vpmaddwd ymm3,ymm3,ymm12
+        vpmaddwd ymm15,ymm15,ymm12
+        vpmaddwd ymm2,ymm2,ymm12
+        vpmaddwd ymm14,ymm14,ymm12
+        vpaddd  ymm4,ymm4,ymm3
+        vpaddd  ymm5,ymm5,ymm2
+        vpaddd  ymm6,ymm6,ymm15
+        vpaddd  ymm7,ymm7,ymm14
+
+        vpbroadcastd ymm2,DWORD PTR [rcx+r9*2+BroadcastOffset]
+        vpbroadcastd ymm14,DWORD PTR [rbx+BroadcastOffset]
+        vpmaddubsw ymm3,ymm2,ymm0
+        vpmaddubsw ymm15,ymm14,ymm0
+        vpmaddubsw ymm2,ymm2,ymm1
+        vpmaddubsw ymm14,ymm14,ymm1
+        vpmaddwd ymm3,ymm3,ymm12
+        vpmaddwd ymm2,ymm2,ymm12
+        vpmaddwd ymm15,ymm15,ymm12
+        vpmaddwd ymm14,ymm14,ymm12
+        vpaddd  ymm8,ymm8,ymm3
+        vpaddd  ymm9,ymm9,ymm2
+        vpaddd  ymm10,ymm10,ymm15
+        vpaddd  ymm11,ymm11,ymm14
+
+ELSE
+
         vmovdqu ymm0,YMMWORD PTR [rdx+VectorOffset]
         EmitIfCountGE ColumnCount, 16, <vmovdqu ymm1,YMMWORD PTR [rdx+VectorOffset+32]>
         EmitIfCountGE RowCount, 1, <vpbroadcastd ymm2,DWORD PTR [rcx+BroadcastOffset]>
@@ -160,6 +200,7 @@ ELSE
         EmitIfCountGE RowCount, 3, <MultiplyAccumulateRowU8S8Avx2 ColumnCount, ymm8, ymm9>
         EmitIfCountGE RowCount, 4, <vpbroadcastd ymm2,DWORD PTR [rbx+BroadcastOffset]>
         EmitIfCountGE RowCount, 4, <MultiplyAccumulateRowU8S8Avx2 ColumnCount, ymm10, ymm11>
+ENDIF
 ENDIF
 
         ENDM
