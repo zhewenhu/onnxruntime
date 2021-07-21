@@ -136,11 +136,6 @@ install(DIRECTORY ${PROJECT_SOURCE_DIR}/../include/onnxruntime/core/common  DEST
 set_target_properties(onnxruntime_common PROPERTIES LINKER_LANGUAGE CXX)
 set_target_properties(onnxruntime_common PROPERTIES FOLDER "ONNXRuntime")
 
-if(WIN32)
-    # Add Code Analysis properties to enable C++ Core checks. Have to do it via a props file include.
-    set_target_properties(onnxruntime_common PROPERTIES VS_USER_PROPS ${PROJECT_SOURCE_DIR}/EnableVisualStudioCodeAnalysis.props)
-endif()
-
 # check if we need to link against librt on Linux
 include(CheckLibraryExists)
 include(CheckFunctionExists)
@@ -232,9 +227,7 @@ if (ARM64 OR ARM OR X86 OR X64 OR X86_64)
     # Link cpuinfo
     # Using it mainly in ARM with Android.
     # Its functionality in detecting x86 cpu features are lacking, so is support for Windows.
-
-    target_include_directories(onnxruntime_common PRIVATE ${PYTORCH_CPUINFO_INCLUDE_DIR})
-    target_link_libraries(onnxruntime_common cpuinfo)
+    onnxruntime_add_include_to_target(onnxruntime_common cpuinfo)
     list(APPEND onnxruntime_EXTERNAL_LIBRARIES cpuinfo clog)
   endif()
 endif()
