@@ -550,7 +550,9 @@ file(GLOB onnxruntime_test_framework_src CONFIGURE_DEPENDS
   ${onnxruntime_test_framework_src_patterns}
   )
 
-#without auto initialize onnxruntime
+#This is a small wrapper library that shouldn't use any onnxruntime internal symbols(except onnxruntime_common). 
+#Because it could dynamically link to onnxruntime. Otherwise you will have two copies of onnxruntime in the same 
+#process and you won't know which one you are testing.
 onnxruntime_add_static_library(onnxruntime_test_utils ${onnxruntime_test_utils_src})
 if(MSVC)
   target_compile_options(onnxruntime_test_utils PRIVATE "$<$<COMPILE_LANGUAGE:CUDA>:SHELL:--compiler-options /utf-8>"
@@ -565,7 +567,7 @@ endif()
 if (onnxruntime_USE_NCCL)
   target_include_directories(onnxruntime_test_utils PRIVATE ${NCCL_INCLUDE_DIRS})
 endif()
-onnxruntime_add_include_to_target(onnxruntime_test_utils onnxruntime_common onnxruntime_framework onnxruntime_session GTest::gtest GTest::gmock onnx onnx_proto flatbuffers)
+onnxruntime_add_include_to_target(onnxruntime_test_utils onnxruntime_common GTest::gtest GTest::gmock onnx onnx_proto flatbuffers nlohmann_json::nlohmann_json Boost::mp11)
 
 
 if (onnxruntime_USE_DML)
@@ -597,7 +599,7 @@ if (MSVC AND NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
   target_compile_options(onnx_test_runner_common PRIVATE "/wd4244")
 endif()
 onnxruntime_add_include_to_target(onnx_test_runner_common onnxruntime_common onnxruntime_framework
-        onnxruntime_test_utils onnx onnx_proto re2::re2 flatbuffers)
+        onnxruntime_test_utils onnx onnx_proto re2::re2 flatbuffers Boost::mp11 safeint_interface)
 
 add_dependencies(onnx_test_runner_common onnx_test_data_proto ${onnxruntime_EXTERNAL_DEPENDENCIES})
 target_include_directories(onnx_test_runner_common PRIVATE ${eigen_INCLUDE_DIRS}
@@ -662,8 +664,8 @@ AddTest(
   TARGET onnxruntime_test_all
   SOURCES ${all_tests} ${onnxruntime_unittest_main_src}
   LIBS
-    onnx_test_runner_common ${onnxruntime_test_providers_libs} ${onnxruntime_test_common_libs} re2::re2
-    onnx_test_data_proto nlohmann_json::nlohmann_json
+    onnx_test_runner_common ${onnxruntime_test_providers_libs} ${onnxruntime_test_common_libs} 
+    onnx_test_data_proto
   DEPENDS ${all_dependencies}
 )
 
@@ -948,9 +950,11 @@ if (NOT onnxruntime_ENABLE_TRAINING_TORCH_INTEROP)
   endif()
 
   if (onnxruntime_BUILD_SHARED_LIB)
+    #It will dynamically link to onnxruntime. So please don't add onxruntime_graph/onxruntime_framework/... here.
+    #onnxruntime_common is kind of ok because it is thin, tiny and totally stateless. 
     set(onnxruntime_perf_test_libs
             onnx_test_runner_common onnxruntime_test_utils onnxruntime_common
-            onnxruntime onnxruntime_flatbuffers  onnx_test_data_proto
+            onnxruntime onnxruntime_flatbuffers onnx_test_data_proto
             ${onnxruntime_EXTERNAL_LIBRARIES}
             ${GETOPT_LIB_WIDE} ${SYS_PATH_LIB} ${CMAKE_DL_LIBS})
     if(NOT WIN32)
@@ -1089,24 +1093,27 @@ if (NOT onnxruntime_ENABLE_TRAINING_TORCH_INTEROP)
   endif()
   target_include_directories(onnxruntime_mlas_test PRIVATE ${ONNXRUNTIME_ROOT}/core/mlas/inc ${ONNXRUNTIME_ROOT}
           ${CMAKE_CURRENT_BINARY_DIR})
-  set(onnxruntime_mlas_test_libs GTest::gtest GTest::gmock onnxruntime_mlas onnxruntime_common)
+  target_link_libraries(onnxruntime_mlas_test PRIVATE GTest::gtest GTest::gmock onnxruntime_mlas onnxruntime_common)
+  if (X86 OR X64 OR X86_64 AND NOT MSVC)
+    target_link_libraries(onnxruntime_mlas_test PRIVATE cpuinfo clog)
+  endif()
   if(NOT WIN32)
-    list(APPEND onnxruntime_mlas_test_libs nsync_cpp ${CMAKE_DL_LIBS})
+    target_link_libraries(onnxruntime_mlas_test PRIVATE nsync_cpp ${CMAKE_DL_LIBS})
   endif()
   if (CMAKE_SYSTEM_NAME STREQUAL "Android")
-    list(APPEND onnxruntime_mlas_test_libs ${android_shared_libs})
+    target_link_libraries(onnxruntime_mlas_test PRIVATE ${android_shared_libs})
   endif()
   if (onnxruntime_USE_OPENMP)
-    list(APPEND onnxruntime_mlas_test_libs OpenMP::OpenMP_CXX)
-  endif()
-  list(APPEND onnxruntime_mlas_test_libs Threads::Threads)
-  target_link_libraries(onnxruntime_mlas_test PRIVATE ${onnxruntime_mlas_test_libs})
-  if(WIN32)
-    target_link_libraries(onnxruntime_mlas_test PRIVATE debug Dbghelp Advapi32)
+    target_link_libraries(onnxruntime_mlas_test PRIVATE OpenMP::OpenMP_CXX)
   endif()
   if (onnxruntime_LINK_LIBATOMIC)
     target_link_libraries(onnxruntime_mlas_test PRIVATE atomic)
   endif()
+  target_link_libraries(onnxruntime_mlas_test PRIVATE Threads::Threads)
+  if(WIN32)
+    target_link_libraries(onnxruntime_mlas_test PRIVATE debug Dbghelp Advapi32)
+  endif()
+
   set_target_properties(onnxruntime_mlas_test PROPERTIES FOLDER "ONNXRuntimeTest")
   if (onnxruntime_BUILD_WEBASSEMBLY)
     if (onnxruntime_ENABLE_WEBASSEMBLY_THREADS)
