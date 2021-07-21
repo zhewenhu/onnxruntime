@@ -48,6 +48,7 @@ jobs:
         rm -rf $(Build.BinariesDirectory)/Release/onnxruntime $(Build.BinariesDirectory)/Release/pybind11
         rm -f $(Build.BinariesDirectory)/Release/models
         cd $(Build.BinariesDirectory)/Release
+        rm -rf build CMakeFiles CMakeCache.txt external
         find . -type d -name \*.dir -exec rm -rf {} \;
         find -executable -type f > $(Build.BinariesDirectory)/Release/perms.txt
 
