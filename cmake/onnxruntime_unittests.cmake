@@ -1181,7 +1181,7 @@ if (NOT onnxruntime_ENABLE_TRAINING_TORCH_INTEROP)
     onnxruntime_add_shared_library_module(test_execution_provider ${test_execution_provider_srcs})
     add_dependencies(test_execution_provider onnxruntime_providers_shared)
     target_link_libraries(test_execution_provider PRIVATE onnxruntime_providers_shared)
-    #TODO: why this one depends on Boost? Must be something wrong.
+    #TODO: why this one depends on Boost? Could be something wrong.
     onnxruntime_add_include_to_target(test_execution_provider Boost::mp11)
     target_include_directories(test_execution_provider PRIVATE $<TARGET_PROPERTY:onnx,INTERFACE_INCLUDE_DIRECTORIES>)
     target_include_directories(test_execution_provider PRIVATE $<TARGET_PROPERTY:onnxruntime_common,INTERFACE_INCLUDE_DIRECTORIES>)
