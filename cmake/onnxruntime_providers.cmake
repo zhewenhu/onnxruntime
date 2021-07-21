@@ -5,6 +5,8 @@ file(GLOB_RECURSE onnxruntime_providers_srcs CONFIGURE_DEPENDS
   "${ONNXRUNTIME_ROOT}/core/providers/cpu/*.h"
   "${ONNXRUNTIME_ROOT}/core/providers/cpu/*.cc"
 )
+set(LSTM_HEHE_SRC ${ONNXRUNTIME_ROOT}/core/providers/cpu/rnn/rnn_helpers.cc)
+set_source_files_properties(${LSTM_HEHE_SRC} PROPERTIES COMPILE_FLAGS "-mavx2 -mfma")
 
 if(onnxruntime_DISABLE_ML_OPS)
   list(FILTER onnxruntime_providers_srcs EXCLUDE REGEX ".*/ml/.*")
