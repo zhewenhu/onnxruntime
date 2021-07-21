@@ -6,10 +6,10 @@ add_library(wil INTERFACE)
        target_include_directories(wil INTERFACE external/wil/include/)
     else()
     FetchContent_Declare(
-      wil
+      microsoft_wil
       GIT_REPOSITORY https://github.com/microsoft/wil.git
       GIT_TAG        e8c599bca6c56c44b6730ad93f6abbc9ecd60fc1
     )
-    FetchContent_Populate(wil)
-    target_include_directories(wil INTERFACE ${wil_SOURCE_DIR}/include)
+    FetchContent_Populate(microsoft_wil)
+    target_include_directories(wil INTERFACE ${microsoft_wil_SOURCE_DIR}/include)
 endif()

@@ -913,15 +913,15 @@ message(STATUS "CMAKE_OSX_ARCHITECTURES = ${CMAKE_OSX_ARCHITECTURES}")
 message(STATUS "IOS_ARCH = ${IOS_ARCH}")
 
 if(onnxruntime_USE_SUBMODULE)
-   add_subdirectory(external/pytorch_cpuinfo EXCLUDE_FROM_ALL)
-else()
-    FetchContent_Declare(
-      pytorch_cpuinfo
-      GIT_REPOSITORY https://github.com/pytorch/cpuinfo.git
-      GIT_TAG        5916273f79a21551890fd3d56fc5375a78d1598d
-    )
-    FetchContent_MakeAvailable(pytorch_cpuinfo)
-endif()
+    add_subdirectory(external/pytorch_cpuinfo EXCLUDE_FROM_ALL)
+    else()
+        FetchContent_Declare(
+          pytorch_cpuinfo
+          GIT_REPOSITORY https://github.com/pytorch/cpuinfo.git
+          GIT_TAG        5916273f79a21551890fd3d56fc5375a78d1598d
+        )
+        FetchContent_MakeAvailable(pytorch_cpuinfo)
+    endif()
 endif()
 # bounds checking behavior.
 # throw instead of calling terminate if there's a bounds checking violation.
@@ -939,6 +939,9 @@ set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -DGSL_UNEN
 set(CMAKE_CXX_FLAGS_MINSIZEREL "${CMAKE_CXX_FLAGS_MINSIZEREL} -DGSL_UNENFORCED_ON_CONTRACT_VIOLATION")
 
 include(eigen)
+include(wil.cmake)
+
+# External dependencies end.
 
 #onnxruntime_EXTERNAL_LIBRARIES could contain onnx, onnx_proto,libprotobuf, cuda/cudnn,
 # dnnl/mklml, onnxruntime_codegen_tvm, tvm, nnvm_compiler and pthread
@@ -1828,7 +1831,6 @@ set(VERSION_MINOR_PART   0 CACHE STRING "Second part of numeric file/product ver
 set(VERSION_BUILD_PART       0 CACHE STRING "Third part of numeric file/product version.")
 set(VERSION_PRIVATE_PART     0 CACHE STRING "Fourth part of numeric file/product version.")
 set(VERSION_STRING       "Internal Build" CACHE STRING "String representation of file/product version.")
-include(wil.cmake)
 
 if (onnxruntime_USE_WINML)
   # WINML uses and depends on the shared lib.  Note:  You can build WINML without DML and you will get a
