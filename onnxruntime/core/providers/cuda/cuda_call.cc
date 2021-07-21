@@ -107,10 +107,11 @@ bool CudaCall(ERRTYPE retCode, const char* exprString, const char* libName, ERRT
       cudaGetDevice(&currentCudaDevice);
       cudaGetLastError();  // clear last CUDA error
       static char str[1024];
-      snprintf(str, 1024, "%s failure %d: %s ; GPU=%d ; hostname=%s ; expr=%s; %s",
+      snprintf(str, 1023, "%s failure %d: %s ; GPU=%d ; hostname=%s ; expr=%s; %s",
                libName, (int)retCode, CudaErrString(retCode), currentCudaDevice,
                hostname,
                exprString, msg);
+      str[1023] = '\0';
       if (THRW) {
         // throw an exception with the error info
         ORT_THROW(str);
