@@ -6,7 +6,7 @@
 from . import _utils, _io, _logger
 from ._graph_execution_manager import GraphExecutionManager, _RunStateInfo
 from ._execution_agent import TrainingAgent
-from ._fallback import FallbackBaseException, _FallbackPolicy
+from ._fallback import ORTModuleFallbackException, _FallbackPolicy
 
 from onnxruntime.capi import _pybind_state as C
 from onnxruntime.capi.onnxruntime_inference_collection import get_ort_device_type
@@ -215,7 +215,7 @@ class TrainingManager(GraphExecutionManager):
                                                     inputs,
                                                     kwargs,
                                                     self._device)))
-        except FallbackBaseException as e:
+        except ORTModuleFallbackException as e:
             # Exceptions subject to fallback are handled here
             self._fallback_manager._handle_exception(e)
         except Exception as e:
