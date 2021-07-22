@@ -816,7 +816,7 @@ stages:
         displayName: 'Build'
         inputs:
           solution: '$(Build.BinariesDirectory)\RelWithDebInfo\onnxruntime.sln'
-          platform: $(MsbuildPlatform)
+          platform: x64
           configuration: RelWithDebInfo
           msbuildArchitecture: $(buildArch)
           maximumCpuCount: true
