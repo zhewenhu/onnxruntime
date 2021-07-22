@@ -216,10 +216,10 @@ class TrainingManager(GraphExecutionManager):
                                                     kwargs,
                                                     self._device)))
         except FallbackBaseException as e:
-            # Exceptions subject to fallback get here
+            # Exceptions subject to fallback are handled here
             self._fallback_manager._handle_exception(e)
         except Exception as e:
-            # Last chance for fallback. FALLBACK_FORCE_TORCH_FORWARD is the only one possible here
+            # Catch-all FALLBACK_FORCE_TORCH_FORWARD fallback is handled here
             self._fallback_manager._handle_exception(e, _FallbackPolicy.FALLBACK_FORCE_TORCH_FORWARD)
 
         # Fallback to PyTorch due to failures *during* forward(),
