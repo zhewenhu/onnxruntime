@@ -693,6 +693,13 @@ stages:
         workingDirectory: '$(Build.ArtifactStagingDirectory)'
         displayName: 'Rename file extension for codesign validation'
 
+      - task: securedevelopmentteam.vss-secure-development-tools.build-task-uploadtotsa.TSAUpload@2
+        displayName: 'TSA upload to Codebase: TSATest_1ES Stamp: TSA'
+        inputs:
+          GdnPublishTsaOnboard: true
+          GdnPublishTsaConfigFile: '$(Build.sourcesDirectory)\.gdn\.gdntsa2'
+        continueOnError: true
+
       - template: component-governance-component-detection-steps.yml
         parameters:
           condition: 'succeeded'
@@ -864,11 +871,11 @@ stages:
         workingDirectory: '$(Build.ArtifactStagingDirectory)'
         displayName: 'Rename file extension for codesign validation'
 
-      - task: securedevelopmentteam.vss-secure-development-tools.build-task-publishsecurityanalysislogs.PublishSecurityAnalysisLogs@2
-        displayName: 'Publish Security Analysis Logs'
-        condition: and (succeeded(), eq(variables['PythonVersion'], '3.7'))
+      - task: securedevelopmentteam.vss-secure-development-tools.build-task-uploadtotsa.TSAUpload@2
+        displayName: 'TSA upload to Codebase: TSATest_1ES Stamp: TSA'
         inputs:
-          ArtifactName: CodeAnalysisLogs_windows_gpu_$(EP_NAME)_$(PythonVersion)
+          GdnPublishTsaOnboard: true
+          GdnPublishTsaConfigFile: '$(Build.sourcesDirectory)\.gdn\.gdntsa'
         continueOnError: true
 
       - template: component-governance-component-detection-steps.yml
