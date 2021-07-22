@@ -1,6 +1,6 @@
 {
     "codebaseName": "onnxruntime_master",
-    "instanceUrl": "msdata.visualstudio.com",
+    "instanceUrl": "https://msdata.visualstudio.com",
     "projectName": "Vienna",
     "notificationAliases": [
         "chasun@microsoft.com"
