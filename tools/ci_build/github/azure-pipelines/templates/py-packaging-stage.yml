@@ -962,8 +962,8 @@ stages:
 
 
   - ${{ if eq(parameters.enable_linux_arm, true) }}:
-    - job: Linux_ARM_py_Wheels
-      timeoutInMinutes: 120
+    - job: Linux_py_Wheels
+      timeoutInMinutes: 180
       workspace:
         clean: all
       pool: 'Linux-CPU'
