@@ -637,7 +637,7 @@ stages:
           msbuildArgs: $(MsbuildArguments)
           msbuildArchitecture: $(buildArch)
           maximumCpuCount: true
-          logProjectEvents: false
+          logProjectEvents: true
           workingFolder: '$(Build.BinariesDirectory)\$(BuildConfig)'
           createLogFile: true
 
@@ -797,8 +797,9 @@ stages:
 
       - template: set-nightly-build-option-variable-step.yml
 
+
       - task: PythonScript@0
-        displayName: 'build'
+        displayName: 'Generate cmake config'
         inputs:
           scriptPath: '$(Build.SourcesDirectory)\tools\ci_build\build.py'
           arguments: >
@@ -809,9 +810,22 @@ stages:
             --enable_pybind
             --enable_onnx_tests
             ${{ parameters.build_py_parameters }}
-            --parallel
+            --parallel --update
             $(TelemetryOption) $(EpBuildFlags)
           workingDirectory: '$(Build.BinariesDirectory)'
+
+      - task: VSBuild@1
+        displayName: 'Build'
+        inputs:
+          solution: '$(Build.BinariesDirectory)\$(BuildConfig)\onnxruntime.sln'
+          platform: $(MsbuildPlatform)
+          configuration: $(BuildConfig)
+          msbuildArgs: $(MsbuildArguments)
+          msbuildArchitecture: $(buildArch)
+          maximumCpuCount: true
+          logProjectEvents: true
+          workingFolder: '$(Build.BinariesDirectory)\$(BuildConfig)'
+          createLogFile: true
 
       # Esrp signing
       - template: win-esrp-dll.yml
