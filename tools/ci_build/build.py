@@ -1858,7 +1858,6 @@ def generate_documentation(source_dir, build_dir, configs, validate):
 
 
 def main():
-    print("cwd: %s" % os.getcwd())
     args = parse_arguments()
     cmake_extra_defines = (args.cmake_extra_defines
                            if args.cmake_extra_defines else [])
