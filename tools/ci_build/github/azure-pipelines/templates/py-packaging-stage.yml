@@ -565,7 +565,6 @@ stages:
             MsbuildPlatform: Win32
             buildArch: x86
       variables:
-        MsbuildArguments: '-maxcpucount'
         OnnxRuntimeBuildDirectory: '$(Build.BinariesDirectory)'
         EnvSetupScript: setup_env.bat
         setVcvars: true
@@ -634,7 +633,6 @@ stages:
           solution: '$(Build.BinariesDirectory)\$(BuildConfig)\onnxruntime.sln'
           platform: $(MsbuildPlatform)
           configuration: $(BuildConfig)
-          msbuildArgs: $(MsbuildArguments)
           msbuildArchitecture: $(buildArch)
           maximumCpuCount: true
           logProjectEvents: true
@@ -820,7 +818,6 @@ stages:
           solution: '$(Build.BinariesDirectory)\$(BuildConfig)\onnxruntime.sln'
           platform: $(MsbuildPlatform)
           configuration: $(BuildConfig)
-          msbuildArgs: $(MsbuildArguments)
           msbuildArchitecture: $(buildArch)
           maximumCpuCount: true
           logProjectEvents: true
