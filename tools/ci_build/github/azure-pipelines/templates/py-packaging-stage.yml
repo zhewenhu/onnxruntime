@@ -695,6 +695,7 @@ stages:
 
       - task: securedevelopmentteam.vss-secure-development-tools.build-task-uploadtotsa.TSAUpload@2
         displayName: 'TSA upload'
+        condition: and (succeeded(), and(eq(variables['buildArch'], 'x64'), eq(variables['PythonVersion'], '3.7')))
         inputs:
           GdnPublishTsaOnboard: true
           GdnPublishTsaConfigFile: '$(Build.sourcesDirectory)\.gdn\.gdntsa'
@@ -873,6 +874,7 @@ stages:
 
       - task: securedevelopmentteam.vss-secure-development-tools.build-task-uploadtotsa.TSAUpload@2
         displayName: 'TSA upload'
+        condition: and (succeeded(), eq(variables['PythonVersion'], '3.7'))
         inputs:
           GdnPublishTsaOnboard: true
           GdnPublishTsaConfigFile: '$(Build.sourcesDirectory)\.gdn\.gdntsa'
