@@ -791,8 +791,10 @@ endif()
 # Adding pytorch CPU info library
 # TODO  do we have to add target_include_directories to each project that uses this?
 message(STATUS "CMAKE_SYSTEM_NAME = ${CMAKE_SYSTEM_NAME}")
-if((CMAKE_SYSTEM_NAME STREQUAL "WindowsStore") OR MSVC AND (( CMAKE_SYSTEM_PROCESSOR  MATCHES "^(ARM.*|arm.*)$" ) OR (CMAKE_GENERATOR_PLATFORM  MATCHES "^(ARM.*|arm.*)$" ) ))
-  # cpuinfo fail to compile with Windows store or windows arm.
+if (CMAKE_SYSTEM_NAME STREQUAL "WindowsStore")
+  # cpuinfo fail to compile with Windows Store.
+elseif(MSVC AND (( CMAKE_SYSTEM_PROCESSOR  MATCHES "^(ARM.*|arm.*)$" ) OR (CMAKE_GENERATOR_PLATFORM  MATCHES "^(ARM.*|arm.*)$" ) ))
+  # cpuinfo fail to compile with Windows arm.
 else()
   set(PYTORCH_CPUINFO_DIR external/pytorch_cpuinfo)
   set(PYTORCH_CPUINFO_INCLUDE_DIR ${PYTORCH_CPUINFO_DIR}/include)
@@ -807,6 +809,7 @@ else()
   endif()
 
   add_subdirectory(external/pytorch_cpuinfo EXCLUDE_FROM_ALL)
+  message(STATUS "cpuinfo library included in the build!")
 
 endif()
 # bounds checking behavior.
