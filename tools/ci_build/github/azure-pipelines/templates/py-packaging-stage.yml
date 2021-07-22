@@ -694,10 +694,10 @@ stages:
         displayName: 'Rename file extension for codesign validation'
 
       - task: securedevelopmentteam.vss-secure-development-tools.build-task-uploadtotsa.TSAUpload@2
-        displayName: 'TSA upload to Codebase: TSATest_1ES Stamp: TSA'
+        displayName: 'TSA upload'
         inputs:
           GdnPublishTsaOnboard: true
-          GdnPublishTsaConfigFile: '$(Build.sourcesDirectory)\.gdn\.gdntsa2'
+          GdnPublishTsaConfigFile: '$(Build.sourcesDirectory)\.gdn\.gdntsa'
         continueOnError: true
 
       - template: component-governance-component-detection-steps.yml
@@ -872,7 +872,7 @@ stages:
         displayName: 'Rename file extension for codesign validation'
 
       - task: securedevelopmentteam.vss-secure-development-tools.build-task-uploadtotsa.TSAUpload@2
-        displayName: 'TSA upload to Codebase: TSATest_1ES Stamp: TSA'
+        displayName: 'TSA upload'
         inputs:
           GdnPublishTsaOnboard: true
           GdnPublishTsaConfigFile: '$(Build.sourcesDirectory)\.gdn\.gdntsa'
