@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 
 from ._torch_module_factory import TorchModuleFactory
+from .configuration.debug_options import DebugOptions
 
 from onnxruntime.training import register_custom_ops_pytorch_exporter
 
@@ -21,8 +22,8 @@ class ORTModule(torch.nn.Module):
     :meth:`~torch.nn.Module.backward` along with all others :class:`torch.nn.Module`'s APIs.
     """
 
-    def __init__(self, module):
-        self._torch_module = TorchModuleFactory()(module)
+    def __init__(self, module, debug=DebugOptions()):
+        self._torch_module = TorchModuleFactory()(module, debug)
 
         # Create forward dynamically, so each ORTModule instance will have its own copy.
         # This is needed to be able to copy the forward signatures from the original PyTorch models
