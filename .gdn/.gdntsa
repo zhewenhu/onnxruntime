@@ -2,6 +2,9 @@
     "codebaseName": "onnxruntime_master",
     "instanceUrl": "msdata.visualstudio.com",
     "projectName": "Vienna",
+    "notificationAliases": [
+        "chasun@microsoft.com"
+    ],
     "areaPath": "Vienna\\ONNX Runtime\\Shared Core\\Engineering Systems",
-    "iterationPath": "Vienna\Nickel\ORT 1.9"
+    "iterationPath": "Vienna\\Nickel\\ORT 1.9"
 }
