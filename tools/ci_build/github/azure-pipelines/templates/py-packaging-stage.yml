@@ -815,13 +815,13 @@ stages:
       - task: VSBuild@1
         displayName: 'Build'
         inputs:
-          solution: '$(Build.BinariesDirectory)\$(BuildConfig)\onnxruntime.sln'
+          solution: '$(Build.BinariesDirectory)\RelWithDebInfo\onnxruntime.sln'
           platform: $(MsbuildPlatform)
-          configuration: $(BuildConfig)
+          configuration: RelWithDebInfo
           msbuildArchitecture: $(buildArch)
           maximumCpuCount: true
           logProjectEvents: true
-          workingFolder: '$(Build.BinariesDirectory)\$(BuildConfig)'
+          workingFolder: '$(Build.BinariesDirectory)\RelWithDebInfo'
           createLogFile: true
 
       # Esrp signing
