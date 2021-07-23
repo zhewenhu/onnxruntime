@@ -678,11 +678,11 @@ stages:
 
       - powershell: |
          python -m pip uninstall -y ort-nightly-gpu ort-nightly onnxruntime onnxruntime-gpu -qq
-         Get-ChildItem -Path $(Build.ArtifactStagingDirectory)/*.whl | foreach {pip --disable-pip-version-check install --upgrade $_.fullname}
+         Get-ChildItem -Path $(Build.ArtifactStagingDirectory)/*.whl | foreach {pip --disable-pip-version-check install --upgrade $_.fullname tabulate}
          Remove-Item -Recurse -Force onnxruntime
          pytest onnxruntime_test_python.py onnx_backend_test_series.py
         workingDirectory: '$(Build.BinariesDirectory)\$(BuildConfig)\$(BuildConfig)'
-        displayName: 'Install ONNX'
+        displayName: 'Run Python Tests'
 
       #Skip it for 32 bits x86 build. Currently the scan tool has a bug: it doesn't allow me use 64 bits link.exe
       #in 32 bits Win32 build. I tried all the settings but they all don't work.
