@@ -680,7 +680,7 @@ stages:
          python -m pip uninstall -y ort-nightly-gpu ort-nightly onnxruntime onnxruntime-gpu -qq
          Get-ChildItem -Path $(Build.ArtifactStagingDirectory)/*.whl | foreach {pip --disable-pip-version-check install --upgrade $_.fullname tabulate}
          Remove-Item -Recurse -Force onnxruntime
-         pytest onnxruntime_test_python.py onnx_backend_test_series.py
+         pytest onnx_backend_test_series.py
         workingDirectory: '$(Build.BinariesDirectory)\$(BuildConfig)\$(BuildConfig)'
         displayName: 'Run Python Tests'
 
@@ -713,12 +713,12 @@ stages:
           arguments: 'analyze $(Build.ArtifactStagingDirectory)\*.dll  --recurse --verbose'
         continueOnError: true
 
-      - task: securedevelopmentteam.vss-secure-development-tools.build-task-uploadtotsa.TSAUpload@2
+      - task: TSAUpload@2
         displayName: 'TSA upload'
         condition: and(and (succeeded(), and(eq(variables['buildArch'], 'x64'), eq(variables['PythonVersion'], '3.7'))), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
         inputs:
           GdnPublishTsaOnboard: true
-          GdnPublishTsaConfigFile: '$(Build.sourcesDirectory)\.gdn\.gdntsa2'
+          GdnPublishTsaConfigFile: '$(Build.sourcesDirectory)\.gdn\.gdntsa'
         continueOnError: true
 
       - template: component-governance-component-detection-steps.yml
@@ -905,7 +905,7 @@ stages:
         workingDirectory: '$(Build.ArtifactStagingDirectory)'
         displayName: 'Rename file extension for codesign validation'
 
-      - task: securedevelopmentteam.vss-secure-development-tools.build-task-uploadtotsa.TSAUpload@2
+      - task: TSAUpload@2
         displayName: 'TSA upload'
         condition: and(and (succeeded(), eq(variables['PythonVersion'], '3.7')), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
         inputs:
