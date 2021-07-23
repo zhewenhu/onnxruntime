@@ -709,7 +709,7 @@ stages:
       - task: BinSkim@4
         displayName: 'Run BinSkim '
         inputs:
-          AnalyzeTargetGlob: '$(Build.ArtifactStagingDirectory)\*.dll'
+          AnalyzeTargetGlob: '$(Build.ArtifactStagingDirectory)\**\*.dll'
 
       - task: TSAUpload@2
         displayName: 'TSA upload'
