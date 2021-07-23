@@ -666,14 +666,6 @@ stages:
         inputs:
           ArtifactName: onnxruntime
 
-      - powershell: |         
-         python -m pip uninstall -y ort-nightly-gpu ort-nightly onnxruntime onnxruntime-gpu -qq
-         Get-ChildItem -Path $(Build.ArtifactStagingDirectory)/*.whl | foreach {pip --disable-pip-version-check install --upgrade $_.fullname}
-         rd /s/q onnxruntime pybind11
-         pytest
-        workingDirectory: '$(Build.BinariesDirectory)\$(BuildConfig)\$(BuildConfig)'
-        displayName: 'Install ONNX'
-
       - task: DeleteFiles@1
         displayName: 'Delete files from $(Build.BinariesDirectory)\$(BuildConfig)'
         condition: and (succeeded(), eq(variables['PythonVersion'], '3.7'))
@@ -682,6 +674,15 @@ stages:
           Contents: |
             **/*.obj
             **/*.pdb
+            **/*.dll
+
+      - powershell: |
+         python -m pip uninstall -y ort-nightly-gpu ort-nightly onnxruntime onnxruntime-gpu -qq
+         Get-ChildItem -Path $(Build.ArtifactStagingDirectory)/*.whl | foreach {pip --disable-pip-version-check install --upgrade $_.fullname}
+         Remove-Item -Recurse -Force onnxruntime pybind11
+         pytest
+        workingDirectory: '$(Build.BinariesDirectory)\$(BuildConfig)\$(BuildConfig)'
+        displayName: 'Install ONNX'
 
       #Skip it for 32 bits x86 build. Currently the scan tool has a bug: it doesn't allow me use 64 bits link.exe
       #in 32 bits Win32 build. I tried all the settings but they all don't work.
