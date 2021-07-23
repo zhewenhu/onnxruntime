@@ -700,18 +700,16 @@ stages:
         workingDirectory: '$(Build.ArtifactStagingDirectory)'
         displayName: 'unzip the package'
 
-      - task: CredScan@2
+      - task: CredScan@3
         displayName: 'Run CredScan'
         inputs:
-          toolMajorVersion: V2
           debugMode: false
         continueOnError: true
 
-      - task: BinSkim@3
-        displayName: 'Run BinSkim'
+      - task: BinSkim@4
+        displayName: 'Run BinSkim '
         inputs:
-          arguments: 'analyze $(Build.ArtifactStagingDirectory)\*.dll  --recurse --verbose'
-        continueOnError: true
+          AnalyzeTargetGlob: '$(Build.ArtifactStagingDirectory)\*.dll'
 
       - task: TSAUpload@2
         displayName: 'TSA upload'
