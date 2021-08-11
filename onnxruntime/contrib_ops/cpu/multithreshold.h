@@ -1,5 +1,7 @@
 #include <iostream>
-#include "onnxruntime_cxx_api.h"
+#include <cassert>
+#include <vector>
+#include "core/session/onnxruntime_cxx_api.h"
 
 struct Input {
     const char* name = nullptr;
@@ -39,20 +41,15 @@ struct MultithresholdOp : Ort::CustomOpBase<MultithresholdOp, MultithresholdKern
     const char* GetName() const { return "MultiThreshold"; };
 
     size_t GetInputTypeCount() const { return 2; };
-    ONNXTensorElementDataType GetInputType(size_t /*index*/) const { return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT; };
-    OrtCustomOpInputOutputCharacteristic GetInputCharacteristic(size_t index) const {
-        // The second input (index == 1) is optional
-//        if (index == 1)
-//            return OrtCustomOpInputOutputCharacteristic::INPUT_OUTPUT_OPTIONAL;
-
-        return OrtCustomOpInputOutputCharacteristic::INPUT_OUTPUT_REQUIRED;
-    }
+    ONNXTensorElementDataType GetInputType(size_t /*index*/) const {
+        // Both the inputs need to be necessarily of float type
+        return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT;
+  };
 
     size_t GetOutputTypeCount() const { return 1; };
-    ONNXTensorElementDataType GetOutputType(size_t /*index*/) const { return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT; };
-    OrtCustomOpInputOutputCharacteristic GetOutputCharacteristic(size_t /*index*/) const {
-        return OrtCustomOpInputOutputCharacteristic::INPUT_OUTPUT_REQUIRED;
-    }
+    ONNXTensorElementDataType GetOutputType(size_t /*index*/) const { 
+        return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT; 
+    };
 };
 
-#include "multithreshold.cc"
+// #include "multithreshold.cc"

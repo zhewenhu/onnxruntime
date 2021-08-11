@@ -9,7 +9,7 @@ set(SOURCE multithreshold.h)
 add_executable(customop ${SOURCE} ${HEADER} ${TEST_SOURCE})
 
 #Include path to header files for Custom Op
-include_directories(/home/zhewen/onnx/onnxruntime-linux-x64-1.8.1/include)
+include_directories(/home/zhewen/onnxruntime/include)
 
 #Include path to header files for Custom Op Test
 #include_directories(/home/zhewen/onnx/onnxruntime-linux-x64-1.8.1/include)

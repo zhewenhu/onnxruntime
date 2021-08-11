@@ -1,3 +1,6 @@
+#include "multithreshold.h"
+#include "core/common/common.h"
+
 void *compute_NCHW(const OrtTensorDimensions &dim_v, const OrtTensorDimensions &dim_thresh, const float* val, const float* thresh, float *result) {
     // save the shape sizes
     const int64_t num_batch = dim_v[0];
@@ -94,7 +97,7 @@ void MultithresholdKernel::Compute(OrtKernelContext* context) {
     else compute_NHWC_NC(dimensions_v, dimensions_threshold, v,  thresholds, out);
 
     int64_t size = 1;
-    for (int i = 0; i < dimensions_v.size(); ++i) {
+    for (uint i = 0; i < dimensions_v.size(); ++i) {
         size *= dimensions_v[i];
     }
 
