@@ -73,11 +73,9 @@ void MultithresholdKernel::Compute(OrtKernelContext* context) {
     // Setup inputs
     const OrtValue* input_v             = ort_.KernelContext_GetInput(context, 0);
     const OrtValue* input_thresholds    = ort_.KernelContext_GetInput(context, 1);
-//    const OrtValue* input_X3            = ort_.KernelContext_GetInput(context, 2);
 
     const auto *v = ort_.GetTensorData<float>(input_v);
     const auto *thresholds = ort_.GetTensorData<float>(input_thresholds);
-//    const float* X3         = (input_X3 != nullptr) ? ort_.GetTensorData<float>(input_X3) : nullptr;
 
     // Setup output
     OrtTensorDimensions dimensions_v(ort_, input_v);
