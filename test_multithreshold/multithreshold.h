@@ -41,9 +41,6 @@ struct MultithresholdOp : Ort::CustomOpBase<MultithresholdOp, MultithresholdKern
     size_t GetInputTypeCount() const { return 2; };
     ONNXTensorElementDataType GetInputType(size_t /*index*/) const { return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT; };
     OrtCustomOpInputOutputCharacteristic GetInputCharacteristic(size_t index) const {
-        // The second input (index == 1) is optional
-//        if (index == 1)
-//            return OrtCustomOpInputOutputCharacteristic::INPUT_OUTPUT_OPTIONAL;
 
         return OrtCustomOpInputOutputCharacteristic::INPUT_OUTPUT_REQUIRED;
     }
